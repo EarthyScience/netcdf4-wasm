@@ -2,8 +2,9 @@
 
 import { Group } from './group.js';
 import { WasmModuleLoader } from './wasm-module.js';
-import { NC_CONSTANTS, DATA_TYPE_SIZE, CONSTANT_DTYPE_MAP } from './constants.js';
+import { NC_CONSTANTS } from './constants.js';
 import type { NetCDF4Module, DatasetOptions, MemoryDatasetSource } from './types.js';
+import * as NCGet from './netcdf-getters.js'
 
 export class NetCDF4 extends Group {
     private module: NetCDF4Module | null = null;
@@ -11,6 +12,9 @@ export class NetCDF4 extends Group {
     private ncid: number = -1;
     private _isOpen = false;
     private memorySource?: MemoryDatasetSource;
+    private workerSource?: { blob: Blob; filename: string };
+    private worker?: Worker;
+    private workerReady?: Promise<void>;
 
     constructor(
         private filename?: string,
@@ -23,33 +27,30 @@ export class NetCDF4 extends Group {
     }
 
     async initialize(): Promise<void> {
-        if (this.initialized) {
-            return;
-        }
+        if (this.initialized) return;
 
         try {
-            this.module = await WasmModuleLoader.loadModule(this.options);
-            this.initialized = true;
-
-            // Mount memory data in virtual file system if provided
-            if (this.memorySource) {
-                await this.mountMemoryData();
+            if (this.workerSource) {
+                // This now handles the WORKERFS mounting
+                await this.setupWorker();
+            } else {
+                this.module = await WasmModuleLoader.loadModule(this.options);
+                if (this.memorySource) {
+                    await this.mountMemoryData();
+                }
             }
 
-            // Auto-open file if filename provided (including empty strings which should error)
-            if (this.filename !== undefined && this.filename !== null) {
+            this.initialized = true;
+
+            // Automatically open the file if a filename was provided
+            if (this.filename) {
                 await this.open();
             }
         } catch (error) {
-            // Check if this is a test environment and we should use mock mode
             if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
-                // Mock the module for testing
                 this.module = this.createMockModule();
                 this.initialized = true;
-                
-                if (this.filename !== undefined && this.filename !== null) {
-                    await this.open();
-                }
+                if (this.filename) await this.open();
             } else {
                 throw error;
             }
@@ -111,6 +112,23 @@ export class NetCDF4 extends Group {
             filename: virtualFilename
         };
         
+        await dataset.initialize();
+        return dataset;
+    }
+
+    // New factory for Blob/File (local, no full preload)
+    static async fromBlobLazy(
+        blob: Blob,
+        options: DatasetOptions = {}
+    ): Promise<NetCDF4> {
+        // IMPORTANT: Keep this path consistent with the mount logic in the worker
+        const mountPoint = '/working';
+        const baseName = `netcdf_lazy_${Date.now()}.nc`;
+        const fullPath = `${mountPoint}/${baseName}`;
+        
+        const dataset = new NetCDF4(fullPath, 'r', options);
+        // Store the raw blob. The worker will mount it via WORKERFS
+        dataset.workerSource = { blob, filename: fullPath }; 
         await dataset.initialize();
         return dataset;
     }
@@ -241,278 +259,162 @@ export class NetCDF4 extends Group {
         }
     }
 
-    getGlobalAttributes(): Record<string, any> {
-        const attributes: Record<string, any> = {};
-        const module = this.module  
-        if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
-        const nattsResult = module.nc_inq_natts(this.ncid);
-        if (nattsResult.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get number of global attributes (error: ${nattsResult.result})`);
-        }
-        const nAtts = nattsResult.natts as number
-        const attNames = []
-        for (let i=0; i < nAtts; i++){
-            const name = this.getAttributeName(NC_CONSTANTS.NC_GLOBAL, i)
-            attNames.push(name)
-        }
-        if (attNames.length === 0) return attributes
-        for (const attname of attNames){
-            if (!attname) continue;
-            attributes[attname] = this.getAttributeValues(NC_CONSTANTS.NC_GLOBAL, attname)
-        }
-        return attributes
-    }
+    private requestId = 0;
 
-    getFullMetadata(): Record<string, any>[] {
-        const varIds = this.getVarIDs()
-        const metas = []
-        for (const varid of varIds){
-            const varMeta = this.getVariableInfo(varid)
-            const {attributes, ...varDeets} = varMeta
-            metas.push({...varDeets,...attributes})
-        }
-        return metas
-    }
-
-    getAttributeValues(varid: number, attname: string): any {
-        const module = this.module
-        if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
-        const attInfo = module.nc_inq_att(this.ncid, varid, attname);
-        if (attInfo.result !== NC_CONSTANTS.NC_NOERR) {
-            console.warn(`Failed to get attribute info for ${attname} (error: ${attInfo.result})`);
-            return;
-        }
-        const attType = attInfo.type;
-        if (!attType) throw new Error("Failed to allocate memory for attribute type.");
-        let attValue;
-        if (attType === 2) attValue = module.nc_get_att_text(this.ncid, varid, attname, attInfo.len as number);
-        else if (attType === 3) attValue = module.nc_get_att_short(this.ncid, varid, attname, attInfo.len as number);
-        else if (attType === 4) attValue = module.nc_get_att_int(this.ncid, varid, attname, attInfo.len as number);
-        else if (attType === 5) attValue = module.nc_get_att_float(this.ncid, varid, attname, attInfo.len as number);
-        else if (attType === 6) attValue = module.nc_get_att_double(this.ncid, varid, attname, attInfo.len as number);
-        else if (attType === 10) attValue = module.nc_get_att_longlong(this.ncid, varid, attname, attInfo.len as number);
-        else attValue = module.nc_get_att_double(this.ncid, varid, attname, attInfo.len as number);
-
-        return attValue.data
-    }
-
-    getDimCount(): number {    
-        const module = this.module
-        if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
-        const result = module.nc_inq_ndims(this.ncid);
-        if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get number of dimensions (error: ${result.result})`);
-        }
-        return result.ndims || 0;
-    }
-
-    getVariables(): Record<string, any> {
-        const variables:  Record<string, any> = {}; 
-        const module = this.module
-        if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
-        const varCount = this.getVarCount();
-        const dimIds = this.getDimIDs()
-        for (let varid = 0; varid < varCount; varid++) {
-            if (dimIds.includes(varid)) continue; //Don't include spatial Vars
-
-            const result = module.nc_inq_varname(this.ncid,varid);
-            if (result.result !== NC_CONSTANTS.NC_NOERR || !result.name) {
-                console.warn(`Failed to get variable name for varid ${varid} (error: ${result.result})`);
-                continue;
-            }
-            variables[result.name] = {
-                id: varid
-            }
-        }
-        return variables;
-    }
-
-    getVarIDs(): number[] | Int32Array {    
-        const module = this.module
-        if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
-        const result = module.nc_inq_varids(this.ncid);
-        if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get variable IDs (error: ${result.result})`);
-        }
-        return result.varids || [0];
-    }
-
-    getDimIDs(): number[] | Int32Array {    
-        const module = this.module
-        if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
-        const result = module.nc_inq_dimids(this.ncid, 0);
-        if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get dimension IDs (error: ${result.result})`);
-        }
-        return result.dimids || [0];
-    }
-
-    getDim(dimid: number): Record<string, any> {
-        const module = this.module
-        if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
-        const result = module.nc_inq_dim(this.ncid, dimid);
-        if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get dim (error: ${result.result})`);
-        }
-        const varResult = module.nc_inq_varid(this.ncid, result.name as string) 
-        const varID = varResult.varid as number
-        const {result:output, ...dim} = result
-        const unitResult = this.getAttributeValues(varID, "units")
-        return {...dim, units:unitResult, id:varID}; 
-    }
-
-    getDims(): Record<string, any> {
-        const dimIDs = this.getDimIDs();
-        const dims: Record<string, any> = {};
-        for (const dimid of dimIDs) {
-            const dim = this.getDim(dimid)
-            dims[dim.name] = {
-                size: dim.len,
-                units:dim.units,
-                id:dim.id
-            }
-        }
-        return dims
-    }
-
-    getVarCount(): number {    
-        const module = this.module
-        if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
-        const result = module.nc_inq_nvars(this.ncid);
-        if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get number of variables (error: ${result.result})`);
-        }
-        return result.nvars || 0;
-    }
-
-    getAttributeName(varid:number, attId: number) : string | undefined {
-        const module = this.module
-        if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
-        const result = module.nc_inq_attname(this.ncid, varid, attId);
-        if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get attribute (error: ${result.result})`);
-        }
-        return result.name
-    }
-
-    getVariableInfo(variable: number | string): Record<string, any>{
-        const info: Record<string, any> = {}
-        const module = this.module
-        if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
-
-        const isId = typeof variable === "number"
-        let varid = variable
-        if (!isId){
-            const result = module.nc_inq_varid(this.ncid, variable)
-            varid = result.varid as number
-        }
-        const result = module.nc_inq_var(this.ncid, varid as number);
-        if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get variable info (error: ${result.result})`);
-        }
-        const typeMultiplier = DATA_TYPE_SIZE[result.type as number]
-
-        //Dim Info
-        const dimids = result.dimids
-        const dims = []
-        const shape = []
-        let size = 1
-        if (dimids){
-            for (const dimid of dimids){
-                const dim = this.getDim(dimid)
-                size *= dim.len
-                dims.push(dim)
-                shape.push(dim.len)
-            }
-        }
+    private async callWorker(type: string, payload: any = {}): Promise<any> {
+        if (!this.worker) throw new Error("Worker not initialized");
         
-        //Attribute Info
-        const attNames = []
-        if (result.natts){
-            for (let i = 0; i < result.natts; i++ ){
-                const attname = this.getAttributeName(varid as number, i)
-                attNames.push(attname)
-            } 
-        }
-        const atts: Record<string, any> = {}
-        if (attNames.length > 0){
-            for (const attname of attNames){
-                if (!attname) continue;
-                atts[attname] = this.getAttributeValues(varid as number, attname)
-            }
-        }
+        const id = ++this.requestId;
+        
+        return new Promise((resolve, reject) => {
+            const handler = (e: MessageEvent) => {
+                // Only handle messages that match our request ID
+                if (e.data.id !== id) return;
+                
+                if (e.data.success) {
+                    resolve(e.data.result);
+                } else {
+                    reject(new Error(e.data.error || `Worker error in ${type}`));
+                }
+                
+                this.worker!.removeEventListener('message', handler);
+            };
 
-        //Chunking Info
-        let chunks: number[];
-        const chunkResult = module.nc_inq_var_chunking(this.ncid, varid as number);
-        const isChunked = chunkResult.chunking === NC_CONSTANTS.NC_CHUNKED
-        if (isChunked) {
-            chunks = chunkResult.chunkSizes as number[]
-        } else{
-            chunks = shape
-        }
-        const chunkElements = chunks.reduce((a: number, b: number) => a * b, 1)
+            this.worker!.addEventListener('message', handler);
 
-        //Output 
-        info["name"] = result.name
-        info["dtype"] = CONSTANT_DTYPE_MAP[result.type as number]
-        info['nctype'] = result.type
-        info["shape"] = shape
-        info['dims'] = dims
-        info["size"] = size
-        info["totalSize"] = size * typeMultiplier
-        info["attributes"] = atts
-        info["chunked"] = isChunked
-        info["chunks"] = chunks
-        info["chunkSize"] = chunkElements * typeMultiplier
-
-        return info;
-    }
-    getVariableArray(variable: number | string): Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[]  {
-        const module = this.module
-        if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
-        const isId = typeof variable === "number"
-        let varid = isId ? variable as number : 0
-        if (!isId){
-            const result = module.nc_inq_varid(this.ncid, variable)
-            varid = result.varid as number
-        }
-        const info = this.getVariableInfo(varid)
-        const arraySize = info.size
-        const arrayType = info.nctype
-        if (!arrayType || !arraySize) throw new Error("Failed to allocate memory for array")
-        let arrayData;
-        if (arrayType === 2) arrayData = module.nc_get_var_text(this.ncid, varid, arraySize);
-        else if (arrayType === 3) arrayData = module.nc_get_var_short(this.ncid, varid, arraySize);
-        else if (arrayType === 4) arrayData = module.nc_get_var_int(this.ncid, varid, arraySize);
-        else if (arrayType === 10) arrayData = module.nc_get_var_longlong(this.ncid, varid, arraySize);
-        else if (arrayType === 5) arrayData = module.nc_get_var_float(this.ncid, varid, arraySize);
-        else if (arrayType === 6) arrayData = module.nc_get_var_double(this.ncid, varid, arraySize);
-        else arrayData = module.nc_get_var_double(this.ncid, varid, arraySize);
-        if (!arrayData.data) throw new Error("Failed to read array data")
-        return arrayData.data
+            this.worker!.postMessage({
+                id,  // Include the ID in the request
+                type,
+                ncid: this.ncid,
+                ...payload
+            });
+        });
     }
 
-    getSlicedVariableArray(variable: number | string, start: number[], count: number[]): Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[] {
-        const module = this.module
-        if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
-        const isId = typeof variable === "number"
-        let varid = isId ? variable as number : 0
-        if (!isId){
-            const result = module.nc_inq_varid(this.ncid, variable)
-            varid = result.varid as number
+    async getGlobalAttributes(): Promise<Record<string, any>> {
+        if (this.worker) {
+            return this.callWorker('getGlobalAttributes')
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getGlobalAttributes(this.module as NetCDF4Module, this.ncid);
         }
-        const info = this.getVariableInfo(varid)
-        const arrayType = info.nctype
-        if (!arrayType) throw new Error("Failed to allocate memory for array")
-        let arrayData;
-        if (arrayType === 3) arrayData = module.nc_get_vara_short(this.ncid, varid, start, count);
-        else if (arrayType === 4) arrayData = module.nc_get_vara_int(this.ncid, varid, start, count);
-        else if (arrayType === 5) arrayData = module.nc_get_vara_float(this.ncid, varid, start, count);
-        else if (arrayType === 6) arrayData = module.nc_get_vara_double(this.ncid, varid, start, count);
-        else arrayData = module.nc_get_vara_double(this.ncid, varid, start, count);
-        if (!arrayData.data) throw new Error("Failed to read array data")
-        return arrayData.data
+    }
+
+    async getFullMetadata(): Promise<Record<string, any>[]> {
+        if (this.worker) {
+            return this.callWorker('getFullMetadata')
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getFullMetadata(this.module as NetCDF4Module, this.ncid);
+        }
+    }
+
+    async getAttributeValues(varid: number, attname: string): Promise<any> {
+        if (this.worker) {
+            return this.callWorker('getAttributeValues', {varid, attname})
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getAttributeValues(this.module as NetCDF4Module, this.ncid, varid, attname);
+        }
+    }
+
+    async getDimCount(): Promise<number> {
+        if (this.worker) {
+            return this.callWorker('getDimCount')
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getDimCount(this.module as NetCDF4Module, this.ncid);
+        }
+    }
+
+    async getVariables(): Promise<Record<string, any>> {
+        if (this.worker) {
+            return this.callWorker('getVariables')
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getVariables(this.module as NetCDF4Module, this.ncid);
+        }
+    }
+
+    async getVarIDs(): Promise<number[] | Int32Array> {    
+         if (this.worker) {
+            return this.callWorker('getVarIDs')
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getVarIDs(this.module as NetCDF4Module, this.ncid);
+        }
+    }
+
+    async getDimIDs(): Promise<number[] | Int32Array> {    
+        if (this.worker) {
+            return this.callWorker('getDimIDs')
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getDimIDs(this.module as NetCDF4Module, this.ncid);
+        }
+    }
+
+    async getDim(dimid: number): Promise<Record<string, any>> {
+        if (this.worker) {
+            return this.callWorker('getDim', {dimid})
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getDim(this.module as NetCDF4Module, this.ncid, dimid);
+        }
+    }
+
+    async getDims(): Promise<Record<string, any>> {
+        if (this.worker) {
+            return this.callWorker('getDims')
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getDims(this.module as NetCDF4Module, this.ncid);
+        }
+    }
+   
+    async getVarCount(): Promise<number> {    
+        if (this.worker) {
+            return this.callWorker('getVarCount')
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getVarCount(this.module as NetCDF4Module, this.ncid);
+        }
+    }
+
+    async getAttributeName(varid:number, attId: number) : Promise<string | undefined> {
+        if (this.worker) {
+            return this.callWorker('getAttributeName', {varid, attId})
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getAttributeName(this.module as NetCDF4Module, this.ncid, varid, attId);
+        }
+    }
+
+    async getVariableInfo(variable: number | string): Promise<Record<string, any>>{
+        if (this.worker) {
+            return this.callWorker('getVariableInfo', {variable})
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getVariableInfo(this.module as NetCDF4Module, this.ncid, variable);
+        }
+    }
+
+    async getVariableArray(variable: number | string): Promise<Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[]>  {
+        if (this.worker) {
+            return this.callWorker('getVariableArray', {variable})
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getVariableArray(this.module as NetCDF4Module, this.ncid, variable);
+        }
+    }
+
+    async getSlicedVariableArray(variable: number | string, start: number[], count: number[]): Promise<Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[]> {
+        if (this.worker) {
+            return this.callWorker('getSlicedVariableArray', {variable, start, count})
+        } else {
+            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
+            return NCGet.getSlicedVariableArray(this.module as NetCDF4Module, this.ncid, variable, start, count);
+        }
     }
 
     async defineDimension(ncid: number, name: string, size: number): Promise<number> {
@@ -676,6 +578,43 @@ export class NetCDF4 extends Group {
             },
             nc_enddef: (ncid: number) => NC_CONSTANTS.NC_NOERR,
         } as any;
+    }
+
+    private async setupWorker(): Promise<void> {
+        if (!this.workerSource) throw new Error('No worker source');
+
+        // 1. Instantiate the worker if it doesn't exist
+        if (!this.worker) {
+            // Option A: If using Vite/Webpack 5
+            this.worker = new Worker(
+                new URL('./netcdf-worker.ts', import.meta.url), 
+                { type: 'module' }
+            );
+        }
+
+        this.workerReady = new Promise((resolve, reject) => {
+            // Use a named function so we can remove the listener later
+            const initHandler = (e: MessageEvent) => {
+                if (e.data.success) {
+                    this.worker!.removeEventListener('message', initHandler);
+                    resolve();
+                } else {
+                    this.worker!.removeEventListener('message', initHandler);
+                    reject(new Error(e.data.message));
+                }
+            };
+
+            this.worker!.addEventListener('message', initHandler);
+
+            // 3. Send the initialization message
+            this.worker!.postMessage({
+                type: 'init',
+                blob: this.workerSource!.blob,
+                filename: this.workerSource!.filename
+            });
+        });
+
+        return this.workerReady;
     }
 
     // Mount memory data in the WASM virtual file system

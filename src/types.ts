@@ -13,6 +13,7 @@ export interface EmscriptenModule {
     allocateString: (str: string) => number;
     freeString: (ptr: number) => void;
     FS: any;
+    WORKERFS: any;
     ready: Promise<EmscriptenModule>;
     HEAPF64: Float64Array;
     HEAP64: BigInt64Array;
