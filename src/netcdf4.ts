@@ -587,7 +587,7 @@ export class NetCDF4 extends Group {
         if (!this.worker) {
             // Option A: If using Vite/Webpack 5
             this.worker = new Worker(
-                new URL('./netcdf-worker.ts', import.meta.url), 
+                new URL('./netcdf-worker.js', import.meta.url), 
                 { type: 'module' }
             );
         }
