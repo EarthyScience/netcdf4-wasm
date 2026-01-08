@@ -3,7 +3,6 @@ import * as NCGet from './netcdf-getters.js'
 import { WasmModuleLoader } from "./wasm-module.js";
 
 // netcdf-worker.ts
-declare const self: DedicatedWorkerGlobalScope & typeof globalThis;
 declare function importScripts(...urls: string[]): void;
 declare function NetCDF4Module(config: any): any;
 
