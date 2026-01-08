@@ -15,8 +15,11 @@ export interface EmscriptenModule {
     FS: any;
     ready: Promise<EmscriptenModule>;
     HEAPF64: Float64Array;
+    HEAP64: BigInt64Array;
     HEAP32: Int32Array;
+    HEAPF32: Float32Array;
     HEAPU8: Uint8Array;
+    HEAP16: Float16Array;
 }
 
 export interface NetCDF4Module extends EmscriptenModule {
@@ -27,8 +30,66 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_def_dim: (ncid: number, name: string, len: number) => { result: number; dimid: number };
     nc_def_var: (ncid: number, name: string, xtype: number, ndims: number, dimids: number[]) => { result: number; varid: number };
     nc_put_var_double: (ncid: number, varid: number, data: Float64Array) => number;
-    nc_get_var_double: (ncid: number, varid: number, size: number) => { result: number; data: Float64Array };
+    // nc_get_var_double: (ncid: number, varid: number, size: number) => { result: number; data: Float64Array };
     nc_enddef: (ncid: number) => number;
+
+    // 1. Dimension inquiry
+    nc_inq_ndims: (ncid: number) => { result: any; ndims: number | undefined; };
+    nc_inq_dimids(ncid: number, include_parents: number): { result: number; ndims?: number; dimids?: Int32Array }
+    nc_inq_unlimdim(ncid: number): { result: number; unlimdimid?: number }
+    nc_inq_dim(ncid: number, dimid: number): { result: number; name?: string; len?: number }
+    nc_inq_dimid(ncid: number, name: string): { result: number; dimid?: number }
+    nc_inq_dimlen(ncid: number, dimid: number): { result: number; len?: number }
+    nc_inq_dimname(ncid: number, dimid: number): { result: number; name?: string }
+
+    // 2. Variable inquiry
+    nc_inq_nvars(ncid: number): { result: number; nvars?: number }
+    nc_inq_varids(ncid: number): { result: number; nvars?: number; varids?: Int32Array }
+    nc_inq_varid(ncid: number, name: string): { result: number; varid?: number }
+
+    nc_inq_var(ncid: number, varid: number): {
+        result: number;
+        name?: string;
+        type?: number;      // nc_type enum value
+        ndims?: number;
+        dimids?: Int32Array;
+        natts?: number;
+    }
+    nc_inq_varname(ncid: number, varid: number): { result: number; name?: string }
+    nc_inq_vartype(ncid: number, varid: number): { result: number; type?: number }
+    nc_inq_varndims(ncid: number, varid: number): { result: number; ndims?: number }
+    nc_inq_vardimid(ncid: number, varid: number): { result: number; dimids?: Int32Array }
+    nc_inq_varnatts(ncid: number, varid: number): { result: number; natts?: number }
+    nc_inq_var_chunking(ncid: number, varid: number): { result: number; chunking?: number; chunkSizes?: number[] }
+
+    // 3. Attribute inquiry
+    nc_inq_natts(ncid: number): { result: number; natts?: number }  // global attributes
+    nc_inq_att(ncid: number, varid: number, name: string): { result: number; type?: number; len?: number }
+    nc_inq_attid(ncid: number, varid: number, name: string): { result: number; attnum?: number }
+    nc_inq_attname(ncid: number, varid: number, attnum: number): { result: number; name?: string }
+    nc_inq_atttype(ncid: number, varid: number, name: string): { result: number; type?: number }
+    nc_inq_attlen(ncid: number, varid: number, name: string): { result: number; len?: number }
+
+    // 4. Attribute Getters
+    nc_get_att_text(ncid: number, varid: number, name: string, length: number): { result: number; data?: string }
+    nc_get_att_short(ncid: number, varid: number, name: string, length: number): { result: number; data?: number[] }
+    nc_get_att_int(ncid: number, varid: number, name: string, length: number): { result: number; data?: number[] }
+    nc_get_att_float(ncid: number, varid: number, name: string, length: number): { result: number; data?: number[] }
+    nc_get_att_double(ncid: number, varid: number, name: string, length: number): { result: number; data?: number[] }
+    nc_get_att_longlong(ncid: number, varid: number, name: string, length: number): { result: number; data?: BigInt[] }
+
+    // 5. Variable Getters
+    nc_get_var_text: (ncid: number, varid: number,  length: number) => { result: number; data?: string[] };
+    nc_get_var_short: (ncid: number, varid: number,  length: number) => { result: number; data?: Int16Array };
+    nc_get_var_int: (ncid: number, varid: number,  length: number) => { result: number; data?: Int32Array };
+    nc_get_var_longlong: (ncid: number, varid: number,  length: number) => { result: number; data?: BigInt64Array };
+    nc_get_var_float: (ncid: number, varid: number,  length: number) => { result: number; data?: Float32Array };
+    nc_get_var_double: (ncid: number, varid: number,  length: number) => { result: number; data?: Float64Array };
+
+    nc_get_vara_short: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Int16Array };
+    nc_get_vara_int: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Int32Array };
+    nc_get_vara_float: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Float32Array };
+    nc_get_vara_double: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Float64Array };
 }
 
 export interface NetCDF4WasmOptions {
@@ -62,6 +123,5 @@ export interface VariableOptions {
     chunksizes?: number[];
 }
 
-declare global {
-    function NetCDF4Module(options?: any): Promise<EmscriptenModule>;
-}
+// Type for the module factory function
+// export type NetCDF4ModuleFactory = (options?: any) => Promise<EmscriptenModule>;

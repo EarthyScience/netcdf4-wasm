@@ -1,14 +1,15 @@
 // Data type and array handling tests following netcdf4-python patterns
 
-import { Dataset, NetCDF4, NC_CONSTANTS, DATA_TYPE_MAP } from '../index';
-import { TestSetup } from '../test-setup';
+import { Dataset, NetCDF4, NC_CONSTANTS, DATA_TYPE_MAP } from '../index.js';
+import { TestSetup } from '../test-setup.js';
+import { mockMode } from '../test-setup.js';
 
 describe('Data Types and Array Handling', () => {
-    let mockMode = false;
+    // let mockMode = false;
 
     beforeAll(() => {
         TestSetup.setupTestEnvironment();
-        mockMode = TestSetup.mockWasmModule();
+        // mockMode = TestSetup.mockWasmModule();
     });
 
     afterAll(() => {
@@ -93,7 +94,7 @@ describe('Data Types and Array Handling', () => {
                 await nc.createDimension('x', 10);
                 
                 // Test invalid data types
-                const invalid_types = ['invalid', 'f16', 'i8', 'string', 'bool', '', null, undefined];
+                const invalid_types = ['invalid', 'f16', 'string', 'bool', '', null, undefined];
                 
                 for (const dtype of invalid_types) {
                     expect(async () => {

@@ -1,14 +1,15 @@
 // Attribute tests following netcdf4-python patterns
 
-import { Dataset, NetCDF4, Variable, NC_CONSTANTS } from '../index';
-import { TestSetup } from '../test-setup';
+import { Dataset, NetCDF4, Variable, NC_CONSTANTS } from '../index.js';
+import { TestSetup } from '../test-setup.js';
+import { mockMode } from '../test-setup.js';
 
 describe('Attribute Tests', () => {
     let mockMode = false;
 
     beforeAll(() => {
         TestSetup.setupTestEnvironment();
-        mockMode = TestSetup.mockWasmModule();
+        // mockMode = TestSetup.mockWasmModule();
     });
 
     afterAll(() => {

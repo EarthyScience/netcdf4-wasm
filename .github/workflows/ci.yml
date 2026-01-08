@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+  workflow_dispatch:   # Manual trigger
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  core:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup repo
+        uses: ./.github/actions
+
+      - name: Check dependencies
+        run: npm run check-deps
+
+      - name: Build
+        run: npm run build
+
+      - name: Run tests
+        run: npm run test:coverage

@@ -22,15 +22,24 @@ cd emsdk
 
 # Update emsdk
 echo "Updating Emscripten SDK..."
-./emsdk update
+git pull || true
 
 # Install and activate latest version
 echo "Installing latest Emscripten..."
 ./emsdk install latest
+
+echo "Activating latest Emscripten..."
 ./emsdk activate latest
+
+# Source the environment
+echo "Sourcing emsdk environment..."
+source ./emsdk_env.sh
 
 echo ""
 echo "✅ Emscripten installed successfully!"
+echo ""
+echo "Emscripten version:"
+emcc --version
 echo ""
 echo "To use Emscripten in your shell, run:"
 echo "source $EMSDK_DIR/emsdk_env.sh"

@@ -2,19 +2,26 @@
   "name": "@oceanum/netcdf4-wasm",
   "version": "0.1.1",
   "description": "NetCDF4 library compiled to WebAssembly with TypeScript bindings",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "npm run build:wasm && npm run build:js",
     "build:wasm": "bash scripts/build-wasm.sh",
     "build:js": "tsc",
     "clean": "rm -rf dist build coverage",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest",
+    "test:watch": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest --watch",
+    "test:coverage": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest --coverage",
     "lint": "echo 'Linting not configured yet'",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "npm run clean && npm run test && npm run build",
+    "prepublishOnly": "npm run clean && npm run install-emscripten && npm run build && npm run test",
     "install-emscripten": "bash scripts/install-emscripten.sh",
     "check-deps": "bash scripts/check-dependencies.sh"
   },
@@ -27,6 +34,17 @@
     "scientific-computing"
   ],
   "author": "Oceanum.io",
+  "contributors": [
+    {
+      "name": "Lazaro Alonso",
+      "email": "lazarus.alon@gmail.com",
+      "url": "https://lazarusa.github.io"
+    },
+    {
+      "name": "Jeran Poehls",
+      "email": "jpoehls@bgc-jena.mpg.de"
+    }
+    ],
   "license": "MIT",
   "devDependencies": {
     "@types/jest": "^29.0.0",

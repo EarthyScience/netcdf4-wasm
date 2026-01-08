@@ -1,9 +1,7 @@
 // Pre-run JavaScript for NetCDF4 WASM module
 // This file is executed before the WASM module is initialized
 
-Module = Module || {};
-
-// Configure module settings
+// Configure module settings (Module will be provided by Emscripten)
 Module.preRun = Module.preRun || [];
 Module.postRun = Module.postRun || [];
 
@@ -16,7 +14,5 @@ Module.postRun.push(function() {
     console.log('NetCDF4 WASM: Ready');
 });
 
-// Export for Node.js if available
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = Module;
-}
+// Note: When using EXPORT_ES6=1, Emscripten handles the module export
+// No need to manually export - the factory function is exported by default

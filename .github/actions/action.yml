@@ -1,0 +1,30 @@
+name: Setup repo
+description: Install dependencies and perform setup for netcdf4-wasm
+
+inputs:
+  node:
+    default: lts/*
+    description: Node version to use
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node (${{ inputs.node }})
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node }}
+        registry-url: "https://registry.npmjs.org"
+
+    - name: Install system dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake build-essential wget tar
+
+    - name: Install npm dependencies
+      shell: bash
+      run: npm install
+
+    - name: Install Emscripten
+      shell: bash
+      run: npm run install-emscripten

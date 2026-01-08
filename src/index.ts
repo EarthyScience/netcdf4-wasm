@@ -2,11 +2,11 @@
 // JavaScript API modeled on netcdf4-python for familiarity
 
 // Export all classes and types
-export { NetCDF4 } from './netcdf4';
-export { Variable } from './variable';
-export { Dimension } from './dimension';
-export { Group } from './group';
-export { NC_CONSTANTS, DATA_TYPE_MAP } from './constants';
+export { NetCDF4 } from './netcdf4.js';
+export { Variable } from './variable.js';
+export { Dimension } from './dimension.js';
+export { Group } from './group.js';
+export { NC_CONSTANTS, DATA_TYPE_MAP } from './constants.js';
 
 // Export types
 export type {
@@ -17,14 +17,14 @@ export type {
     VariableOptions,
     MemoryDatasetSource,
     DatasetSource
-} from './types';
+} from './types.js';
 
 // Re-export NetCDF4 as default for backwards compatibility
-export { NetCDF4 as default } from './netcdf4';
+export { NetCDF4 as default } from './netcdf4.js';
 
 // Polymorphic Dataset constructor - accepts filename, Blob, ArrayBuffer, or Uint8Array
-import { NetCDF4 } from './netcdf4';
-import type { DatasetOptions, DatasetSource } from './types';
+import { NetCDF4 } from './netcdf4.js';
+import type { DatasetOptions, DatasetSource } from './types.js';
 
 export async function Dataset(
     source: DatasetSource,

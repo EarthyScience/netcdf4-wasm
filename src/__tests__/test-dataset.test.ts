@@ -1,14 +1,15 @@
 // Dataset creation and basic I/O tests following netcdf4-python patterns
 
-import { Dataset, NetCDF4, NC_CONSTANTS } from '../index';
-import { TestSetup } from '../test-setup';
+import { Dataset, NetCDF4, NC_CONSTANTS } from '../index.js';
+import { TestSetup } from '../test-setup.js';
+import { mockMode } from '../test-setup.js';
 
 describe('Dataset Creation and Basic I/O', () => {
-    let mockMode = false;
+    // let mockMode = false;
 
     beforeAll(() => {
         TestSetup.setupTestEnvironment();
-        mockMode = TestSetup.mockWasmModule();
+        // mockMode = TestSetup.mockWasmModule();
     });
 
     afterAll(() => {

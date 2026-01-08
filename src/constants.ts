@@ -18,7 +18,12 @@ export const NC_CONSTANTS = {
     NC_INT: 4,
     NC_FLOAT: 5,
     NC_DOUBLE: 6,
+    NC_LONGLONG: 10,
     
+    // Storage types
+    NC_CHUNKED: 0,
+    NC_CONTIGUOUS: 1,
+    NC_COMPACT: 2,
     // Special values
     NC_UNLIMITED: -1000, // Use special value to distinguish from 0
     NC_GLOBAL: -1,
@@ -32,10 +37,32 @@ export const DATA_TYPE_MAP: { [key: string]: number } = {
     'i2': NC_CONSTANTS.NC_SHORT,
     'i1': NC_CONSTANTS.NC_BYTE,
     'S1': NC_CONSTANTS.NC_CHAR,
+    'i8': NC_CONSTANTS.NC_LONGLONG,
     'double': NC_CONSTANTS.NC_DOUBLE,
     'float': NC_CONSTANTS.NC_FLOAT,
     'int': NC_CONSTANTS.NC_INT,
     'short': NC_CONSTANTS.NC_SHORT,
     'byte': NC_CONSTANTS.NC_BYTE,
-    'char': NC_CONSTANTS.NC_CHAR
+    'char': NC_CONSTANTS.NC_CHAR,
+    'longlong': NC_CONSTANTS.NC_LONGLONG
 };
+
+export const CONSTANT_DTYPE_MAP: { [key: number]: string } = {
+    1 : 'i1',
+    2: 'S1',
+    3: 'i2',
+    4: 'i4',
+    5: 'f4',
+    6: 'f8',
+    10: 'i8'
+}
+
+export const DATA_TYPE_SIZE: { [key: number]: number } = {
+    1: 1,
+    2: 1,
+    3: 2,
+    4: 4,
+    5: 4,
+    6: 8,
+    10: 8
+}

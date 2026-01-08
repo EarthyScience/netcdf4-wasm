@@ -1,8 +1,17 @@
 #!/bin/bash
-
 set -e
 
 echo "Checking build dependencies for NetCDF4 WASM..."
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+EMSDK_ENV="$PROJECT_ROOT/build/emsdk/emsdk_env.sh"
+
+# Source Emscripten environment if it exists
+if [ -f "$EMSDK_ENV" ]; then
+    echo "Loading Emscripten environment..."
+    source "$EMSDK_ENV"
+fi
 
 # Check for required tools
 MISSING_DEPS=()

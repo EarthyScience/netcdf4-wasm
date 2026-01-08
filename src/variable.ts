@@ -1,7 +1,7 @@
 // Variable class similar to netcdf4-python
 
-import type { NetCDF4 } from './netcdf4';
-import { NC_CONSTANTS } from './constants';
+import type { NetCDF4 } from './netcdf4.js';
+import { NC_CONSTANTS } from './constants.js';
 
 export class Variable {
     private _attributes: { [key: string]: any } = {};

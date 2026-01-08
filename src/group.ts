@@ -1,10 +1,10 @@
 // Group class for hierarchical data organization
 
-import type { NetCDF4 } from './netcdf4';
-import { Dimension } from './dimension';
-import { Variable } from './variable';
-import { NC_CONSTANTS, DATA_TYPE_MAP } from './constants';
-import type { VariableOptions } from './types';
+import type { NetCDF4 } from './netcdf4.js';
+import { Dimension } from './dimension.js';
+import { Variable } from './variable.js';
+import { NC_CONSTANTS, DATA_TYPE_MAP } from './constants.js';
+import type { VariableOptions } from './types.js';
 
 export class Group {
     public readonly dimensions: { [name: string]: Dimension } = {};
