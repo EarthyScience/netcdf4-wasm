@@ -1,6 +1,6 @@
-import type { NetCDF4Module } from "./types";
-import * as NCGet from './netcdf-getters'
-import { WasmModuleLoader } from "./wasm-module";
+import type { NetCDF4Module } from "./types.js";
+import * as NCGet from './netcdf-getters.js'
+import { WasmModuleLoader } from "./wasm-module.js";
 
 // netcdf-worker.ts
 declare const self: DedicatedWorkerGlobalScope & typeof globalThis;

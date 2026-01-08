@@ -1,5 +1,5 @@
-import { NC_CONSTANTS, DATA_TYPE_SIZE, CONSTANT_DTYPE_MAP } from './constants';
-import type { NetCDF4Module } from './types';
+import { NC_CONSTANTS, DATA_TYPE_SIZE, CONSTANT_DTYPE_MAP } from './constants.js';
+import type { NetCDF4Module } from './types.js';
 
 export function getVariables(
     module: NetCDF4Module,
