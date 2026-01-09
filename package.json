@@ -1,7 +1,7 @@
 {
   "name": "@earthyscience/netcdf4-wasm",
-  "version": "0.1.0",
-  "description": "NetCDF4 library compiled to WebAssembly with TypeScript bindings",
+  "version": "0.1.2",
+  "description": "Partial compilation of NetCDF4 library to WebAssembly with TypeScript bindings",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -33,7 +33,7 @@
     "emscripten",
     "scientific-computing"
   ],
-  "author": "Oceanum.io",
+  "author": "EarthyScience",
   "contributors": [
     {
       "name": "Lazaro Alonso",
@@ -60,10 +60,10 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/oceanum-io/netcdf4-wasm.git"
+    "url": "git+https://github.com/EarthyScience/netcdf4-wasm.git"
   },
-  "homepage": "https://oceanum-io.github.io/netcdf4-wasm/",
+  "homepage": "https://github.com/EarthyScience/netcdf4-wasm/",
   "bugs": {
-    "url": "https://github.com/oceanum-io/netcdf4-wasm/issues"
+    "url": "https://github.com/EarthyScience/netcdf4-wasm/issues"
   }
 }
