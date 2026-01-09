@@ -14,13 +14,26 @@ const waitForModule = new Promise<EmscriptenModule>(async (resolve) => {
     
     // Use the imported module factory
     netcdfModule = await createNetCDF4Module({
-        locateFile: (file: string) => {
-            // This handles Next.js bundling which adds identifiers to the filename
+        locateFile: (file: string): string => {
+            console.log('[locateFile] file:', file);
+
             if (file.endsWith('.wasm')) {
-                return `${(self as any).location.origin}/${file}`;
+                const origin: string = (self as any).location.origin;
+                console.log('[locateFile] origin:', origin);
+
+                const basePath: string = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+                console.log('[locateFile] basePath:', basePath);
+
+                const resolved: string = `${origin}${basePath}/${file}`;
+                console.log('[locateFile] resolved WASM URL:', resolved);
+
+                return resolved;
             }
+
+            console.log('[locateFile] returning unchanged:', file);
             return file;
         }
+
     });
     
     resolve(netcdfModule);

@@ -15,11 +15,13 @@
     "build": "npm run build:wasm && npm run build:js",
     "build:wasm": "bash scripts/build-wasm.sh",
     "build:js": "tsc",
-   
-    
+    "clean": "rm -rf dist build coverage",
+    "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest",
+    "test:watch": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest --watch",
+    "test:coverage": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest --coverage",
     "lint": "echo 'Linting not configured yet'",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": " npm run install-emscripten && npm run build",
+    "prepublishOnly": "npm run clean && npm run install-emscripten && npm run build && npm run test",
     "install-emscripten": "bash scripts/install-emscripten.sh",
     "check-deps": "bash scripts/check-dependencies.sh"
   },
