@@ -33,8 +33,7 @@ jobs:
       - name: Build docs/next-js demo
         working-directory: docs/next-js
         env:
-          BASE_PATH: "/next-js"
-          TARGET_FOLDER: next-js
+          BASE_PATH: "/netcdf4-wasm/next-js"
         run: npm run build
 
       - name: Deploying docs 🚀
