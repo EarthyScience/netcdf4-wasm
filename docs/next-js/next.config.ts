@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import path from 'path';
 
 const isProd = process.env.NODE_ENV === 'production';
 const basePath = isProd ? (process.env.BASE_PATH || '') : '';
