@@ -15,6 +15,12 @@
 
 </div>
 
+## Installation
+
+```bash
+npm install @earthyscience/netcdf4-wasm
+```
+
 ## Overview
 
 `netcdf4-wasm` brings the power of NetCDF4 to web browsers and Node.js through WebAssembly. Read and write NetCDF files directly in JavaScript with a familiar, Python-inspired API.
@@ -25,12 +31,6 @@
 - 🐍 API modeled after [netcdf4-python](https://unidata.github.io/netcdf4-python)
 - 🚀 High-performance WASM compilation
 - 📝 Complete TypeScript type definitions
-
-## Installation
-
-```bash
-npm install @earthyscience/netcdf4-wasm
-```
 
 ## Quick Start
 
