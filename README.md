@@ -1,6 +1,9 @@
 <div align="center">
 
-# netcdf4-wasm
+<div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+    <img src="./assets/logo.svg" alt="logo" height="100">
+    <h2>netcdf4-wasm</h2>
+</div>
 
 **Partial WebAssembly port of the NetCDF4 C library with TypeScript bindings for browser and Node.js**
 
