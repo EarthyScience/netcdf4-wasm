@@ -1,29 +1,21 @@
-<div align="center">
-
 # netcdf4-wasm
-
-**Partial WebAssembly port of the NetCDF4 C library with TypeScript bindings for browser and Node.js**
 
 [![npm version](https://img.shields.io/npm/v/@earthyscience/netcdf4-wasm.svg)](https://www.npmjs.com/package/@earthyscience/netcdf4-wasm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/EarthyScience/netcdf4-wasm/blob/main/LICENSE)
-[![NetCDF4](https://img.shields.io/badge/NetCDF4-Compatible-4B8BBE)](https://www.unidata.ucar.edu/software/netcdf/)<br>
+[![NetCDF4](https://img.shields.io/badge/NetCDF4-Compatible-4B8BBE)](https://www.unidata.ucar.edu/software/netcdf/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6)](https://www.typescriptlang.org/)
 [![WebAssembly](https://img.shields.io/badge/WebAssembly-654FF0)](https://webassembly.org/)
-[![Emscripten](https://img.shields.io/badge/Emscripten-3.x-000000)](https://emscripten.org/)<br>
+[![Emscripten](https://img.shields.io/badge/Emscripten-3.x-000000)](https://emscripten.org/)
 [![Jest](https://img.shields.io/badge/Jest-29.x-C21325)](https://jestjs.io/)
 [![ts-jest](https://img.shields.io/badge/ts--jest-29.x-3178c6)](https://kulshekhar.github.io/ts-jest/)
 
-</div>
 
-## Installation
+<img src="./assets/logo.svg" align="right" style="padding-left:10px;" width="180"/>
 
-```bash
-npm install @earthyscience/netcdf4-wasm
-```
-
-## Overview
+**Partial WebAssembly port of the NetCDF4 C library with TypeScript bindings for browser and Node.js**
 
 `netcdf4-wasm` brings the power of NetCDF4 to web browsers and Node.js through WebAssembly. Read and write NetCDF files directly in JavaScript with a familiar, Python-inspired API.
+
 
 **Features:**
 - 🌐 Works in browsers and Node.js
@@ -31,6 +23,12 @@ npm install @earthyscience/netcdf4-wasm
 - 🐍 API modeled after [netcdf4-python](https://unidata.github.io/netcdf4-python)
 - 🚀 High-performance WASM compilation
 - 📝 Complete TypeScript type definitions
+
+## Installation
+
+```bash
+npm install @earthyscience/netcdf4-wasm
+```
 
 ## Quick Start
 
