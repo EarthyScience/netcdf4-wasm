@@ -1,14 +1,30 @@
+<div align="center">
+
 # netcdf4-wasm
 
-Partial compilation of NetCDF4 library to WebAssembly with TypeScript bindings.
+**Partial WebAssembly port of the NetCDF4 C library with TypeScript bindings for browser and Node.js**
+
+[![npm version](https://img.shields.io/npm/v/@earthyscience/netcdf4-wasm.svg)](https://www.npmjs.com/package/@earthyscience/netcdf4-wasm)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/EarthyScience/netcdf4-wasm/blob/main/LICENSE)
+[![NetCDF4](https://img.shields.io/badge/NetCDF4-Compatible-4B8BBE)](https://www.unidata.ucar.edu/software/netcdf/)<br>
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6)](https://www.typescriptlang.org/)
+[![WebAssembly](https://img.shields.io/badge/WebAssembly-654FF0)](https://webassembly.org/)
+[![Emscripten](https://img.shields.io/badge/Emscripten-3.x-000000)](https://emscripten.org/)<br>
+[![Jest](https://img.shields.io/badge/Jest-29.x-C21325)](https://jestjs.io/)
+[![ts-jest](https://img.shields.io/badge/ts--jest-29.x-3178c6)](https://kulshekhar.github.io/ts-jest/)
+
+</div>
 
 ## Overview
 
-This project provides a partial WebAssembly port of the NetCDF4 C library, enabling NetCDF file operations in browser and Node.js environments. It includes:
+`netcdf4-wasm` brings the power of NetCDF4 to web browsers and Node.js through WebAssembly. Read and write NetCDF files directly in JavaScript with a familiar, Python-inspired API.
 
-- A partial NetCDF4 C library compiled to WASM using Emscripten
-- High-level TypeScript/JavaScript API
-- Support for reading and writing NetCDF4 files
+**Features:**
+- 🌐 Works in browsers and Node.js
+- 📦 Partial NetCDF4 file format support
+- 🐍 API modeled after [netcdf4-python](https://unidata.github.io/netcdf4-python)
+- 🚀 High-performance WASM compilation
+- 📝 Complete TypeScript type definitions
 
 ## Installation
 
@@ -16,162 +32,74 @@ This project provides a partial WebAssembly port of the NetCDF4 C library, enabl
 npm install @earthyscience/netcdf4-wasm
 ```
 
-## Prerequisites
-
-For building from source, you'll need:
-
-- Emscripten SDK
-- CMake
-- Make
-- wget or curl
-
-Check dependencies:
-
-```bash
-npm run check-deps
-```
-
-Install Emscripten locally:
-
-```bash
-npm run install-emscripten
-```
-
-## Usage
-
-The JavaScript API is modeled closely on the [netcdf4-python](https://unidata.github.io/netcdf4-python) API.
-
-### Basic Example
-
-- WIP
+## Quick Start
 
 ### Reading Files
+```typescript
+import { NetCDF4 } from '@earthyscience/netcdf4-wasm';
 
-- WIP
+// Open existing file
+const ds = await NetCDF4.fromBlobLazy(file);
 
-### Alternative Constructor (Direct Instantiation)
+// Access dimensions
+// TODO: Add example
 
-- WIP
+// Read variables
+// TODO: Add example
+
+// Close when done
+ds.close();
+```
 
 ### Working with Groups
+```typescript
+// Access groups
+// TODO: Add example
+```
 
-- WIP
+### Writing Files
+```typescript
+import { NetCDF4 } from '@earthyscience/netcdf4-wasm';
+
+// Create a new NetCDF file
+// TODO: Add example
+```
 
 ## API Reference
 
-The API closely follows netcdf4-python conventions for ease of use by scientists familiar with Python.
+The API closely follows [netcdf4-python](https://unidata.github.io/netcdf4-python) conventions, making it intuitive for scientists familiar with Python.
+
+**Core Classes:**
+- `NetCDF4` - Main file interface
+- 
 
 
-## Building
+## Advanced Usage
 
-### Install dependencies
+<details>
+<summary><strong>Memory Configuration</strong></summary>
 
-```bash
-npm install
-```
-
-### Check build dependencies
-
-```bash
-npm run check-deps
-```
-
-### Build the project
-
-```bash
-npm run build
-```
-
-This will:
-
-1. Download and compile zlib, HDF5, and NetCDF4 C libraries
-2. Create the WASM module with Emscripten
-3. Compile TypeScript bindings
-
-### Clean build artifacts
-
-```bash
-npm run clean
-```
-
-## Testing
-
-Run tests:
-
-```bash
-npm test
-```
-
-Run tests with coverage:
-
-```bash
-npm run test:coverage
-```
-
-Watch mode:
-
-```bash
-npm run test:watch
-```
-
-## Development
-
-### Project Structure
-
-```
-netcdf4-wasm/
-├── src/                    # TypeScript source code
-│   ├── index.ts           # Main API exports
-│   ├── types.ts           # Type definitions
-│   ├── constants.ts       # NetCDF constants
-│   ├── netcdf4.ts         # Main NetCDF4 class
-│   ├── netcdf-workers.ts
-│   ├── netcdf-getters.ts
-│   ├── group.ts           # Group class
-│   ├── variable.ts        # Variable class
-│   ├── dimension.ts       # Dimension class
-│   ├── wasm-module.ts     # WASM module loader
-│   └── __tests__/         # Test files
-├── scripts/               # Build scripts
-│   ├── build-wasm.sh     # Main WASM build script
-│   ├── check-dependencies.sh
-│   └── install-emscripten.sh
-├── bindings/              # WASM bindings
-│   ├── pre.js            # Pre-run JavaScript
-│   └── post.js           # Post-run JavaScript
-├── build/                 # Build artifacts (generated)
-├── dist/                  # Distribution files (generated)
-└── package.json
-```
-
-
-## NetCDF4 Documentation
-
-For more information about NetCDF4, visit: https://docs.unidata.ucar.edu/netcdf-c/current/
-
-## Troubleshooting
-
-### WASM Module Not Found
-
-Make sure the WASM files are properly built and accessible:
-
-```bash
-npm run build:wasm
-```
-
-### Emscripten Not Found
-
-Install Emscripten:
-
-```bash
-npm run install-emscripten
-source build/emsdk/emsdk_env.sh
-```
-
-### Memory Issues
-
-If you encounter memory-related errors, try increasing the initial memory:
-
+If you encounter memory-related errors with large files, you can increase the initial memory allocation:
 ```typescript
-const netcdf = new NetCDF4({ memoryInitialPages: 512 });
+// TODO: Add example once API is stable
 ```
+</details>
+
+## Building from Source
+
+See our [Contributing Guide](CONTRIBUTING.md) for detailed build instructions.
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+## Resources
+
+- [NetCDF4 C Library Documentation](https://docs.unidata.ucar.edu/netcdf-c/current/)
+- [netcdf4-python Documentation](https://unidata.github.io/netcdf4-python)
+- [GitHub Issues](https://github.com/EarthyScience/netcdf4-wasm/issues)
+- [GitHub Discussions](https://github.com/EarthyScience/netcdf4-wasm/discussions)
+
+## Acknowledgments
+
+This project builds upon the initial work from [oceanum-io/netcdf4-wasm](https://github.com/oceanum-io/netcdf4-wasm). We're grateful for their foundational efforts in bringing NetCDF4 to WebAssembly and are continuing their work with additional features and improvements.
