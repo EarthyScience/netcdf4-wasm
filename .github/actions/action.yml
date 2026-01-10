@@ -21,6 +21,12 @@ runs:
         sudo apt-get update
         sudo apt-get install -y cmake build-essential wget tar
 
+    - name: Cache Emscripten SDK
+      uses: actions/cache@v4
+      with:
+          path: build/
+          key: emsdk-${{ runner.os }}-4.0.23
+
     - name: Install npm dependencies
       shell: bash
       run: npm install
