@@ -7,7 +7,7 @@ export default function Home() {
         {/* Images side by side with + */}
         <div className="flex items-center gap-4 mb-8">
           <Image
-            src="/logo.svg"
+            src="./logo.svg"
             alt="netcdf4-wasm logo"
             width={100}
             height={20}
@@ -16,7 +16,7 @@ export default function Home() {
           <span className="text-2xl font-bold text-[#644FF0]">+</span>
           <Image
             className="dark:invert"
-            src="/next.svg"
+            src="./next.svg"
             alt="Next.js logo"
             width={100}
             height={20}
