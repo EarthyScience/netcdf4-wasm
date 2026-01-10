@@ -34,6 +34,7 @@ jobs:
         working-directory: docs/next-js
         env:
           BASE_PATH: "/netcdf4-wasm/next-js"
+          NEXT_PUBLIC_BASE_PATH: "/netcdf4-wasm/next-js"
         run: npm run build
 
       - name: Deploying docs 🚀
