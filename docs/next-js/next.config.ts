@@ -2,7 +2,8 @@ import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === 'production';
 const basePath = isProd ? (process.env.BASE_PATH || '') : '';
-// const assetPrefix = isProd ? (basePath ? `${basePath.replace(/\/$/, '')}/` : './') : '';
+
+console.log("BASE_PATH", basePath)
 
 const nextConfig: NextConfig = {
   /* config options here */
