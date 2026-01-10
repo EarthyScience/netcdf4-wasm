@@ -1,4 +1,5 @@
 import Image from "next/image";
+import LocalNetCDFMeta from "../components/loading/LocalNetCDFMeta";
 
 export default function Home() {
   return (
@@ -23,12 +24,7 @@ export default function Home() {
             priority
           />
         </div>
-
-        <div className="flex flex-col items-center gap-6 text-center">
-          <h1 className="max-w-full text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            Let&apos;s get started!
-          </h1>
-        </div>
+        <LocalNetCDFMeta />
       </main>
     </div>
   );

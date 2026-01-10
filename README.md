@@ -2,10 +2,10 @@
 
 [![npm version](https://img.shields.io/npm/v/@earthyscience/netcdf4-wasm.svg)](https://www.npmjs.com/package/@earthyscience/netcdf4-wasm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/EarthyScience/netcdf4-wasm/blob/main/LICENSE)
-[![NetCDF4](https://img.shields.io/badge/NetCDF4-Compatible-4B8BBE)](https://www.unidata.ucar.edu/software/netcdf/)
+[![NetCDF4](https://img.shields.io/badge/NetCDF4-Compatible-008B8B)](https://www.unidata.ucar.edu/software/netcdf/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6)](https://www.typescriptlang.org/)
 [![WebAssembly](https://img.shields.io/badge/WebAssembly-654FF0)](https://webassembly.org/)
-[![Emscripten](https://img.shields.io/badge/Emscripten-3.x-000000)](https://emscripten.org/)
+[![Emscripten](https://img.shields.io/badge/Emscripten-4.0.23-0000)](https://emscripten.org/)
 [![Jest](https://img.shields.io/badge/Jest-29.x-C21325)](https://jestjs.io/)
 [![ts-jest](https://img.shields.io/badge/ts--jest-29.x-3178c6)](https://kulshekhar.github.io/ts-jest/)
 
@@ -23,6 +23,10 @@
 - 🐍 API modeled after [netcdf4-python](https://unidata.github.io/netcdf4-python)
 - 🚀 High-performance WASM compilation
 - 📝 Complete TypeScript type definitions
+
+
+> [!TIP]
+> Want to do more? Plot, visualize, and explore your data at [browzarr.io](https://browzarr.io/)
 
 ## Installation
 
