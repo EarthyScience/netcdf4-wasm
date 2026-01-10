@@ -24,12 +24,13 @@ cd emsdk
 echo "Updating Emscripten SDK..."
 git pull || true
 
-# Install and activate latest version
-echo "Installing latest Emscripten..."
-./emsdk install latest
+# Install and activate 4.0.23 version
+EMSDK_VERSION=4.0.23
+echo "Installing 4.0.23 Emscripten..."
+./emsdk install $EMSDK_VERSION
 
-echo "Activating latest Emscripten..."
-./emsdk activate latest
+echo "Activating 4.0.23 Emscripten..."
+./emsdk activate $EMSDK_VERSION
 
 # Source the environment
 echo "Sourcing emsdk environment..."
