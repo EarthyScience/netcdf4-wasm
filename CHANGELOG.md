@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.1.3] - 2026-01-11
+
+- Fully automated build process.
+-  `package-lock.json` was removed because trying to develop this locally will fail otherwise, (same reason in CI)
+- in macOS is necessary to be explicit with `emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib`
+- in newer versions `_malloc` and `_free` need to be exported functions and not runtime methods.
+   -  `post.js` was updated accordingly. 
+- `sed -i ''` is required in macOS, hence a check was added to account for that.
+- Use Perl for cross-platform multi-line insertion, `perl -i -pe ...`
+- a lot of new functionality by adding new functions. 
+   -  additional built flags were added. 
+- more types 
+- CI via GitHub Actions, making sure the full workflow from building to tests works.
+-  removed the `global` **Module** definition. Now things should work with the standard `import` statement.
+   - tests were updated accordingly. 
+- `netcdf-workers.ts` implementation was added so that lazy reading works!
+- Online demo showing functionality. 
+- Legacy examples and docs were removed, content should be added back once is properly tested.
+
+# Legacy from init project
+
 ## [0.1.0] - 2024-12-17
 
 ### Added
