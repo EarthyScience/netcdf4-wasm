@@ -3,7 +3,9 @@
 import React, { ChangeEvent, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { MetaNetCDFAccordion } from './MetaNetCDFAccordion';
+// import { MetaNetCDFAccordion } from './MetaNetCDFAccordion';
+import { MetaNetCDFButtons } from './MetaNetCDFButtons';
+
 import { NetCDF4 } from '@earthyscience/netcdf4-wasm';
 import BrowzarrCTA from './BrowzarrCTA';
 const LocalNetCDFMeta = () => {
@@ -56,11 +58,13 @@ const LocalNetCDFMeta = () => {
       />
       
       {variables && attributes && metadata && (
-        <MetaNetCDFAccordion
-          variables={variables}
-          attributes={attributes}
-          metadata={metadata}
-        />
+        <div className="justify-self-center">
+          <MetaNetCDFButtons
+            variables={variables}
+            attributes={attributes}
+            metadata={metadata}
+          />
+        </div>
       )
       }
       <BrowzarrCTA />

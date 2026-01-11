@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "netcdf4-wasm demo",
-  description: "netcdf4-wasm demo",
+  title: "Next.js Demo",
+  description: "Demonstrates basic reading of NetCDF files in a Next.js application.",
 };
 
 export default function RootLayout({

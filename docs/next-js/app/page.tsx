@@ -14,15 +14,9 @@ export default function Home() {
             height={20}
             priority
           />
-          <span className="text-2xl font-bold text-[#644FF0]">+</span>
-          <Image
-            className="dark:invert"
-            src="./next.svg"
-            alt="Next.js logo"
-            width={100}
-            height={20}
-            priority
-          />
+          <span className="text-2xl font-bold">
+            netcdf4 - <span className="text-[#644FF0]">wasm</span>
+          </span>
         </div>
         <LocalNetCDFMeta />
       </main>
