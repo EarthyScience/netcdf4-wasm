@@ -1,6 +1,6 @@
 import Image from "next/image";
-import LocalNetCDFMeta from "../components/loading/LocalNetCDFMeta";
-
+import LocalNetCDFMeta from "@/components/loading/LocalNetCDFMeta";
+import GithubButton from "@/components/loading/GitHubButton";
 export default function Home() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
@@ -19,6 +19,10 @@ export default function Home() {
           </span>
         </div>
         <LocalNetCDFMeta />
+
+        <div className="fixed top-2 right-4 z-50 flex items-center gap-2">
+          <GithubButton />
+        </div>
       </main>
     </div>
   );
