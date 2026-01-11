@@ -1,4 +1,5 @@
-# netcdf4-wasm
+# netcdf4-wasm [![Demo](https://img.shields.io/badge/Demo-Online-654FF0)](https://earthyscience.github.io/netcdf4-wasm/next-js/)
+
 
 [![npm version](https://img.shields.io/npm/v/@earthyscience/netcdf4-wasm.svg)](https://www.npmjs.com/package/@earthyscience/netcdf4-wasm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/EarthyScience/netcdf4-wasm/blob/main/LICENSE)
@@ -10,7 +11,7 @@
 [![ts-jest](https://img.shields.io/badge/ts--jest-29.x-3178c6)](https://kulshekhar.github.io/ts-jest/)
 
 
-<img src="./assets/logo.svg" align="right" style="padding-left:10px;" width="180"/>
+<img src="https://raw.githubusercontent.com/EarthyScience/netcdf4-wasm/6eecb7eea2da775c139ebddf3f544efc6593ee2f/assets/logo.svg" align="right" style="padding-left:10px;" width="180"/>
 
 **Partial WebAssembly port of the NetCDF4 C library with TypeScript bindings for browser and Node.js**
 
