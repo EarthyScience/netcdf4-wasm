@@ -21,8 +21,10 @@ function ObjectViewer({ data }: { data: Record<string, unknown> }) {
           <span className="font-medium">{key}</span>
           <span className="text-muted-foreground break-all">
             {typeof value === 'object'
-              ? JSON.stringify(value, null, 2)
-              : String(value)}
+              ? JSON.stringify(value, (_key, val) =>
+                typeof val === 'bigint' ? parseInt(val.toString()) : val)
+              : String(value)
+            }
           </span>
         </div>
       ))}
