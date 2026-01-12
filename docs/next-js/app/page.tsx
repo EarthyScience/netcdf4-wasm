@@ -20,7 +20,7 @@ export default function Home() {
         </div>
         <LocalNetCDFMeta />
 
-        <div className="fixed top-2 right-4 z-50 flex items-center gap-2">
+        <div className="fixed top-4 right-16 z-50 flex items-center gap-2">
           <GithubButton />
         </div>
       </main>
