@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ButtonGroup } from '@/components/ui/button-group';
 import {
@@ -18,35 +19,69 @@ type Props = {
   metadata: Record<string, unknown>[];
 };
 
-function ObjectViewer({ data }: { data: Record<string, unknown> }) {
+function ObjectViewer({ 
+  data, 
+  defaultAttributes = [] 
+}: { 
+  data: Record<string, unknown>;
+  defaultAttributes?: string[];
+}) {
+  const keys = Object.keys(data);
+  if (keys.length === 0) return null;
+
+  // Order default attributes first (if provided)
+  const orderedKeys = [
+    ...defaultAttributes.filter((key) => key in data),
+    ...keys.filter((key) => !defaultAttributes.includes(key)),
+  ];
+
   return (
-    <div className="flex flex-col gap-2 text-sm">
-      {Object.entries(data).map(([key, value]) => (
-        <div key={key} className="flex flex-col rounded-md border p-2">
-          <span className="font-medium">{key}</span>
-          <span className="text-muted-foreground break-all">
-            {typeof value === 'object'
-              ? JSON.stringify(value, (_key, val) =>
-                typeof val === 'bigint' ? parseInt(val.toString()) : val)
-              : String(value)
-            }
-          </span>
-        </div>
-      ))}
+    <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+      {orderedKeys.map((key) => {
+        const value = data[key];
+        const isDefault = defaultAttributes.includes(key);
+        
+        return (
+          <React.Fragment key={key}>
+            <div
+              className={`${
+                isDefault ? 'font-semibold' : 'text-foreground opacity-95'
+              }`}
+            >
+              {key}:
+            </div>
+            <div 
+              className="whitespace-pre-wrap break-words pl-4 md:pl-0 text-muted-foreground"
+              style={{ overflowWrap: 'anywhere' }}
+            >
+              {typeof value === 'object'
+                ? JSON.stringify(value, (_key, val) =>
+                    typeof val === 'bigint' ? parseInt(val.toString()) : val
+                  )
+                : String(value)}
+            </div>
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 }
 
-function ArrayViewer({ data }: { data: Record<string, unknown>[] }) {
+function ArrayViewer({ 
+  data, 
+  defaultAttributes = [] 
+}: { 
+  data: Record<string, unknown>[];
+  defaultAttributes?: string[];
+}) {
   return (
     <div className="flex flex-col gap-3">
       {data.map((item, index) => (
         <div
           key={index}
-          className="border rounded-md p-2 flex flex-col gap-1"
+          className="border rounded-md p-4"
         >
-          <span className="font-medium">Item {index + 1}</span>
-          <ObjectViewer data={item} />
+          <ObjectViewer data={item} defaultAttributes={defaultAttributes} />
         </div>
       ))}
     </div>
