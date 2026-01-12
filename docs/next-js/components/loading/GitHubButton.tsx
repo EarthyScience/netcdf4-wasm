@@ -10,13 +10,13 @@ export default function GithubButton() {
     <Tooltip delayDuration={500}>
       <TooltipTrigger asChild>
         <Link href="https://github.com/EarthyScience/netcdf4-wasm" aria-label="github" target="_blank" rel="noopener noreferrer">
-          <Button variant="ghost" size="icon" className="cursor-pointer hover:scale-90 transition-transform duration-100 ease-out">
-            <FaGithub className="size-6"/>
+          <Button variant="ghost" size="icon" className="cursor-pointer hover:scale-95 transition-transform duration-100 ease-out">
+            <FaGithub className="size-6"/> Give us a Star
           </Button>
         </Link>
       </TooltipTrigger>
-      <TooltipContent side="bottom" align="start">
-        github
+      <TooltipContent side="bottom" align="center">
+        View on GitHub
       </TooltipContent>
     </Tooltip>
   );
