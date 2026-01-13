@@ -3,40 +3,56 @@
 import React, { ChangeEvent, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-// import { MetaNetCDFAccordion } from './MetaNetCDFAccordion';
-import { MetaNetCDFButtons } from './MetaNetCDFButtons';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/alert';
+import { Terminal } from 'lucide-react';
 
+import { MetaNetCDFButtons } from './MetaNetCDFButtons';
 import { NetCDF4 } from '@earthyscience/netcdf4-wasm';
 import BrowzarrCTA from './BrowzarrCTA';
+
+const NETCDF_EXT_REGEX = /\.(nc|netcdf|nc3|nc4)$/i;
+
 const LocalNetCDFMeta = () => {
   const [variables, setVariables] = useState<Record<string, unknown> | null>(null);
   const [attributes, setAttributes] = useState<Record<string, unknown> | null>(null);
   const [metadata, setMetadata] = useState<Record<string, unknown>[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFileSelect = async (
     event: ChangeEvent<HTMLInputElement>
   ) => {
+    setError(null);
+
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
     const file = files[0];
 
+    // Manual validation (iOS-safe)
+    if (!NETCDF_EXT_REGEX.test(file.name)) {
+      setError('Please select a valid NetCDF (.nc, .netcdf, .nc3, .nc4) file.');
+      return;
+    }
+
     try {
       const data = await NetCDF4.fromBlobLazy(file);
 
-      const [variables, attrs, metadata] = await Promise.all([
+      const [vars, attrs, meta] = await Promise.all([
         data.getVariables(),
         data.getGlobalAttributes(),
         data.getFullMetadata(),
       ]);
 
-      setVariables(variables);
+      setVariables(vars);
       setAttributes(attrs);
-      setMetadata(metadata);
-
-    } catch (error) {
-      console.error('Error loading NetCDF file:', error);
-      alert('Failed to load NetCDF file. Check console for details.');
+      setMetadata(meta);
+    } catch (err) {
+      console.error('Error loading NetCDF file:', err);
+      setError('Failed to load NetCDF file. Check console for details.');
     }
   };
 
@@ -52,11 +68,20 @@ const LocalNetCDFMeta = () => {
       <Input
         id="netcdf-file"
         type="file"
-        accept=".nc,.netcdf,.nc3,.nc4"
         onChange={handleFileSelect}
         className="cursor-pointer"
       />
-      
+
+      {error && (
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Hey!</AlertTitle>
+          <AlertDescription>
+            {error}
+          </AlertDescription>
+        </Alert>
+      )}
+
       {variables && attributes && metadata && (
         <div className="justify-self-center">
           <MetaNetCDFButtons
