@@ -40,7 +40,8 @@ const LocalNetCDFMeta = () => {
 
     try {
       const data = await NetCDF4.fromBlobLazy(file);
-
+      const urlTry = await NetCDF4.Dataset("s3://its-live-data/test-space/sample-data/sst.mnmean.nc")
+      console.log(urlTry)
       const [vars, attrs, meta] = await Promise.all([
         data.getVariables(),
         data.getGlobalAttributes(),

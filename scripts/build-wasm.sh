@@ -351,8 +351,8 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
         -DBUILD_SHARED_LIBS=OFF \
         -DENABLE_NETCDF_4=ON \
         -DENABLE_HDF5=ON \
-        -DENABLE_DAP=OFF \
-        -DENABLE_BYTERANGE=OFF \
+        -DENABLE_DAP=ON \
+        -DENABLE_BYTERANGE=ON \
         -DBUILD_UTILITIES=OFF \
         -DBUILD_TESTING=OFF \
         -DENABLE_TESTS=OFF \
@@ -363,6 +363,9 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
         -DHDF5_FIND_QUIETLY=ON \
         -DHDF5_INCLUDE_DIR="$INSTALL_DIR/include" \
         -DHDF5_C_INCLUDE_DIR="$INSTALL_DIR/include" \
+        -DCURL_INCLUDE_DIR="$INSTALL_DIR/include/curl" \
+        -DCURL_LIBRARY="$INSTALL_DIR/lib/libcurl.a" \
+        -DCMAKE_C_FLAGS="-s ASYNCIFY -s FETCH=1" \
         -DHDF5_C_LIBRARY="$INSTALL_DIR/lib/libhdf5.a;$INSTALL_DIR/lib/libz.a" \
         -DHDF5_C_LIBRARY_hdf5="$INSTALL_DIR/lib/libhdf5.a" \
         -DHDF5_HL_LIBRARY="$INSTALL_DIR/lib/libhdf5_hl.a;$INSTALL_DIR/lib/libz.a" \
@@ -979,14 +982,16 @@ log "Compiling WASM module with emcc..."
 check_command emcc netcdf_wrapper.c \
     -I"$INSTALL_DIR/include" \
     -L"$INSTALL_DIR/lib" \
-    -lnetcdf -lhdf5 -lhdf5_hl -lz \
+    -lnetcdf -lhdf5 -lhdf5_hl -lz -lcurl\
     -lworkerfs.js \
+    -s ASYNCIFY=1 \
     -s WASM=1 \
     -s MODULARIZE=1 \
     -s EXPORT_ES6=1 \
     -s ENVIRONMENT=web,worker \
     -s EXPORT_NAME="NetCDF4Module" \
     -s FORCE_FILESYSTEM=1 \
+    -s FETCH=1 \
     -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","getValue","setValue","UTF8ToString","stringToUTF8","lengthBytesUTF8","FS","WORKERFS","cwrap","ccall","HEAP8","HEAP16","HEAP32","HEAPF32","HEAPF64","HEAP64","HEAPU8","HEAPU16","HEAPU32"]' \
     -s EXPORTED_FUNCTIONS='["_malloc","_free"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
