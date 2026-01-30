@@ -216,7 +216,11 @@ if [ ! -f "$INSTALL_DIR/lib/libz.a" ]; then
     
     # Configure with verbose output
     log "Running emconfigure ./configure..."
-    check_command emconfigure ./configure --prefix="$INSTALL_DIR" --static
+    if [ -n "$EMCONFIGURE" ]; then
+        check_command $EMCONFIGURE ./configure --prefix="$INSTALL_DIR" --static
+    else
+        check_command emconfigure ./configure --prefix="$INSTALL_DIR" --static
+    fi
     
     log "Building zlib with emmake..."
     # Use single core for initial build to avoid issues
