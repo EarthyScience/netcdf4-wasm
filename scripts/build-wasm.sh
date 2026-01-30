@@ -123,7 +123,7 @@ if [ -f "$BUILD_DIR/emsdk/emsdk_env.sh" ]; then
 fi
 
 # Check if Emscripten is available
-if ! command -v emcc &> /dev/null; then
+if ! emcc --version &> /dev/null 2>&1; then
     error_exit "Emscripten not found. Please install and activate the Emscripten SDK.
 Run: npm run install-emscripten
 Or visit: https://emscripten.org/docs/getting_started/downloads.html"
