@@ -137,11 +137,15 @@ if ! command -v emcc &> /dev/null; then
         log "Using Emscripten: $EMCC_VERSION"
         
         # Set up Python-based toolchain
-        export CC="$EMSDK_PYTHON $BUILD_DIR/emsdk/upstream/emscripten/emcc.py"
-        export CXX="$EMSDK_PYTHON $BUILD_DIR/emsdk/upstream/emscripten/em++.py"
-        export AR="$EMSDK_PYTHON $BUILD_DIR/emsdk/upstream/emscripten/emar.py"
-        export RANLIB="$EMSDK_PYTHON $BUILD_DIR/emsdk/upstream/emscripten/emranlib.py"
-        export LIBTOOL="$EMSDK_PYTHON $BUILD_DIR/emsdk/upstream/emscripten/emar.py"
+        EMSCRIPTEN_DIR="$BUILD_DIR/emsdk/upstream/emscripten"
+        export CC="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emcc.py"
+        export CXX="$EMSDK_PYTHON $EMSCRIPTEN_DIR/em++.py"
+        export AR="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emar.py"
+        export RANLIB="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emranlib.py"
+        export LIBTOOL="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emar.py"
+        export EMCONFIGURE="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emconfigure.py"
+        export EMMAKE="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emmake.py"
+        export EMCMAKE="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emcmake.py"
     else
         error_exit "Emscripten not found. Please install and activate the Emscripten SDK.
 Run: npm run install-emscripten
@@ -157,6 +161,9 @@ else
     export AR=emar
     export RANLIB=emranlib
     export LIBTOOL=emar
+    export EMCONFIGURE=emconfigure
+    export EMMAKE=emmake
+    export EMCMAKE=emcmake
 fi
 
 # Create directories
