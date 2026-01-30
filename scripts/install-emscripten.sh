@@ -40,7 +40,7 @@ echo ""
 echo "✅ Emscripten installed successfully!"
 echo ""
 echo "Emscripten version:"
-emcc --version
+./upstream/emscripten/emcc --version
 echo ""
 echo "To use Emscripten in your shell, run:"
 echo "source $EMSDK_DIR/emsdk_env.sh"
