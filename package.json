@@ -68,6 +68,7 @@
     "url": "https://github.com/EarthyScience/netcdf4-wasm/issues"
   },
   "dependencies": {
+    "cross-env": "^10.1.0",
     "rimraf": "^6.1.2"
   }
 }
