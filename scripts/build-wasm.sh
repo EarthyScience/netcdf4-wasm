@@ -216,15 +216,30 @@ if [ ! -f "$INSTALL_DIR/lib/libz.a" ]; then
     
     # Configure with verbose output
     log "Running emconfigure ./configure..."
-    if [ -n "$EMCONFIGURE" ]; then
-        check_command $EMCONFIGURE ./configure --prefix="$INSTALL_DIR" --static
+
+    if command -v emconfigure >/dev/null 2>&1; then
+        # Linux/macOS
+        check_command emconfigure ./configure \
+            --prefix="$INSTALL_DIR" \
+            --static
     else
-        check_command emconfigure ./configure --prefix="$INSTALL_DIR" --static
+        # Windows (python-based emconfigure)
+        check_command "$EMSDK_PYTHON" \
+            "$EMSCRIPTEN_DIR/emconfigure.py" \
+            ./configure \
+            --prefix="$INSTALL_DIR" \
+            --static
     fi
-    
+
     log "Building zlib with emmake..."
     # Use single core for initial build to avoid issues
-    check_command emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
+    if command -v emmake >/dev/null 2>&1; then
+        check_command emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
+    else
+        check_command "$EMSDK_PYTHON" \
+            "$EMSCRIPTEN_DIR/emmake.py" \
+            make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
+    fi
     
     log "Installing zlib..."
     check_command emmake make install
