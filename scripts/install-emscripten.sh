@@ -37,10 +37,8 @@ echo "Sourcing emsdk environment..."
 source ./emsdk_env.sh
 
 echo ""
-echo "✅ Emscripten installed successfully!"
 echo ""
-echo "Emscripten version:"
-./upstream/emscripten/emcc --version
+echo "✅ Emscripten SDK $EMSDK_VERSION installed successfully!"
 echo ""
 echo "To use Emscripten in your shell, run:"
 echo "source $EMSDK_DIR/emsdk_env.sh"
