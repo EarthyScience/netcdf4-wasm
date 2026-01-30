@@ -223,21 +223,15 @@ if [ ! -f "$INSTALL_DIR/lib/libz.a" ]; then
             --prefix="$INSTALL_DIR" \
             --static
     else
-        # Windows: must invoke configure via sh/bash
-        if command -v bash >/dev/null 2>&1; then
-            check_command "$EMSDK_PYTHON" \
-                "$EMSCRIPTEN_DIR/emconfigure.py" \
-                bash ./configure \
-                --prefix="$INSTALL_DIR" \
-                --static
-        elif command -v sh >/dev/null 2>&1; then
+        # Windows: must NOT invoke `bash` (WSL trap)
+        if command -v sh >/dev/null 2>&1; then
             check_command "$EMSDK_PYTHON" \
                 "$EMSCRIPTEN_DIR/emconfigure.py" \
                 sh ./configure \
                 --prefix="$INSTALL_DIR" \
                 --static
         else
-            error_exit "No POSIX shell found (bash/sh). Required to run configure scripts on Windows."
+            error_exit "POSIX shell (sh) not found. Use Git Bash or MSYS2."
         fi
     fi
 
