@@ -34,3 +34,24 @@ jobs:
 
       - name: Run tests
         run: npm run test:coverage
+  
+  compatibility:
+    name: Compatibility (${{ matrix.os }})
+    needs: core
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Setup repo
+        uses: ./.github/actions
+      - name: Build
+        run: npm run build
+      - name: Run tests
+        run: npm run test

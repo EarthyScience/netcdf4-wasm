@@ -124,13 +124,47 @@ fi
 
 # Check if Emscripten is available
 if ! command -v emcc &> /dev/null; then
-    error_exit "Emscripten not found. Please install and activate the Emscripten SDK.
+    # Windows fallback: use EMSDK_PYTHON to run emcc.py
+    if [ -n "$EMSDK_PYTHON" ] && [ -f "$BUILD_DIR/emsdk/upstream/emscripten/emcc.py" ]; then
+        log "emcc not in PATH, using EMSDK_PYTHON (Windows compatibility)"
+        
+        # Test if Python can run emcc
+        if ! "$EMSDK_PYTHON" "$BUILD_DIR/emsdk/upstream/emscripten/emcc.py" --version &> /dev/null 2>&1; then
+            error_exit "Cannot run emcc with EMSDK_PYTHON: $EMSDK_PYTHON"
+        fi
+        
+        EMCC_VERSION=$("$EMSDK_PYTHON" "$BUILD_DIR/emsdk/upstream/emscripten/emcc.py" --version | head -n1)
+        log "Using Emscripten: $EMCC_VERSION"
+        
+        # Set up Python-based toolchain
+        EMSCRIPTEN_DIR="$BUILD_DIR/emsdk/upstream/emscripten"
+        export CC="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emcc.py"
+        export CXX="$EMSDK_PYTHON $EMSCRIPTEN_DIR/em++.py"
+        export AR="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emar.py"
+        export RANLIB="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emranlib.py"
+        export LIBTOOL="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emar.py"
+        export EMCONFIGURE="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emconfigure.py"
+        export EMMAKE="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emmake.py"
+        export EMCMAKE="$EMSDK_PYTHON $EMSCRIPTEN_DIR/emcmake.py"
+    else
+        error_exit "Emscripten not found. Please install and activate the Emscripten SDK.
 Run: npm run install-emscripten
 Or visit: https://emscripten.org/docs/getting_started/downloads.html"
+    fi
+else
+    # Linux/macOS: emcc is in PATH
+    EMCC_VERSION=$(emcc --version | head -n1)
+    log "Using Emscripten: $EMCC_VERSION"
+    
+    export CC=emcc
+    export CXX=em++
+    export AR=emar
+    export RANLIB=emranlib
+    export LIBTOOL=emar
+    export EMCONFIGURE=emconfigure
+    export EMMAKE=emmake
+    export EMCMAKE=emcmake
 fi
-
-EMCC_VERSION=$(emcc --version | head -n1)
-log "Using Emscripten: $EMCC_VERSION"
 
 # Create directories
 log "Creating build directories..."
@@ -140,11 +174,6 @@ cd "$BUILD_DIR"
 log "Working directory: $(pwd)"
 
 # Set Emscripten environment variables
-export CC=emcc
-export CXX=em++
-export AR=emar
-export RANLIB=emranlib
-export LIBTOOL=emar
 export CFLAGS="-O2 -I$INSTALL_DIR/include"
 export CXXFLAGS="$CFLAGS"
 
@@ -187,11 +216,44 @@ if [ ! -f "$INSTALL_DIR/lib/libz.a" ]; then
     
     # Configure with verbose output
     log "Running emconfigure ./configure..."
-    check_command emconfigure ./configure --prefix="$INSTALL_DIR" --static
-    
+
+    if command -v emconfigure >/dev/null 2>&1; then
+        # Linux / macOS
+        check_command emconfigure ./configure \
+            --prefix="$INSTALL_DIR" \
+            --static
+    else
+        # Windows: must NOT invoke `bash` (WSL trap)
+        if command -v sh >/dev/null 2>&1; then
+            check_command "$EMSDK_PYTHON" \
+                "$EMSCRIPTEN_DIR/emconfigure.py" \
+                sh ./configure \
+                --prefix="$INSTALL_DIR" \
+                --static
+        else
+            error_exit "POSIX shell (sh) not found. Use Git Bash or MSYS2."
+        fi
+    fi
+
     log "Building zlib with emmake..."
     # Use single core for initial build to avoid issues
-    check_command emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
+    if command -v emmake >/dev/null 2>&1; then
+        # Linux / macOS
+        check_command emmake make -j1 \
+            AR=emar \
+            ARFLAGS=rcs \
+            RANLIB=emranlib
+    else
+        # Windows (force MSYS make, avoid mingw32-make)
+        check_command sh -lc '
+            export MAKE=/usr/bin/make
+            exec "'"$EMSDK_PYTHON"'" "'"$EMSCRIPTEN_DIR/emmake.py"'" \
+                make -j1 \
+                AR=emar \
+                ARFLAGS=rcs \
+                RANLIB=emranlib
+        '
+    fi
     
     log "Installing zlib..."
     check_command emmake make install

@@ -14,23 +14,36 @@ runs:
       with:
         node-version: ${{ inputs.node }}
         registry-url: "https://registry.npmjs.org"
-
-    - name: Install system dependencies
+    
+    - name: Install system dependencies (Linux)
+      if: runner.os == 'Linux'
       shell: bash
       run: |
         sudo apt-get update
         sudo apt-get install -y cmake build-essential wget tar
-
+    
+    - name: Install system dependencies (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        brew install cmake wget
+    
+    - name: Install system dependencies (Windows)
+      if: runner.os == 'Windows'
+      shell: bash
+      run: |
+        choco install cmake wget -y
+    
     - name: Cache Emscripten SDK
       uses: actions/cache@v4
       with:
-          path: build/
-          key: emsdk-${{ runner.os }}-4.0.23
-
-    - name: Install npm dependencies
+        path: build/
+        key: emsdk-${{ runner.os }}-4.0.23
+    
+    - name: Install dependencies
       shell: bash
       run: npm install
-
+    
     - name: Install Emscripten
       shell: bash
       run: npm run install-emscripten
