@@ -155,6 +155,9 @@ const LocalNetCDFMeta = () => {
             Fetch
           </Button>
         </ButtonGroup>
+        <p className="text-xs text-muted-foreground mt-1 text-right">
+          ⚠️ Work in progress
+        </p>
         {isLoading && (
           <div className="flex items-center gap-2 mt-2">
             <Spinner />
