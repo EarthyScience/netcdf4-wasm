@@ -238,11 +238,20 @@ if [ ! -f "$INSTALL_DIR/lib/libz.a" ]; then
     log "Building zlib with emmake..."
     # Use single core for initial build to avoid issues
     if command -v emmake >/dev/null 2>&1; then
-        check_command emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
+        # Linux / macOS
+        check_command emmake make -j1 \
+            AR=emar \
+            ARFLAGS=rcs \
+            RANLIB=emranlib
     else
-        check_command "$EMSDK_PYTHON" \
-            "$EMSCRIPTEN_DIR/emmake.py" \
-            make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
+        # Windows (force MSYS make, avoid mingw32-make)
+        check_command sh -lc \
+            "\"$EMSDK_PYTHON\" \
+            \"$EMSCRIPTEN_DIR/emmake.py\" \
+            make -j1 \
+            AR=emar \
+            ARFLAGS=rcs \
+            RANLIB=emranlib"
     fi
     
     log "Installing zlib..."
