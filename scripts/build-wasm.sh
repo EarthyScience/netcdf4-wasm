@@ -122,40 +122,41 @@ if [ -f "$BUILD_DIR/emsdk/emsdk_env.sh" ]; then
     source "$BUILD_DIR/emsdk/emsdk_env.sh"
 fi
 
-# Check if Emscripten is available in PATH
-if command -v emcc &> /dev/null; then
-    # emcc is in PATH (Linux/macOS typically work)
+# Check if Emscripten is available
+if ! command -v emcc &> /dev/null; then
+    # Windows fallback: use EMSDK_PYTHON to run emcc.py
+    if [ -n "$EMSDK_PYTHON" ] && [ -f "$BUILD_DIR/emsdk/upstream/emscripten/emcc.py" ]; then
+        log "emcc not in PATH, using EMSDK_PYTHON (Windows compatibility)"
+        
+        # Test if Python can run emcc
+        if ! "$EMSDK_PYTHON" "$BUILD_DIR/emsdk/upstream/emscripten/emcc.py" --version &> /dev/null 2>&1; then
+            error_exit "Cannot run emcc with EMSDK_PYTHON: $EMSDK_PYTHON"
+        fi
+        
+        EMCC_VERSION=$("$EMSDK_PYTHON" "$BUILD_DIR/emsdk/upstream/emscripten/emcc.py" --version | head -n1)
+        log "Using Emscripten: $EMCC_VERSION"
+        
+        # Set up Python-based toolchain
+        export CC="$EMSDK_PYTHON $BUILD_DIR/emsdk/upstream/emscripten/emcc.py"
+        export CXX="$EMSDK_PYTHON $BUILD_DIR/emsdk/upstream/emscripten/em++.py"
+        export AR="$EMSDK_PYTHON $BUILD_DIR/emsdk/upstream/emscripten/emar.py"
+        export RANLIB="$EMSDK_PYTHON $BUILD_DIR/emsdk/upstream/emscripten/emranlib.py"
+        export LIBTOOL="$EMSDK_PYTHON $BUILD_DIR/emsdk/upstream/emscripten/emar.py"
+    else
+        error_exit "Emscripten not found. Please install and activate the Emscripten SDK.
+Run: npm run install-emscripten
+Or visit: https://emscripten.org/docs/getting_started/downloads.html"
+    fi
+else
+    # Linux/macOS: emcc is in PATH
     EMCC_VERSION=$(emcc --version | head -n1)
     log "Using Emscripten: $EMCC_VERSION"
     
-    # Use commands from PATH
     export CC=emcc
     export CXX=em++
     export AR=emar
     export RANLIB=emranlib
     export LIBTOOL=emar
-elif [ -f "$BUILD_DIR/emsdk/upstream/emscripten/emcc" ]; then
-    # Fall back to absolute path (Windows typically needs this)
-    log "emcc not in PATH, using absolute path (Windows compatibility)"
-    EMCC_PATH="$BUILD_DIR/emsdk/upstream/emscripten/emcc"
-    
-    if ! "$EMCC_PATH" --version &> /dev/null 2>&1; then
-        error_exit "emcc found but not executable"
-    fi
-    
-    EMCC_VERSION=$("$EMCC_PATH" --version | head -n1)
-    log "Using Emscripten: $EMCC_VERSION"
-    
-    # Use absolute paths for all tools
-    export CC="$BUILD_DIR/emsdk/upstream/emscripten/emcc"
-    export CXX="$BUILD_DIR/emsdk/upstream/emscripten/em++"
-    export AR="$BUILD_DIR/emsdk/upstream/emscripten/emar"
-    export RANLIB="$BUILD_DIR/emsdk/upstream/emscripten/emranlib"
-    export LIBTOOL="$BUILD_DIR/emsdk/upstream/emscripten/emar"
-else
-    error_exit "Emscripten not found. Please install and activate the Emscripten SDK.
-Run: npm run install-emscripten
-Or visit: https://emscripten.org/docs/getting_started/downloads.html"
 fi
 
 # Create directories
@@ -165,7 +166,7 @@ mkdir -p "$BUILD_DIR" "$DIST_DIR" "$DEPS_DIR" "$INSTALL_DIR"
 cd "$BUILD_DIR"
 log "Working directory: $(pwd)"
 
-# Set Emscripten CFLAGS
+# Set Emscripten environment variables
 export CFLAGS="-O2 -I$INSTALL_DIR/include"
 export CXXFLAGS="$CFLAGS"
 
