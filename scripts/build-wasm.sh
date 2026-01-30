@@ -248,7 +248,7 @@ if [ ! -f "$INSTALL_DIR/lib/libz.a" ]; then
         check_command sh -lc \
             "\"$EMSDK_PYTHON\" \
             \"$EMSCRIPTEN_DIR/emmake.py\" \
-            make -j1 \
+            /usr/bin/make -j1 \
             AR=emar \
             ARFLAGS=rcs \
             RANLIB=emranlib"
