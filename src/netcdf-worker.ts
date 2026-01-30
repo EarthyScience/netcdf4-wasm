@@ -15,12 +15,22 @@ const waitForModule = new Promise<EmscriptenModule>(async (resolve) => {
     // Use the imported module factory
     netcdfModule = await createNetCDF4Module({
         locateFile: (file: string): string => {
+            console.log('[locateFile] file:', file);
+
             if (file.endsWith('.wasm')) {
                 const origin: string = (self as any).location.origin;
+                console.log('[locateFile] origin:', origin);
+
                 const basePath: string = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+                console.log('[locateFile] basePath:', basePath);
+
                 const resolved: string = `${origin}${basePath}/${file}`;
+                console.log('[locateFile] resolved WASM URL:', resolved);
+
                 return resolved;
             }
+
+            console.log('[locateFile] returning unchanged:', file);
             return file;
         }
 
@@ -77,6 +87,7 @@ self.onmessage = async (e: MessageEvent) => {
                     throw new Error('nc_open failed with code ' + ncid);
                 }
                 result = ncid;
+                console.log('Worker: Returning ncid:', result);
                 break;
             }
             case 'close': {
@@ -116,6 +127,7 @@ self.onmessage = async (e: MessageEvent) => {
             }
             //Vars
             case 'getVariables': {
+                console.log('Worker: getVariables called with ncid:', data.ncid);
                 result = NCGet.getVariables(mod, data.ncid);
                 break;
             }
