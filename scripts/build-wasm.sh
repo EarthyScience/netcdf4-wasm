@@ -245,13 +245,14 @@ if [ ! -f "$INSTALL_DIR/lib/libz.a" ]; then
             RANLIB=emranlib
     else
         # Windows (force MSYS make, avoid mingw32-make)
-        check_command sh -lc \
-            "\"$EMSDK_PYTHON\" \
-            \"$EMSCRIPTEN_DIR/emmake.py\" \
-            /usr/bin/make -j1 \
-            AR=emar \
-            ARFLAGS=rcs \
-            RANLIB=emranlib"
+        check_command sh -lc '
+            export MAKE=/usr/bin/make
+            exec "'"$EMSDK_PYTHON"'" "'"$EMSCRIPTEN_DIR/emmake.py"'" \
+                make -j1 \
+                AR=emar \
+                ARFLAGS=rcs \
+                RANLIB=emranlib
+        '
     fi
     
     log "Installing zlib..."
