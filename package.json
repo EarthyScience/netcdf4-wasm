@@ -15,10 +15,10 @@
     "build": "npm run build:wasm && npm run build:js",
     "build:wasm": "bash scripts/build-wasm.sh",
     "build:js": "tsc",
-    "clean": "rm -rf dist build coverage",
-    "test": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest",
-    "test:watch": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest --watch",
-    "test:coverage": "NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest --coverage",
+    "clean": "rimraf dist build coverage",
+    "test": "cross-env NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest",
+    "test:watch": "cross-env NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest --watch",
+    "test:coverage": "cross-env NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest --coverage",
     "lint": "echo 'Linting not configured yet'",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run clean && npm run install-emscripten && npm run build && npm run test",
@@ -44,7 +44,7 @@
       "name": "Jeran Poehls",
       "email": "jpoehls@bgc-jena.mpg.de"
     }
-    ],
+  ],
   "license": "MIT",
   "devDependencies": {
     "@types/jest": "^29.0.0",
@@ -66,5 +66,8 @@
   "homepage": "https://github.com/EarthyScience/netcdf4-wasm/",
   "bugs": {
     "url": "https://github.com/EarthyScience/netcdf4-wasm/issues"
+  },
+  "dependencies": {
+    "rimraf": "^6.1.2"
   }
 }
