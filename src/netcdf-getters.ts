@@ -301,22 +301,49 @@ export function getVariableArray(
         throw new Error(`Array too large: ${byteSize} bytes (${arraySize} elements). Use slicing for large arrays.`);
     }
     
+    // Use nc_get_vara_* (hyperslab) instead of nc_get_var_* (whole variable)
+    // This is more robust and avoids some NC_ERANGE errors with large variables
+    const start = new Array(info.shape.length).fill(0);
+    const count = info.shape;
+
     let arrayData;
     try {
-        if (arrayType === 2) arrayData = module.nc_get_var_text(workingNcid, varid, arraySize);
-        else if (arrayType === 3) arrayData = module.nc_get_var_short(workingNcid, varid, arraySize);
-        else if (arrayType === 4) arrayData = module.nc_get_var_int(workingNcid, varid, arraySize);
-        else if (arrayType === 10) arrayData = module.nc_get_var_longlong(workingNcid, varid, arraySize);
-        else if (arrayType === 5) arrayData = module.nc_get_var_float(workingNcid, varid, arraySize);
-        else if (arrayType === 6) arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
-        else arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+        if (arrayType === 2) arrayData = module.nc_get_vara_text(workingNcid, varid, start, count);
+        else if (arrayType === 3) arrayData = module.nc_get_vara_short(workingNcid, varid, start, count);
+        else if (arrayType === 4) arrayData = module.nc_get_vara_int(workingNcid, varid, start, count);
+        else if (arrayType === 10) arrayData = module.nc_get_vara_longlong(workingNcid, varid, start, count);
+        else if (arrayType === 5) arrayData = module.nc_get_vara_float(workingNcid, varid, start, count);
+        else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+        else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
         
         if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`nc_get_var failed with error code: ${arrayData.result}`);
+        if (arrayData.result !== NC_CONSTANTS.NC_NOERR && arrayData.result !== NC_CONSTANTS.NC_ERANGE) {
+            throw new Error(`nc_get_vara failed with error code: ${arrayData.result}`);
         }
         
         if (!arrayData.data) {
-            throw new Error("nc_get_var returned no data")
+            throw new Error("nc_get_vara returned no data")
+        }
+
+        // Handle NC_CHAR (text) conversion
+        if (arrayType === 2) {
+            const chars = arrayData.data as Uint8Array;
+            // If we have dimensions, the last dimension is usually the string length
+            if (info.shape.length > 0) {
+                const strLen = info.shape[info.shape.length - 1];
+                const numStrings = chars.length / strLen;
+                const strings: string[] = [];
+                const decoder = new TextDecoder();
+                
+                for (let i = 0; i < numStrings; i++) {
+                    const start = i * strLen;
+                    const end = start + strLen;
+                    // Decode and remove null terminators/padding
+                    strings.push(decoder.decode(chars.subarray(start, end)).replace(/\0/g, ''));
+                }
+                return strings;
+            }
+            return [new TextDecoder().decode(chars).replace(/\0/g, '')];
         }
         
         console.log(`Successfully loaded ${arrayData.data.length} elements`);
@@ -378,11 +405,32 @@ export function getSlicedVariableArray(
         else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
         
         if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
+        if (arrayData.result !== NC_CONSTANTS.NC_NOERR && arrayData.result !== NC_CONSTANTS.NC_ERANGE) {
             throw new Error(`nc_get_vara failed with error code: ${arrayData.result}`);
         }
         
         if (!arrayData.data) {
             throw new Error("nc_get_vara returned no data");
+        }
+
+        // Handle NC_CHAR (text) conversion for slices
+        if (arrayType === 2) {
+            const chars = arrayData.data as Uint8Array;
+            // For slices, the last dimension of 'count' is the string length
+            if (count.length > 0) {
+                const strLen = count[count.length - 1];
+                const numStrings = chars.length / strLen;
+                const strings: string[] = [];
+                const decoder = new TextDecoder();
+                
+                for (let i = 0; i < numStrings; i++) {
+                    const start = i * strLen;
+                    const end = start + strLen;
+                    strings.push(decoder.decode(chars.subarray(start, end)).replace(/\0/g, ''));
+                }
+                return strings;
+            }
+            return [new TextDecoder().decode(chars).replace(/\0/g, '')];
         }
         
         console.log(`Successfully loaded ${arrayData.data.length} elements from slice`);

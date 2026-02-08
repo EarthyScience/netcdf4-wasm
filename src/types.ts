@@ -91,6 +91,8 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_get_vara_int: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Int32Array };
     nc_get_vara_float: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Float32Array };
     nc_get_vara_double: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Float64Array };
+    nc_get_vara_text: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: string[] };
+    nc_get_vara_longlong: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: BigInt64Array };
 
     // group types and functions
     nc_inq_grps: (ncid: number) => { result: number; numgrps?: number; grpids?: Int32Array };
