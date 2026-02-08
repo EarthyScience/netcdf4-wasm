@@ -66,7 +66,7 @@ export function getDims(
         const dim = getDim(module, workingNcid, dimid)
         dims[dim.name] = {
             size: dim.len,
-            units: dim.units,
+            units: dim.units ?? null,
             id: dim.id
         }
     }
@@ -109,7 +109,7 @@ export function getAttributeValues(
     const attInfo = module.nc_inq_att(ncid, varid, attname);
     if (attInfo.result !== NC_CONSTANTS.NC_NOERR) {
         console.warn(`Failed to get attribute info for ${attname} (error: ${attInfo.result})`);
-        return;
+        return null;
     }
     const attType = attInfo.type;
     if (!attType) throw new Error("Failed to allocate memory for attribute type.");
@@ -275,34 +275,17 @@ export function getVariableArray(
     groupPath?: string
 ): Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[] {
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
-    const isId = typeof variable === "number"
-    let varid = isId ? variable as number : 0
-    if (!isId) {
-        const result = module.nc_inq_varid(workingNcid, variable)
-        if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get variable id for '${variable}' (error: ${result.result})`);
-        }
-        varid = result.varid as number
+    let varid = typeof variable === "number" ? variable : 0;
+    if (typeof variable !== "number") {
+        const result = module.nc_inq_varid(workingNcid, variable);
+        if (result.result !== NC_CONSTANTS.NC_NOERR) throw new Error(`Failed to get variable id for '${variable}'`);
+        varid = result.varid as number;
     }
-    
-    const info = getVariableInfo(module, workingNcid, varid)
-    const arraySize = info.size
-    const arrayType = info.nctype
-    
-    console.log(`Loading variable array: size=${arraySize}, type=${arrayType}, shape=[${info.shape.join(', ')}]`);
-    
-    if (!arrayType) throw new Error("Failed to get array type")
-    if (!arraySize || arraySize === 0) throw new Error("Array size is 0 or undefined")
-    
-    // Safety check for very large arrays
-    const maxSize = 100 * 1024 * 1024; // 100MB limit for safety
-    const byteSize = arraySize * DATA_TYPE_SIZE[arrayType];
-    if (byteSize > maxSize) {
-        throw new Error(`Array too large: ${byteSize} bytes (${arraySize} elements). Use slicing for large arrays.`);
-    }
-    
-    // Use nc_get_vara_* (hyperslab) instead of nc_get_var_* (whole variable)
-    // This is more robust and avoids some NC_ERANGE errors with large variables
+
+    const info = getVariableInfo(module, workingNcid, varid);
+    const arrayType = info.nctype;
+
+    // Hyperslab for full variable
     const start = new Array(info.shape.length).fill(0);
     const count = info.shape;
 
@@ -315,43 +298,32 @@ export function getVariableArray(
         else if (arrayType === 5) arrayData = module.nc_get_vara_float(workingNcid, varid, start, count);
         else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
         else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
-        
-        if (arrayData.result !== NC_CONSTANTS.NC_NOERR && arrayData.result !== NC_CONSTANTS.NC_ERANGE) {
-            throw new Error(`nc_get_vara failed with error code: ${arrayData.result}`);
-        }
-        
-        if (!arrayData.data) {
-            throw new Error("nc_get_vara returned no data")
-        }
 
-        // Handle NC_CHAR (text) conversion
+        if (!arrayData.data) throw new Error("nc_get_vara returned no data");
+
         if (arrayType === 2) {
-            const chars = arrayData.data as unknown as Uint8Array;
-            // If we have dimensions, the last dimension is usually the string length
-            if (info.shape.length > 0) {
-                const strLen = info.shape[info.shape.length - 1];
-                const numStrings = chars.length / strLen;
-                const strings: string[] = [];
-                const decoder = new TextDecoder();
-                
-                for (let i = 0; i < numStrings; i++) {
-                    const start = i * strLen;
-                    const end = start + strLen;
-                    // Decode and remove null terminators/padding
-                    strings.push(decoder.decode(chars.subarray(start, end)).replace(/\0/g, ''));
-                }
-                return strings;
+            // Convert to string[]
+            const chars = arrayData.data as Uint8Array;
+            const strLen = info.shape[info.shape.length - 1];
+            const numStrings = chars.length / strLen;
+            const strings: string[] = [];
+            const decoder = new TextDecoder();
+            for (let i = 0; i < numStrings; i++) {
+                const s = decoder.decode(chars.subarray(i * strLen, (i + 1) * strLen)).replace(/\0/g, '');
+                strings.push(s);
             }
-            return [new TextDecoder().decode(chars).replace(/\0/g, '')];
+            return strings;
+        } else {
+            // Numeric arrays
+            return arrayData.data as Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array;
         }
-        
-        console.log(`Successfully loaded ${arrayData.data.length} elements`);
-        return arrayData.data;
-        
     } catch (err) {
         console.error('Error in getVariableArray:', err);
         throw new Error(`Failed to read array data: ${err}`);
     }
+
+    // <-- This satisfies TS even though unreachable
+    throw new Error("Failed to get variable array: unknown error");
 }
 
 export function getSlicedVariableArray(
