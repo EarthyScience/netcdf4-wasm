@@ -597,6 +597,34 @@ int nc_def_var_endian_wrapper(int ncid, int varid, int endian) {
 }
 
 // =========================
+// Groups
+// =========================
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grps_wrapper(int ncid, int* numgrps, int* grpids) {
+    return nc_inq_grps(ncid, numgrps, grpids);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grp_ncid_wrapper(int ncid, const char* grp_name, int* grp_ncid) {
+    return nc_inq_grp_ncid(ncid, grp_name, grp_ncid);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grpname_wrapper(int ncid, char* name) {
+    return nc_inq_grpname(ncid, name);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grp_parent_wrapper(int ncid, int* parent_ncid) {
+    return nc_inq_grp_parent(ncid, parent_ncid);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grp_full_ncid_wrapper(int ncid, const char* full_name, int* grp_ncid) {
+    return nc_inq_grp_full_ncid(ncid, full_name, grp_ncid);
+}
+
+// =========================
 // Attributes
 // =========================
 EMSCRIPTEN_KEEPALIVE
@@ -976,6 +1004,7 @@ EOF
 log "Creating C wrapper for NetCDF functions..."
 
 log "Compiling WASM module with emcc..."
+
 check_command emcc netcdf_wrapper.c \
     -I"$INSTALL_DIR/include" \
     -L"$INSTALL_DIR/lib" \

@@ -11,17 +11,32 @@ import {
   AlertDescription,
   AlertTitle,
 } from '@/components/ui/alert';
-import { Terminal } from 'lucide-react';
+import { Terminal, ChevronRight } from 'lucide-react';
 import { MetaNetCDFButtons } from './MetaNetCDFButtons';
 import { NetCDF4 } from '@earthyscience/netcdf4-wasm';
 import BrowzarrCTA from './BrowzarrCTA';
 
 const NETCDF_EXT_REGEX = /\.(nc|netcdf|nc3|nc4)$/i;
 
+interface GroupInfo {
+  name: string;
+  path: string;
+  ncid: number;
+  hasSubgroups: boolean;
+}
+
 const LocalNetCDFMeta = () => {
   const [variables, setVariables] = useState<Record<string, unknown> | null>(null);
   const [attributes, setAttributes] = useState<Record<string, unknown> | null>(null);
   const [metadata, setMetadata] = useState<Record<string, unknown>[] | null>(null);
+  const [groups, setGroups] = useState<Record<string, any> | null>(null);
+  const [currentGroup, setCurrentGroup] = useState<GroupInfo>({
+    name: 'root',
+    path: '/',
+    ncid: -1,
+    hasSubgroups: false
+  });
+  const [dataset, setDataset] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [url, setUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -32,7 +47,6 @@ const LocalNetCDFMeta = () => {
       return false;
     }
 
-    // Check for common protocols
     const validProtocols = ['http://', 'https://', 's3://', 'gs://', 'ftp://'];
     const hasValidProtocol = validProtocols.some(protocol => 
       urlString.toLowerCase().startsWith(protocol)
@@ -43,13 +57,42 @@ const LocalNetCDFMeta = () => {
       return false;
     }
 
-    // Optional: Check if URL ends with NetCDF extension
     if (!NETCDF_EXT_REGEX.test(urlString)) {
       setError('URL should point to a NetCDF file (.nc, .netcdf, .nc3, .nc4)');
       return false;
     }
 
     return true;
+  };
+
+  const loadGroupData = async (data: any, groupPath?: string) => {
+    // Use the unified getCompleteHierarchy method
+    const hierarchy = await data.getCompleteHierarchy(groupPath);
+    
+    setVariables(hierarchy.variables);
+    setAttributes(hierarchy.attributes);
+    setGroups(hierarchy.groups);
+    
+    // Get full metadata for variables at this level
+    const meta = await data.getFullMetadata(groupPath);
+    setMetadata(meta);
+    
+    // Determine if current group has subgroups
+    const hasSubgroups = Object.keys(hierarchy.groups).length > 0;
+    
+    // Get current group name
+    let groupName = 'root';
+    if (groupPath && groupPath !== '/') {
+      const parts = groupPath.split('/').filter(p => p);
+      groupName = parts[parts.length - 1] || 'root';
+    }
+    
+    setCurrentGroup({
+      name: groupName,
+      path: groupPath || '/',
+      ncid: -1,
+      hasSubgroups
+    });
   };
 
   const handleFileSelect = async (
@@ -61,7 +104,6 @@ const LocalNetCDFMeta = () => {
 
     const file = files[0];
 
-    // Manual validation (iOS-safe)
     if (!NETCDF_EXT_REGEX.test(file.name)) {
       setError('Please select a valid NetCDF (.nc, .netcdf, .nc3, .nc4) file.');
       return;
@@ -70,14 +112,8 @@ const LocalNetCDFMeta = () => {
     try {
       setIsLoading(true);
       const data = await NetCDF4.fromBlobLazy(file);
-      const [vars, attrs, meta] = await Promise.all([
-        data.getVariables(),
-        data.getGlobalAttributes(),
-        data.getFullMetadata(),
-      ]);
-      setVariables(vars);
-      setAttributes(attrs);
-      setMetadata(meta);
+      setDataset(data);
+      await loadGroupData(data);
     } catch (err) {
       console.error('Error loading NetCDF file:', err);
       setError('Failed to load NetCDF file. Check console for details.');
@@ -95,22 +131,64 @@ const LocalNetCDFMeta = () => {
 
     try {
       setIsLoading(true);
-      // const urlTry = await NetCDF4.Dataset("s3://its-live-data/test-space/sample-data/sst.mnmean.nc")
-      // console.log(urlTry)
       const data = await NetCDF4.Dataset(url);
       console.log('Fetched data:', data);
-      
-      const [vars, attrs, meta] = await Promise.all([
-        data.getVariables(),
-        data.getGlobalAttributes(),
-        data.getFullMetadata(),
-      ]);
-      setVariables(vars);
-      setAttributes(attrs);
-      setMetadata(meta);
+      setDataset(data);
+      await loadGroupData(data);
     } catch (err) {
       console.error('Error fetching NetCDF from URL:', err);
       setError('Failed to fetch NetCDF from URL. Check console for details.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGroupChange = async (groupName: string, groupNcid: number) => {
+    if (!dataset) return;
+    
+    try {
+      setIsLoading(true);
+      // Build new path
+      const newPath = currentGroup.path === '/' 
+        ? `/${groupName}` 
+        : `${currentGroup.path}/${groupName}`;
+      
+      await loadGroupData(dataset, newPath);
+    } catch (err) {
+      console.error('Error loading group:', err);
+      setError('Failed to load group. Check console for details.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoToRoot = async () => {
+    if (!dataset) return;
+    
+    try {
+      setIsLoading(true);
+      await loadGroupData(dataset);
+    } catch (err) {
+      console.error('Error loading root:', err);
+      setError('Failed to load root. Check console for details.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoToParent = async () => {
+    if (!dataset || currentGroup.path === '/') return;
+    
+    try {
+      setIsLoading(true);
+      const pathParts = currentGroup.path.split('/').filter(p => p);
+      pathParts.pop();
+      const parentPath = pathParts.length > 0 ? '/' + pathParts.join('/') : '/';
+      
+      await loadGroupData(dataset, parentPath === '/' ? undefined : parentPath);
+    } catch (err) {
+      console.error('Error loading parent group:', err);
+      setError('Failed to load parent group. Check console for details.');
     } finally {
       setIsLoading(false);
     }
@@ -176,18 +254,77 @@ const LocalNetCDFMeta = () => {
         </Alert>
       )}
 
+      {/* Group Navigation */}
       {variables && attributes && metadata && (
-        <div className="justify-self-center">
-          <MetaNetCDFButtons
-            variables={variables}
-            attributes={attributes}
-            metadata={metadata}
-          />
-        </div>
-      )
-      }
+        <>
+          <div className="border rounded-md p-3 bg-muted/50">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Current Group:</span>
+                <code className="text-xs bg-background px-2 py-1 rounded">
+                  {currentGroup.path}
+                </code>
+              </div>
+              {currentGroup.path !== '/' && (
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleGoToParent}
+                    disabled={isLoading}
+                    className="h-7 text-xs cursor-pointer"
+                  >
+                    ← Parent
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleGoToRoot}
+                    disabled={isLoading}
+                    className="h-7 text-xs cursor-pointer"
+                  >
+                    Root
+                  </Button>
+                </div>
+              )}
+            </div>
+            
+            {/* Subgroups */}
+            {groups && Object.keys(groups).length > 0 && (
+              <div className="mt-2">
+                <span className="text-xs text-muted-foreground mb-1 block">
+                  Subgroups:
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {Object.entries(groups).map(([name, groupData]) => (
+                    <Button
+                      key={name}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleGroupChange(name, groupData.ncid || -1)}
+                      disabled={isLoading}
+                      className="h-7 text-xs cursor-pointer"
+                    >
+                      {name}
+                      <ChevronRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="justify-self-center">
+            <MetaNetCDFButtons
+              variables={variables}
+              attributes={attributes}
+              metadata={metadata}
+              currentGroup={currentGroup}
+            />
+          </div>
+        </>
+      )}
       <BrowzarrCTA />
-      
     </div>
   );
 };

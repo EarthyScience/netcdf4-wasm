@@ -8,56 +8,43 @@ let mod: NetCDF4Module;
 
 // Wait for runtime initialization
 const waitForModule = new Promise<EmscriptenModule>(async (resolve) => {
-    // Dynamically import the generated netcdf4-wasm.js module
     const netcdf4Module = await import('./netcdf4-wasm.js');
-    const createNetCDF4Module = netcdf4Module.default as (options?: any) => Promise<EmscriptenModule>;
-    
-    // Use the imported module factory
+    const createNetCDF4Module =
+        netcdf4Module.default as (options?: any) => Promise<EmscriptenModule>;
+
     netcdfModule = await createNetCDF4Module({
         locateFile: (file: string): string => {
-            console.log('[locateFile] file:', file);
-
             if (file.endsWith('.wasm')) {
                 const origin: string = (self as any).location.origin;
-                console.log('[locateFile] origin:', origin);
-
                 const basePath: string = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
-                console.log('[locateFile] basePath:', basePath);
-
-                const resolved: string = `${origin}${basePath}/${file}`;
-                console.log('[locateFile] resolved WASM URL:', resolved);
-
-                return resolved;
+                return `${origin}${basePath}/${file}`;
             }
-
-            console.log('[locateFile] returning unchanged:', file);
             return file;
         }
-
     });
-    
+
     resolve(netcdfModule);
 });
 
-// @ts-ignore: onmessage is available in worker global scope
+// @ts-ignore worker scope
 self.onmessage = async (e: MessageEvent) => {
     const data = e.data;
-    const {type, id} = data;
-    
+    const { type, id } = data;
+
     try {
-        // Handle init message separately (before wrapping)
+        // ---------------- INIT ----------------
         if (type === 'init') {
-            const rawmod = await waitForModule;
-            mod = WasmModuleLoader.wrapModule(rawmod);
-            
-            const { blob, filename } = data; 
+            mod = WasmModuleLoader.wrapModule(await waitForModule);
+
+            const { blob, filename } = data;
             const pathParts = filename.split('/');
-            const baseName = pathParts.pop(); // "data.nc"
-            const mountPoint = pathParts.join('/') || '/'; // "/working"
-            
+            const baseName = pathParts.pop();
+            const mountPoint = pathParts.join('/') || '/';
+
+            // safer for nested paths
             try {
-                mod.FS.mkdir(mountPoint);
-            } catch (e) { /* ignore if exists */ }
+                mod.FS.mkdirTree(mountPoint);
+            } catch (_) {}
 
             try {
                 mod.FS.mount(mod.WORKERFS, {
@@ -66,104 +53,137 @@ self.onmessage = async (e: MessageEvent) => {
             } catch (err: any) {
                 console.warn("Mount failed (might already be mounted):", err.message);
             }
-            
-            // Send success response matching what initHandler expects
-            self.postMessage({ success: true });
+
+            self.postMessage({ id, success: true });
             return;
         }
-        
-        // For all other operations, ensure mod is initialized
+
+        // ------------- ENSURE READY -------------
         if (!mod) {
-            const rawmod = await waitForModule;
-            mod = WasmModuleLoader.wrapModule(rawmod);
+            mod = WasmModuleLoader.wrapModule(await waitForModule);
         }
-        
+
         let result;
+
         switch (type) {
             case 'open': {
-                const openResult = mod.nc_open(data.path, data.modeValue); 
-                const ncid = openResult.ncid ?? -1;
-                if (ncid < 0) {
-                    throw new Error('nc_open failed with code ' + ncid);
+                const openResult = mod.nc_open(data.path, data.modeValue);
+                if (openResult.result !== NC_CONSTANTS.NC_NOERR) {
+                    throw new Error('nc_open failed: ' + openResult.result);
                 }
-                result = ncid;
-                console.log('Worker: Returning ncid:', result);
+                result = openResult.ncid as number;
                 break;
             }
+
             case 'close': {
                 const closeResult = mod.nc_close(data.ncid);
-                if (closeResult !== NC_CONSTANTS.NC_NOERR){
+                if (closeResult !== NC_CONSTANTS.NC_NOERR) {
                     throw new Error("Failed to close file");
                 }
                 result = closeResult;
                 break;
             }
-            //---- Getters ----//
-            //Globals
-            case 'getGlobalAttributes': {
-                result = NCGet.getGlobalAttributes(mod, data.ncid);
+
+            // ---- Globals ----
+            case 'getGlobalAttributes':
+                result = NCGet.getGlobalAttributes(mod, data.ncid, data.groupPath);
                 break;
-            }
-            case 'getFullMetadata': {
-                result = NCGet.getFullMetadata(mod, data.ncid);
+
+            case 'getFullMetadata':
+                result = NCGet.getFullMetadata(mod, data.ncid, data.groupPath);
                 break;
-            }
-            //Dims
-            case 'getDimCount': {
+
+            // ---- Dims ----
+            case 'getDimCount':
                 result = NCGet.getDimCount(mod, data.ncid);
                 break;
-            }
-            case 'getDimIDs': {
+
+            case 'getDimIDs':
                 result = Array.from(NCGet.getDimIDs(mod, data.ncid));
                 break;
-            }
-            case 'getDim': {
+
+            case 'getDim':
                 result = NCGet.getDim(mod, data.ncid, data.dimid);
                 break;
-            }
-            case 'getDims': {
-                result = NCGet.getDims(mod, data.ncid);
+
+            case 'getDims':
+                result = NCGet.getDims(mod, data.ncid, data.groupPath);
                 break;
-            }
-            //Vars
-            case 'getVariables': {
-                console.log('Worker: getVariables called with ncid:', data.ncid);
-                result = NCGet.getVariables(mod, data.ncid);
+
+            // ---- Vars ----
+            case 'getVariables':
+                // console.log('Worker: getVariables', data.ncid);
+                result = NCGet.getVariables(mod, data.ncid, data.groupPath);
                 break;
-            }
-            case 'getVarIDs': {
+
+            case 'getVarIDs':
                 result = Array.from(NCGet.getVarIDs(mod, data.ncid));
                 break;
-            }
-            case 'getVarCount': {
+
+            case 'getVarCount':
                 result = NCGet.getVarCount(mod, data.ncid);
                 break;
-            }
-            case 'getAttributeName': {
+
+            case 'getAttributeName':
                 result = NCGet.getAttributeName(mod, data.ncid, data.varid, data.attId);
                 break;
-            }
-            case 'getVariableInfo': {
-                result = NCGet.getVariableInfo(mod, data.ncid, data.variable);
+
+            case 'getVariableInfo':
+                result = NCGet.getVariableInfo(mod, data.ncid, data.variable, data.groupPath);
                 break;
-            }
-            case 'getAttributeValues': {
+
+            case 'getAttributeValues':
                 result = NCGet.getAttributeValues(mod, data.ncid, data.varid, data.attname);
                 break;
-            }
-            //Arrays
-            case 'getVariableArray': {
-                result = NCGet.getVariableArray(mod, data.ncid, data.variable);
+
+            // ---- Arrays ----
+            case 'getVariableArray':
+                result = NCGet.getVariableArray(mod, data.ncid, data.variable, data.groupPath);
                 break;
-            }
-            case 'getSlicedVariableArray': {
-                result = NCGet.getSlicedVariableArray(mod, data.ncid, data.variable, data.start, data.count);
+
+            case 'getSlicedVariableArray':
+                result = NCGet.getSlicedVariableArray(
+                    mod,
+                    data.ncid,
+                    data.variable,
+                    data.start,
+                    data.count,
+                    data.groupPath
+                );
                 break;
-            }
+
+            // ---- Groups ----
+            case 'getGroups':
+                result = NCGet.getGroups(mod, data.ncid);
+                break;
+
+            case 'getGroupsRecursive':
+                result = NCGet.getGroupsRecursive(mod, data.ncid);
+                break;
+
+            case 'getGroupNCID':
+                result = NCGet.getGroupNCID(mod, data.ncid, data.groupPath);
+                break;
+
+            case 'getGroupName':
+                result = NCGet.getGroupName(mod, data.ncid);
+                break;
+
+            case 'getGroupPath':
+                result = NCGet.getGroupPath(mod, data.ncid);
+                break;
+            case 'getCompleteHierarchy':
+                result = NCGet.getCompleteHierarchy(mod, data.ncid, data.groupPath);
+                break;
+
+            case 'getAllVariablesRecursive':
+                result = NCGet.getAllVariablesRecursive(mod, data.ncid);
+                break;
+
             default:
                 throw new Error(`Unknown message type: ${type}`);
         }
-        
+
         self.postMessage({ id, success: true, result });
     } catch (err: any) {
         console.error(`Worker Error [${type}]:`, err);

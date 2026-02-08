@@ -15,7 +15,8 @@ export class Group {
     constructor(
         protected netcdf: NetCDF4,
         public readonly name: string,
-        protected groupId: number
+        protected groupId: number,
+        protected parent?: Group
     ) {}
 
     // Attribute methods
@@ -150,7 +151,7 @@ export class Group {
 
     createGroup(name: string): Group {
         // For simplicity, groups use the same ncid for now
-        const group = new Group(this.netcdf, name, this.groupId);
+        const group = new Group(this.netcdf, name, this.groupId, this);
         this.groups[name] = group;
         return group;
     }
@@ -162,8 +163,60 @@ export class Group {
 
     // Get group path (Python-like)
     get path(): string {
-        if (this.name === '') return '/';
-        return `/${this.name}`;
+        if (!this.parent) return '/';
+        const parentPath = this.parent.path;
+        return parentPath === '/' ? `/${this.name}` : `${parentPath}/${this.name}`;
+    }
+
+    async load(): Promise<void> {
+        // 1. Dimensions
+        const dims = await this.netcdf.getDims(this.path);
+        for (const key in this.dimensions) delete this.dimensions[key];
+        
+        for (const [name, d] of Object.entries(dims)) {
+            this.dimensions[name] = new Dimension(name, d.size, false);
+        }
+
+        // 2. Variables
+        const vars = await this.netcdf.getVariables(this.path);
+        for (const key in this.variables) delete this.variables[key];
+
+        for (const [name, v] of Object.entries(vars)) {
+            const info = await this.netcdf.getVariableInfo(v.id, this.path);
+            const dimNames = info.dims.map((d: any) => d.name);
+            
+            const variable = new Variable(
+                this.netcdf,
+                name,
+                info.dtype,
+                dimNames,
+                v.id,
+                this.groupId
+            );
+            
+            if (info.attributes) {
+                for (const [k, val] of Object.entries(info.attributes)) {
+                    variable.setAttr(k, val);
+                }
+            }
+            this.variables[name] = variable;
+        }
+
+        // 3. Subgroups
+        const groups = await this.netcdf.getGroups(this.groupId);
+        for (const key in this.groups) delete this.groups[key];
+
+        for (const [name, grpid] of Object.entries(groups)) {
+            const group = new Group(this.netcdf, name, grpid, this);
+            await group.load();
+            this.groups[name] = group;
+        }
+        
+        // 4. Attributes
+        const attrs = await this.netcdf.getGlobalAttributes(this.path);
+        for (const [k, v] of Object.entries(attrs)) {
+            this.setAttr(k, v);
+        }
     }
 
     toString(): string {

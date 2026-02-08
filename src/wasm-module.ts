@@ -65,7 +65,7 @@ export class WasmModuleLoader {
         const nc_inq_var_wrapper = module.cwrap('nc_inq_var_wrapper', 'number', [
             'number', 'number',           // ncid, varid
             'number',                     // name pointer
-            'number', 'number', 'number', // typep, ndimsp, dimidsp, nattsp
+            'number', 'number', 'number', 'number' // typep, ndimsp, dimidsp, nattsp
         ]);
 
         // Variable inquiry wrappers
@@ -104,6 +104,13 @@ export class WasmModuleLoader {
         const nc_get_var_longlong_wrapper = module.cwrap('nc_get_var_longlong_wrapper', 'number', ['number', 'number', 'number']);
         const nc_get_var_float_wrapper = module.cwrap('nc_get_var_float_wrapper', 'number', ['number', 'number', 'number']);
         const nc_get_var_double_wrapper = module.cwrap('nc_get_var_double_wrapper', 'number', ['number', 'number', 'number']);
+        
+        // Group inquiry wrappers
+        const nc_inq_grps_wrapper = module.cwrap('nc_inq_grps_wrapper', 'number', ['number', 'number', 'number']);
+        const nc_inq_grp_ncid_wrapper = module.cwrap('nc_inq_grp_ncid_wrapper', 'number', ['number', 'string', 'number']);
+        const nc_inq_grpname_wrapper = module.cwrap('nc_inq_grpname_wrapper', 'number', ['number', 'number']);
+        const nc_inq_grp_parent_wrapper = module.cwrap('nc_inq_grp_parent_wrapper', 'number', ['number', 'number']);
+        const nc_inq_grp_full_ncid_wrapper = module.cwrap('nc_inq_grp_full_ncid_wrapper', 'number', ['number', 'string', 'number']);
 
         return {
             ...module,
@@ -637,6 +644,55 @@ export class WasmModuleLoader {
 
             nc_enddef: (ncid: number) => {
                 return nc_enddef_wrapper(ncid);
+            },
+            
+            //---- Group Functions ----//
+            nc_inq_grps: (ncid: number) => {
+                const numgrpsPtr = module._malloc(4);
+                const grpidsPtr = module._malloc(NC_MAX_VARS * 4); // reuse NC_MAX_VARS as max groups
+                const result = nc_inq_grps_wrapper(ncid, numgrpsPtr, grpidsPtr);
+                let numgrps, grpids;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    numgrps = module.getValue(numgrpsPtr, 'i32');
+                    grpids = Int32Array.from({ length: numgrps }, (_, i) => 
+                        module.getValue(grpidsPtr + (i * 4), 'i32')
+                    );
+                }
+                module._free(numgrpsPtr);
+                module._free(grpidsPtr);
+                return { result, numgrps, grpids };
+            },
+
+            nc_inq_grp_ncid: (ncid: number, grp_name: string) => {
+                const grp_ncidPtr = module._malloc(4);
+                const result = nc_inq_grp_ncid_wrapper(ncid, grp_name, grp_ncidPtr);
+                const grp_ncid = result === NC_CONSTANTS.NC_NOERR ? module.getValue(grp_ncidPtr, 'i32') : undefined;
+                module._free(grp_ncidPtr);
+                return { result, grp_ncid };
+            },
+
+            nc_inq_grpname: (ncid: number) => {
+                const namePtr = module._malloc(NC_MAX_NAME + 1);
+                const result = nc_inq_grpname_wrapper(ncid, namePtr);
+                const name = result === NC_CONSTANTS.NC_NOERR ? module.UTF8ToString(namePtr) : undefined;
+                module._free(namePtr);
+                return { result, name };
+            },
+
+            nc_inq_grp_parent: (ncid: number) => {
+                const parent_ncidPtr = module._malloc(4);
+                const result = nc_inq_grp_parent_wrapper(ncid, parent_ncidPtr);
+                const parent_ncid = result === NC_CONSTANTS.NC_NOERR ? module.getValue(parent_ncidPtr, 'i32') : undefined;
+                module._free(parent_ncidPtr);
+                return { result, parent_ncid };
+            },
+
+            nc_inq_grp_full_ncid: (ncid: number, full_name: string) => {
+                const grp_ncidPtr = module._malloc(4);
+                const result = nc_inq_grp_full_ncid_wrapper(ncid, full_name, grp_ncidPtr);
+                const grp_ncid = result === NC_CONSTANTS.NC_NOERR ? module.getValue(grp_ncidPtr, 'i32') : undefined;
+                module._free(grp_ncidPtr);
+                return { result, grp_ncid };
             }
         };
     }

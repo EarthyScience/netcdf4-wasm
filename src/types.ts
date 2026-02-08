@@ -91,6 +91,13 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_get_vara_int: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Int32Array };
     nc_get_vara_float: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Float32Array };
     nc_get_vara_double: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Float64Array };
+
+    // group types and functions
+    nc_inq_grps: (ncid: number) => { result: number; numgrps?: number; grpids?: Int32Array };
+    nc_inq_grp_ncid: (ncid: number, grp_name: string) => { result: number; grp_ncid?: number };
+    nc_inq_grpname: (ncid: number) => { result: number; name?: string };
+    nc_inq_grp_parent: (ncid: number) => { result: number; parent_ncid?: number };
+    nc_inq_grp_full_ncid: (ncid: number, full_name: string) => { result: number; grp_ncid?: number };
 }
 
 export interface NetCDF4WasmOptions {
