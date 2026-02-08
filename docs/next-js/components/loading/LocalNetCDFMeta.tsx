@@ -11,8 +11,7 @@ import {
   AlertDescription,
   AlertTitle,
 } from '@/components/ui/alert';
-import { Terminal, ChevronRight } from 'lucide-react';
-import { MetaNetCDFButtons } from './MetaNetCDFButtons';
+import { Terminal, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react';
 import { NetCDF4 } from '@earthyscience/netcdf4-wasm';
 import BrowzarrCTA from './BrowzarrCTA';
 
@@ -25,10 +24,16 @@ interface GroupInfo {
   hasSubgroups: boolean;
 }
 
+interface VariableData {
+  id: number;
+  info?: any;
+  data?: any;
+  slice?: { start: number[]; count: number[] };
+}
+
 const LocalNetCDFMeta = () => {
-  const [variables, setVariables] = useState<Record<string, unknown> | null>(null);
+  const [variables, setVariables] = useState<Record<string, VariableData> | null>(null);
   const [attributes, setAttributes] = useState<Record<string, unknown> | null>(null);
-  const [metadata, setMetadata] = useState<Record<string, unknown>[] | null>(null);
   const [groups, setGroups] = useState<Record<string, any> | null>(null);
   const [currentGroup, setCurrentGroup] = useState<GroupInfo>({
     name: 'root',
@@ -40,6 +45,12 @@ const LocalNetCDFMeta = () => {
   const [error, setError] = useState<string | null>(null);
   const [url, setUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  
+  // UI state
+  const [expandedVariables, setExpandedVariables] = useState<Set<string>>(new Set());
+  const [showVariables, setShowVariables] = useState(true);
+  const [showAttributes, setShowAttributes] = useState(false);
+  const [loadingVariable, setLoadingVariable] = useState<string | null>(null);
 
   const validateUrl = (urlString: string): boolean => {
     if (!urlString.trim()) {
@@ -66,21 +77,14 @@ const LocalNetCDFMeta = () => {
   };
 
   const loadGroupData = async (data: any, groupPath?: string) => {
-    // Use the unified getCompleteHierarchy method
     const hierarchy = await data.getCompleteHierarchy(groupPath);
     
     setVariables(hierarchy.variables);
     setAttributes(hierarchy.attributes);
     setGroups(hierarchy.groups);
     
-    // Get full metadata for variables at this level
-    const meta = await data.getFullMetadata(groupPath);
-    setMetadata(meta);
-    
-    // Determine if current group has subgroups
     const hasSubgroups = Object.keys(hierarchy.groups).length > 0;
     
-    // Get current group name
     let groupName = 'root';
     if (groupPath && groupPath !== '/') {
       const parts = groupPath.split('/').filter(p => p);
@@ -95,9 +99,7 @@ const LocalNetCDFMeta = () => {
     });
   };
 
-  const handleFileSelect = async (
-    event: ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleFileSelect = async (event: ChangeEvent<HTMLInputElement>) => {
     setError(null);
     const files = event.target.files;
     if (!files || files.length === 0) return;
@@ -132,7 +134,6 @@ const LocalNetCDFMeta = () => {
     try {
       setIsLoading(true);
       const data = await NetCDF4.Dataset(url);
-      console.log('Fetched data:', data);
       setDataset(data);
       await loadGroupData(data);
     } catch (err) {
@@ -143,17 +144,17 @@ const LocalNetCDFMeta = () => {
     }
   };
 
-  const handleGroupChange = async (groupName: string, groupNcid: number) => {
+  const handleGroupChange = async (groupName: string) => {
     if (!dataset) return;
     
     try {
       setIsLoading(true);
-      // Build new path
       const newPath = currentGroup.path === '/' 
         ? `/${groupName}` 
         : `${currentGroup.path}/${groupName}`;
       
       await loadGroupData(dataset, newPath);
+      setExpandedVariables(new Set());
     } catch (err) {
       console.error('Error loading group:', err);
       setError('Failed to load group. Check console for details.');
@@ -168,6 +169,7 @@ const LocalNetCDFMeta = () => {
     try {
       setIsLoading(true);
       await loadGroupData(dataset);
+      setExpandedVariables(new Set());
     } catch (err) {
       console.error('Error loading root:', err);
       setError('Failed to load root. Check console for details.');
@@ -186,6 +188,7 @@ const LocalNetCDFMeta = () => {
       const parentPath = pathParts.length > 0 ? '/' + pathParts.join('/') : '/';
       
       await loadGroupData(dataset, parentPath === '/' ? undefined : parentPath);
+      setExpandedVariables(new Set());
     } catch (err) {
       console.error('Error loading parent group:', err);
       setError('Failed to load parent group. Check console for details.');
@@ -194,12 +197,101 @@ const LocalNetCDFMeta = () => {
     }
   };
 
+  const toggleVariable = async (varName: string) => {
+    const newExpanded = new Set(expandedVariables);
+    
+    if (newExpanded.has(varName)) {
+      newExpanded.delete(varName);
+      setExpandedVariables(newExpanded);
+    } else {
+      // Expand and load variable info if not already loaded
+      newExpanded.add(varName);
+      setExpandedVariables(newExpanded);
+      
+      if (variables && !variables[varName].info) {
+        setLoadingVariable(varName);
+        try {
+          const info = await dataset.getVariableInfo(varName, currentGroup.path === '/' ? undefined : currentGroup.path);
+          setVariables(prev => ({
+            ...prev!,
+            [varName]: { ...prev![varName], info }
+          }));
+        } catch (err) {
+          console.error('Error loading variable info:', err);
+        } finally {
+          setLoadingVariable(null);
+        }
+      }
+    }
+  };
+
+  const loadVariableData = async (varName: string, slice?: { start: number[]; count: number[] }) => {
+    if (!dataset || !variables) return;
+    
+    setLoadingVariable(varName);
+    setError(null); // Clear previous errors
+    
+    try {
+      console.log(`Loading data for ${varName}`, slice ? `with slice ${JSON.stringify(slice)}` : 'full array');
+      
+      let data;
+      if (slice) {
+        data = await dataset.getSlicedVariableArray(
+          varName, 
+          slice.start, 
+          slice.count,
+          currentGroup.path === '/' ? undefined : currentGroup.path
+        );
+      } else {
+        data = await dataset.getVariableArray(
+          varName,
+          currentGroup.path === '/' ? undefined : currentGroup.path
+        );
+      }
+      
+      console.log(`Successfully loaded ${data.length} elements for ${varName}`);
+      
+      setVariables(prev => ({
+        ...prev!,
+        [varName]: { ...prev![varName], data, slice }
+      }));
+    } catch (err: any) {
+      console.error('Error loading variable data:', err);
+      const errorMsg = err.message || String(err);
+      setError(`Failed to load data for ${varName}: ${errorMsg}`);
+      
+      // Also log to console for debugging
+      console.error('Full error details:', {
+        variable: varName,
+        slice,
+        error: err,
+        stack: err.stack
+      });
+    } finally {
+      setLoadingVariable(null);
+    }
+  };
+
+  const formatDataPreview = (data: any, maxItems: number = 10): string => {
+    if (!data) return 'No data';
+    
+    const arr = Array.isArray(data) ? data : Array.from(data);
+    if (arr.length === 0) return '[]';
+    
+    const preview = arr.slice(0, maxItems).map(v => {
+      if (typeof v === 'number') {
+        return v.toFixed(4);
+      }
+      return String(v);
+    });
+    
+    const suffix = arr.length > maxItems ? `, ... (${arr.length} total)` : '';
+    return `[${preview.join(', ')}${suffix}]`;
+  };
+
   return (
-    <div className="grid w-full max-w-sm items-center gap-3 p-4 py-0">
-      <Label
-        htmlFor="netcdf-file"
-        className="justify-self-center font-semibold"
-      >
+    <div className="grid w-full max-w-2xl items-center gap-3 p-4 py-0">
+      <Label htmlFor="netcdf-file" className="justify-self-center font-semibold">
         NetCDF file
       </Label>
       <Input
@@ -248,82 +340,200 @@ const LocalNetCDFMeta = () => {
         <Alert variant="destructive">
           <Terminal className="h-4 w-4" />
           <AlertTitle>Hey!</AlertTitle>
-          <AlertDescription>
-            {error}
-          </AlertDescription>
+          <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      {/* Group Navigation */}
-      {variables && attributes && metadata && (
-        <>
-          <div className="border rounded-md p-3 bg-muted/50">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">Current Group:</span>
-                <code className="text-xs bg-background px-2 py-1 rounded">
-                  {currentGroup.path}
-                </code>
-              </div>
-              {currentGroup.path !== '/' && (
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleGoToParent}
-                    disabled={isLoading}
-                    className="h-7 text-xs cursor-pointer"
-                  >
-                    ← Parent
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleGoToRoot}
-                    disabled={isLoading}
-                    className="h-7 text-xs cursor-pointer"
-                  >
-                    Root
-                  </Button>
-                </div>
-              )}
+      {/* Main Content */}
+      {variables && attributes && (
+        <div className="border rounded-md p-4 bg-background space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between pb-3 border-b">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-semibold">Current Group:</span>
+              <code className="text-xs bg-muted px-2 py-1 rounded font-mono">
+                {currentGroup.path}
+              </code>
             </div>
-            
-            {/* Subgroups */}
-            {groups && Object.keys(groups).length > 0 && (
-              <div className="mt-2">
-                <span className="text-xs text-muted-foreground mb-1 block">
-                  Subgroups:
-                </span>
-                <div className="flex flex-wrap gap-1">
-                  {Object.entries(groups).map(([name, groupData]) => (
-                    <Button
-                      key={name}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleGroupChange(name, groupData.ncid || -1)}
-                      disabled={isLoading}
-                      className="h-7 text-xs cursor-pointer"
-                    >
-                      {name}
-                      <ChevronRight className="h-3 w-3 ml-1" />
-                    </Button>
-                  ))}
-                </div>
+            {currentGroup.path !== '/' && (
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleGoToParent}
+                  disabled={isLoading}
+                  className="h-7 text-xs cursor-pointer"
+                >
+                  ← Parent
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleGoToRoot}
+                  disabled={isLoading}
+                  className="h-7 text-xs cursor-pointer"
+                >
+                  Root
+                </Button>
               </div>
             )}
           </div>
 
-          <div className="justify-self-center">
-            <MetaNetCDFButtons
-              variables={variables}
-              attributes={attributes}
-              metadata={metadata}
-              currentGroup={currentGroup}
-            />
+          {/* Variables Section */}
+          <div className="space-y-2">
+            <button
+              onClick={() => setShowVariables(!showVariables)}
+              className="flex items-center gap-2 text-sm font-semibold hover:text-primary transition-colors"
+            >
+              {showVariables ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              Variables ({Object.keys(variables).length})
+            </button>
+            
+            {showVariables && (
+              <div className="ml-4 space-y-2">
+                {Object.entries(variables).map(([varName, varData]) => (
+                  <div key={varName} className="border rounded-md p-2 bg-muted/30">
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={() => toggleVariable(varName)}
+                        className="flex items-center gap-2 text-sm hover:text-primary transition-colors flex-1 text-left"
+                      >
+                        {expandedVariables.has(varName) ? 
+                          <ChevronDown className="h-3 w-3" /> : 
+                          <ChevronRight className="h-3 w-3" />
+                        }
+                        <span className="font-mono font-medium">{varName}</span>
+                        {varData.info && (
+                          <span className="text-xs text-muted-foreground">
+                            [{varData.info.shape.join(' × ')}]
+                          </span>
+                        )}
+                      </button>
+                      {loadingVariable === varName && <Spinner className="h-3 w-3" />}
+                    </div>
+
+                    {expandedVariables.has(varName) && varData.info && (
+                      <div className="mt-2 ml-5 space-y-2 text-xs">
+                        <div className="grid grid-cols-[100px_1fr] gap-x-2 gap-y-1">
+                          <span className="text-muted-foreground">Type:</span>
+                          <span className="font-mono">{varData.info.dtype}</span>
+                          
+                          <span className="text-muted-foreground">Shape:</span>
+                          <span className="font-mono">[{varData.info.shape.join(', ')}]</span>
+                          
+                          <span className="text-muted-foreground">Dimensions:</span>
+                          <span className="font-mono">{varData.info.dims.map((d: any) => d.name).join(', ')}</span>
+                          
+                          <span className="text-muted-foreground">Size:</span>
+                          <span>{varData.info.size.toLocaleString()} elements</span>
+                        </div>
+
+                        {/* Data Loading Controls */}
+                        <div className="pt-2 border-t space-y-2">
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => loadVariableData(varName)}
+                              disabled={loadingVariable === varName}
+                              className="h-7 text-xs cursor-pointer"
+                            >
+                              Load Full Data
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                // Load first 10 elements as a slice
+                                const start = varData.info.shape.map(() => 0);
+                                const count = [...varData.info.shape];
+                                count[0] = Math.min(10, count[0]);
+                                loadVariableData(varName, { start, count });
+                              }}
+                              disabled={loadingVariable === varName}
+                              className="h-7 text-xs cursor-pointer"
+                            >
+                              Load Sample (first 10)
+                            </Button>
+                          </div>
+
+                          {/* Data Display */}
+                          {varData.data && (
+                            <div className="bg-background p-2 rounded border">
+                              <div className="text-xs text-muted-foreground mb-1">
+                                {varData.slice ? 
+                                  `Slice: start=[${varData.slice.start.join(', ')}], count=[${varData.slice.count.join(', ')}]` :
+                                  'Full data:'
+                                }
+                              </div>
+                              <pre className="text-xs font-mono overflow-x-auto">
+                                {formatDataPreview(varData.data, 20)}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {Object.keys(variables).length === 0 && (
+                  <p className="text-sm text-muted-foreground italic ml-4">No variables in this group</p>
+                )}
+              </div>
+            )}
           </div>
-        </>
+
+          {/* Subgroups Section */}
+          {groups && Object.keys(groups).length > 0 && (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold">Subgroups:</div>
+              <div className="ml-4 flex flex-wrap gap-2">
+                {Object.entries(groups).map(([name]) => (
+                  <Button
+                    key={name}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleGroupChange(name)}
+                    disabled={isLoading}
+                    className="h-8 text-xs cursor-pointer"
+                  >
+                    {name}
+                    <ChevronRight className="h-3 w-3 ml-1" />
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Attributes Section */}
+          <div className="space-y-2">
+            <button
+              onClick={() => setShowAttributes(!showAttributes)}
+              className="flex items-center gap-2 text-sm font-semibold hover:text-primary transition-colors"
+            >
+              {showAttributes ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              Attributes ({Object.keys(attributes).length})
+            </button>
+            
+            {showAttributes && (
+              <div className="ml-4 space-y-1">
+                {Object.entries(attributes).map(([key, value]) => (
+                  <div key={key} className="grid grid-cols-[150px_1fr] gap-2 text-xs">
+                    <span className="font-mono text-muted-foreground truncate">{key}:</span>
+                    <span className="font-mono break-all">
+                      {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                    </span>
+                  </div>
+                ))}
+                {Object.keys(attributes).length === 0 && (
+                  <p className="text-sm text-muted-foreground italic">No attributes in this group</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       )}
+
       <BrowzarrCTA />
     </div>
   );

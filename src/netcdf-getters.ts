@@ -279,22 +279,53 @@ export function getVariableArray(
     let varid = isId ? variable as number : 0
     if (!isId) {
         const result = module.nc_inq_varid(workingNcid, variable)
+        if (result.result !== NC_CONSTANTS.NC_NOERR) {
+            throw new Error(`Failed to get variable id for '${variable}' (error: ${result.result})`);
+        }
         varid = result.varid as number
     }
+    
     const info = getVariableInfo(module, workingNcid, varid)
     const arraySize = info.size
     const arrayType = info.nctype
-    if (!arrayType || !arraySize) throw new Error("Failed to allocate memory for array")
+    
+    console.log(`Loading variable array: size=${arraySize}, type=${arrayType}, shape=[${info.shape.join(', ')}]`);
+    
+    if (!arrayType) throw new Error("Failed to get array type")
+    if (!arraySize || arraySize === 0) throw new Error("Array size is 0 or undefined")
+    
+    // Safety check for very large arrays
+    const maxSize = 100 * 1024 * 1024; // 100MB limit for safety
+    const byteSize = arraySize * DATA_TYPE_SIZE[arrayType];
+    if (byteSize > maxSize) {
+        throw new Error(`Array too large: ${byteSize} bytes (${arraySize} elements). Use slicing for large arrays.`);
+    }
+    
     let arrayData;
-    if (arrayType === 2) arrayData = module.nc_get_var_text(workingNcid, varid, arraySize);
-    else if (arrayType === 3) arrayData = module.nc_get_var_short(workingNcid, varid, arraySize);
-    else if (arrayType === 4) arrayData = module.nc_get_var_int(workingNcid, varid, arraySize);
-    else if (arrayType === 10) arrayData = module.nc_get_var_longlong(workingNcid, varid, arraySize);
-    else if (arrayType === 5) arrayData = module.nc_get_var_float(workingNcid, varid, arraySize);
-    else if (arrayType === 6) arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
-    else arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
-    if (!arrayData.data) throw new Error("Failed to read array data")
-    return arrayData.data
+    try {
+        if (arrayType === 2) arrayData = module.nc_get_var_text(workingNcid, varid, arraySize);
+        else if (arrayType === 3) arrayData = module.nc_get_var_short(workingNcid, varid, arraySize);
+        else if (arrayType === 4) arrayData = module.nc_get_var_int(workingNcid, varid, arraySize);
+        else if (arrayType === 10) arrayData = module.nc_get_var_longlong(workingNcid, varid, arraySize);
+        else if (arrayType === 5) arrayData = module.nc_get_var_float(workingNcid, varid, arraySize);
+        else if (arrayType === 6) arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+        else arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+        
+        if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
+            throw new Error(`nc_get_var failed with error code: ${arrayData.result}`);
+        }
+        
+        if (!arrayData.data) {
+            throw new Error("nc_get_var returned no data")
+        }
+        
+        console.log(`Successfully loaded ${arrayData.data.length} elements`);
+        return arrayData.data;
+        
+    } catch (err) {
+        console.error('Error in getVariableArray:', err);
+        throw new Error(`Failed to read array data: ${err}`);
+    }
 }
 
 export function getSlicedVariableArray(
@@ -310,22 +341,57 @@ export function getSlicedVariableArray(
     let varid = isId ? variable as number : 0
     if (!isId) {
         const result = module.nc_inq_varid(workingNcid, variable)
+        if (result.result !== NC_CONSTANTS.NC_NOERR) {
+            throw new Error(`Failed to get variable id for '${variable}' (error: ${result.result})`);
+        }
         varid = result.varid as number
     }
+    
     const info = getVariableInfo(module, workingNcid, varid)
     const arrayType = info.nctype
-    if (!arrayType) throw new Error("Failed to allocate memory for array")
-    let arrayData;
-    if (arrayType === 3) arrayData = module.nc_get_vara_short(workingNcid, varid, start, count);
-    else if (arrayType === 4) arrayData = module.nc_get_vara_int(workingNcid, varid, start, count);
-    else if (arrayType === 5) arrayData = module.nc_get_vara_float(workingNcid, varid, start, count);
-    else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
-    else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
-    if (!arrayData.data) {
-        console.log(arrayData)
-        throw new Error("Failed to read array data")
+    
+    // Calculate total elements in the slice
+    const totalElements = count.reduce((a, b) => a * b, 1);
+    console.log(`Loading sliced array: start=[${start.join(', ')}], count=[${count.join(', ')}], total=${totalElements}, type=${arrayType}`);
+    
+    if (!arrayType) throw new Error("Failed to get array type")
+    if (totalElements === 0) throw new Error("Slice size is 0")
+    
+    // Validate start and count arrays match dimensions
+    if (start.length !== info.shape.length || count.length !== info.shape.length) {
+        throw new Error(`Dimension mismatch: variable has ${info.shape.length} dimensions, but start/count have ${start.length}/${count.length}`);
     }
-    return arrayData.data
+    
+    // Validate start + count doesn't exceed shape
+    for (let i = 0; i < start.length; i++) {
+        if (start[i] + count[i] > info.shape[i]) {
+            throw new Error(`Slice out of bounds for dimension ${i}: start=${start[i]}, count=${count[i]}, shape=${info.shape[i]}`);
+        }
+    }
+    
+    let arrayData;
+    try {
+        if (arrayType === 3) arrayData = module.nc_get_vara_short(workingNcid, varid, start, count);
+        else if (arrayType === 4) arrayData = module.nc_get_vara_int(workingNcid, varid, start, count);
+        else if (arrayType === 5) arrayData = module.nc_get_vara_float(workingNcid, varid, start, count);
+        else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+        else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+        
+        if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
+            throw new Error(`nc_get_vara failed with error code: ${arrayData.result}`);
+        }
+        
+        if (!arrayData.data) {
+            throw new Error("nc_get_vara returned no data");
+        }
+        
+        console.log(`Successfully loaded ${arrayData.data.length} elements from slice`);
+        return arrayData.data;
+        
+    } catch (err) {
+        console.error('Error in getSlicedVariableArray:', err);
+        throw new Error(`Failed to read sliced array data: ${err}`);
+    }
 }
 
 //---- Group Functions ----//
