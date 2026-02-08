@@ -466,7 +466,7 @@ const LocalNetCDFMeta = () => {
                                   'Full data:'
                                 }
                               </div>
-                              <pre className="text-xs font-mono overflow-x-auto">
+                              <pre className="text-xs font-mono whitespace-pre-wrap break-all">
                                 {formatDataPreview(varData.data, 20)}
                               </pre>
                             </div>
@@ -521,7 +521,11 @@ const LocalNetCDFMeta = () => {
                   <div key={key} className="grid grid-cols-[150px_1fr] gap-2 text-xs">
                     <span className="font-mono text-muted-foreground truncate">{key}:</span>
                     <span className="font-mono break-all">
-                      {typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                      {typeof value === 'object'
+                        ? JSON.stringify(value, (_key, val) =>
+                            typeof val === 'bigint' ? parseInt(val.toString()) : val
+                          )
+                        : String(value)}
                     </span>
                   </div>
                 ))}

@@ -554,8 +554,8 @@ export class WasmModuleLoader {
                 count.forEach((val, i) => module.setValue(countPtr + i * 4, val, 'i32'));
                 
                 const result = nc_get_vara_text_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
-                const data = result === NC_CONSTANTS.NC_NOERR
-                    ? Array.from({ length: totalLength }, (_, i) => String.fromCharCode(module.getValue(dataPtr + i, 'i8')))
+                const data = (result === NC_CONSTANTS.NC_NOERR || result === NC_CONSTANTS.NC_ERANGE)
+                    ? new Uint8Array(module.HEAPU8.buffer, dataPtr, totalLength).slice()
                     : undefined;
                 
                 module._free(dataPtr);
