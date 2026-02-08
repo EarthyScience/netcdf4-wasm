@@ -3,6 +3,7 @@
 export const NC_CONSTANTS = {
     // Error codes
     NC_NOERR: 0,
+    NC_ERANGE: -60,
     
     // File modes
     NC_NOWRITE: 0,

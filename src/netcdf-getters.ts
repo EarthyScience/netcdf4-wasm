@@ -316,7 +316,6 @@ export function getVariableArray(
         else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
         else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
         
-        if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
         if (arrayData.result !== NC_CONSTANTS.NC_NOERR && arrayData.result !== NC_CONSTANTS.NC_ERANGE) {
             throw new Error(`nc_get_vara failed with error code: ${arrayData.result}`);
         }
@@ -327,7 +326,7 @@ export function getVariableArray(
 
         // Handle NC_CHAR (text) conversion
         if (arrayType === 2) {
-            const chars = arrayData.data as Uint8Array;
+            const chars = arrayData.data as unknown as Uint8Array;
             // If we have dimensions, the last dimension is usually the string length
             if (info.shape.length > 0) {
                 const strLen = info.shape[info.shape.length - 1];
@@ -404,7 +403,6 @@ export function getSlicedVariableArray(
         else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
         else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
         
-        if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
         if (arrayData.result !== NC_CONSTANTS.NC_NOERR && arrayData.result !== NC_CONSTANTS.NC_ERANGE) {
             throw new Error(`nc_get_vara failed with error code: ${arrayData.result}`);
         }
@@ -415,7 +413,7 @@ export function getSlicedVariableArray(
 
         // Handle NC_CHAR (text) conversion for slices
         if (arrayType === 2) {
-            const chars = arrayData.data as Uint8Array;
+            const chars = arrayData.data as unknown as Uint8Array;
             // For slices, the last dimension of 'count' is the string length
             if (count.length > 0) {
                 const strLen = count[count.length - 1];
