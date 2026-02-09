@@ -253,6 +253,45 @@ export function getVariableInfo(
     }
     const chunkElements = chunks.reduce((a: number, b: number) => a * b, 1)
 
+    // Deflate/Compression Info
+    console.log(`=== Checking compression for variable '${result.name}' (varid: ${varid}) ===`);
+    console.log('nc_inq_var_deflate available?', typeof module.nc_inq_var_deflate);
+    
+    let isCompressed = false;
+    let compressionInfo: Record<string, any> | null = null;
+    
+    if (module.nc_inq_var_deflate) {
+        const deflateResult = module.nc_inq_var_deflate(workingNcid, varid as number);
+        console.log('nc_inq_var_deflate result:', deflateResult);
+        
+        if (deflateResult.result === NC_CONSTANTS.NC_NOERR) {
+            isCompressed = deflateResult.deflate === 1;
+            compressionInfo = {
+                shuffle: deflateResult.shuffle === 1,
+                deflate: deflateResult.deflate === 1,
+                deflate_level: deflateResult.deflate_level || 0
+            };
+            
+            console.log('Compression detected:', {
+                isCompressed,
+                shuffle: compressionInfo.shuffle,
+                deflate: compressionInfo.deflate,
+                deflate_level: compressionInfo.deflate_level
+            });
+        } else {
+            console.log('nc_inq_var_deflate failed with error:', deflateResult.result);
+        }
+    } else {
+        console.warn('⚠️ nc_inq_var_deflate function not available in WASM module');
+    }
+    
+    console.log('Variable compression summary:', {
+        name: result.name,
+        isChunked,
+        isCompressed,
+        compressionInfo
+    });
+
     //Output 
     info["name"] = result.name
     info["dtype"] = CONSTANT_DTYPE_MAP[result.type as number]
@@ -265,6 +304,13 @@ export function getVariableInfo(
     info["chunked"] = isChunked
     info["chunks"] = chunks
     info["chunkSize"] = chunkElements * typeMultiplier
+    info["compressed"] = isCompressed
+    info["compression"] = compressionInfo
+
+    // Add warning if compressed
+    if (isCompressed) {
+        console.warn(`⚠️ Variable '${result.name}' is compressed (deflate level ${compressionInfo?.deflate_level}). Reading may fail if zlib filter is not available in WASM build.`);
+    }
 
     return info;
 }

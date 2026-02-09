@@ -100,6 +100,7 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_inq_grpname: (ncid: number) => { result: number; name?: string };
     nc_inq_grp_parent: (ncid: number) => { result: number; parent_ncid?: number };
     nc_inq_grp_full_ncid: (ncid: number, full_name: string) => { result: number; grp_ncid?: number };
+    nc_inq_var_deflate: (ncid: number, varid: number) => { result: number; shuffle?: number; deflate?: number; deflate_level?: number };
 }
 
 export interface NetCDF4WasmOptions {

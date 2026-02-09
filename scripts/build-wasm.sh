@@ -259,6 +259,10 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
         -DHDF5_ENABLE_TESTS=OFF \
         -DCMAKE_C_BYTE_ORDER=LITTLE_ENDIAN \
         -DHDF5_DISABLE_COMPILER_WARNINGS=ON \
+        -DHDF5_ENABLE_Z_LIB_SUPPORT=ON \
+        -DHDF5_ENABLE_ZLIB_SUPPORT=ON \
+        -DALLOW_UNSUPPORTED=ON \
+        -DH5_ZLIB_HEADER="zlib.h" \
         -DZLIB_ROOT="$INSTALL_DIR" \
         -DZLIB_INCLUDE_DIR="$INSTALL_DIR/include" \
         -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a"
@@ -356,6 +360,8 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
         -DBUILD_UTILITIES=OFF \
         -DBUILD_TESTING=OFF \
         -DENABLE_TESTS=OFF \
+        -DENABLE_FILTER_DEFLATE=ON \
+        -DENABLE_ZLIB=ON \
         -DCMAKE_C_BYTE_ORDER=LITTLE_ENDIAN \
         -DWORDS_BIGENDIAN=OFF \
         -DHDF5_USE_STATIC_LIBRARIES=ON \
@@ -1020,6 +1026,7 @@ check_command emcc netcdf_wrapper.c \
     -s EXPORTED_FUNCTIONS='["_malloc","_free"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s INITIAL_MEMORY=16777216 \
+    -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
     --pre-js "$PROJECT_ROOT/bindings/pre.js" \
     --post-js "$PROJECT_ROOT/bindings/post.js" \
     -O2 \
