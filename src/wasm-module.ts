@@ -588,8 +588,8 @@ export class WasmModuleLoader {
             nc_get_var_text: (ncid: number, varid: number, length: number) => {
                 const dataPtr = module._malloc(length);
                 const result = nc_get_var_text_wrapper(ncid, varid, dataPtr);
-                const data = result === NC_CONSTANTS.NC_NOERR
-                    ? Array.from({ length }, (_, i) => module.UTF8ToString(module.getValue(dataPtr + i, 'i8')))
+                const data = (result === NC_CONSTANTS.NC_NOERR || result === NC_CONSTANTS.NC_ERANGE)
+                    ? new Uint8Array(module.HEAPU8.buffer, dataPtr, length).slice()
                     : undefined;
                 module._free(dataPtr);
                 return { result, data };

@@ -80,7 +80,7 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_get_att_longlong(ncid: number, varid: number, name: string, length: number): { result: number; data?: BigInt[] }
 
     // 5. Variable Getters
-    nc_get_var_text: (ncid: number, varid: number,  length: number) => { result: number; data?: string[] };
+    nc_get_var_text: (ncid: number, varid: number,  length: number) => { result: number; data?: Uint8Array };
     nc_get_var_short: (ncid: number, varid: number,  length: number) => { result: number; data?: Int16Array };
     nc_get_var_int: (ncid: number, varid: number,  length: number) => { result: number; data?: Int32Array };
     nc_get_var_longlong: (ncid: number, varid: number,  length: number) => { result: number; data?: BigInt64Array };

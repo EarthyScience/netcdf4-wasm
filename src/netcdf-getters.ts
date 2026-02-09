@@ -310,7 +310,6 @@ export function getVariableArray(
     if (!arrayType) throw new Error("Failed to get array type")
     if (!arraySize || arraySize === 0) throw new Error("Array size is 0 or undefined")
     
-    let arrayData;
     try {
         const rank = info.shape.length;
 
@@ -323,10 +322,33 @@ export function getVariableArray(
         );
 
         if (arrayType === 2) {
-            // IMPORTANT: wasm builds expect full read for text
-            arrayData = module.nc_get_var_text(workingNcid, varid, arraySize);
+            const textData = module.nc_get_var_text(workingNcid, varid, arraySize);
+            if (textData.result !== NC_CONSTANTS.NC_NOERR) {
+                throw new Error(`nc_get_var_text failed with error code: ${textData.result}`);
+            }
+            if (!textData.data) {
+                throw new Error("nc_get_var_text returned no data");
+            }
+            const chars = textData.data;
+            const shape = info.shape;
+            const decoder = new TextDecoder();
+            if (shape.length <= 1) {
+                return [decoder.decode(chars).replace(/\0/g, '')];
+            }
+            const strLen = shape[shape.length - 1];
+            if (strLen === 0) return [];
+            const numStrings = chars.length / strLen;
+            const strings: string[] = [];
+            for (let i = 0; i < numStrings; i++) {
+                const start = i * strLen;
+                const end = start + strLen;
+                strings.push(decoder.decode(chars.subarray(start, end)).replace(/\0/g, ''));
+            }
+            return strings;
         }
-        else if (rank === 0) {
+
+        let arrayData;
+        if (rank === 0) {
             if (arrayType === 3) arrayData = module.nc_get_var_short(workingNcid, varid, arraySize);
             else if (arrayType === 4) arrayData = module.nc_get_var_int(workingNcid, varid, arraySize);
             else if (arrayType === 10) arrayData = module.nc_get_var_longlong(workingNcid, varid, arraySize);
@@ -356,18 +378,7 @@ export function getVariableArray(
     throw new Error("nc_get_var returned no data")
 }
 
-    console.log(`Successfully loaded ${arrayData.data.length} elements`);
-    // Log first 10 values - handle different array types
-    const firstTen = arrayData.data.slice(0, 10);
-    if (firstTen instanceof BigInt64Array) {
-        console.log('First 10 values:', Array.from(firstTen).map(v => v.toString()));
-    } else if (typeof firstTen[0] === 'string') {
-        console.log('First 10 values:', firstTen);
-    } else {
-        console.log('First 10 values:', Array.from(firstTen as ArrayLike<number>));
-    }
-
-    return arrayData.data;
+        return arrayData.data;
         
     } catch (err) {
         console.error('=== ERROR in getVariableArray ===');
@@ -420,40 +431,48 @@ export function getSlicedVariableArray(
     
     let arrayData;
     try {
-        if (arrayType === 3) arrayData = module.nc_get_vara_short(workingNcid, varid, start, count);
-        else if (arrayType === 4) arrayData = module.nc_get_vara_int(workingNcid, varid, start, count);
-        else if (arrayType === 5) arrayData = module.nc_get_vara_float(workingNcid, varid, start, count);
-        else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
-        else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
-        
-        if (arrayData.result !== NC_CONSTANTS.NC_NOERR && arrayData.result !== NC_CONSTANTS.NC_ERANGE) {
-            throw new Error(`nc_get_vara failed with error code: ${arrayData.result}`);
-        }
-        
-        if (!arrayData.data) {
-            throw new Error("nc_get_vara returned no data");
-        }
-
         // Handle NC_CHAR (text) conversion for slices
         if (arrayType === 2) {
-            const chars = arrayData.data as unknown as Uint8Array;
+            const textData = module.nc_get_vara_text(workingNcid, varid, start, count);
+            if (textData.result !== NC_CONSTANTS.NC_NOERR && textData.result !== NC_CONSTANTS.NC_ERANGE) {
+                throw new Error(`nc_get_vara_text failed with error code: ${textData.result}`);
+            }
+            if (!textData.data) {
+                throw new Error("nc_get_vara_text returned no data");
+            }
+            const chars = textData.data;
             // For slices, the last dimension of 'count' is the string length
             if (count.length > 0) {
                 const strLen = count[count.length - 1];
+                if (strLen === 0) return [];
                 const numStrings = chars.length / strLen;
                 const strings: string[] = [];
                 const decoder = new TextDecoder();
                 
                 for (let i = 0; i < numStrings; i++) {
-                    const start = i * strLen;
-                    const end = start + strLen;
-                    strings.push(decoder.decode(chars.subarray(start, end)).replace(/\0/g, ''));
+                    const strStart = i * strLen;
+                    const strEnd = strStart + strLen;
+                    strings.push(decoder.decode(chars.subarray(strStart, strEnd)).replace(/\0/g, ''));
                 }
                 return strings;
             }
             return [new TextDecoder().decode(chars).replace(/\0/g, '')];
         }
         
+        if (arrayType === 3) arrayData = module.nc_get_vara_short(workingNcid, varid, start, count);
+        else if (arrayType === 4) arrayData = module.nc_get_vara_int(workingNcid, varid, start, count);
+        else if (arrayType === 5) arrayData = module.nc_get_vara_float(workingNcid, varid, start, count);
+        else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+        else if (arrayType === 10) arrayData = module.nc_get_vara_longlong(workingNcid, varid, start, count);
+        else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+        
+        if (arrayData.result !== NC_CONSTANTS.NC_NOERR && arrayData.result !== NC_CONSTANTS.NC_ERANGE) {
+            throw new Error(`nc_get_vara failed with error code: ${arrayData.result}`);
+        }
+        if (!arrayData.data) {
+            throw new Error("nc_get_vara returned no data");
+        }
+
         console.log(`Successfully loaded ${arrayData.data.length} elements from slice`);
         return arrayData.data;
         
