@@ -312,15 +312,39 @@ export function getVariableArray(
     
     let arrayData;
     try {
-        console.log('Calling nc_get_var with type', arrayType);
-        
-        if (arrayType === 2) arrayData = module.nc_get_var_text(workingNcid, varid, arraySize);
-        else if (arrayType === 3) arrayData = module.nc_get_var_short(workingNcid, varid, arraySize);
-        else if (arrayType === 4) arrayData = module.nc_get_var_int(workingNcid, varid, arraySize);
-        else if (arrayType === 10) arrayData = module.nc_get_var_longlong(workingNcid, varid, arraySize);
-        else if (arrayType === 5) arrayData = module.nc_get_var_float(workingNcid, varid, arraySize);
-        else if (arrayType === 6) arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
-        else arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+        const rank = info.shape.length;
+
+        console.log(
+            arrayType === 2
+                ? 'Calling nc_get_var_text'
+                : rank === 0
+                ? 'Calling nc_get_var (scalar)'
+                : 'Calling nc_get_vara (numeric hyperslab)'
+        );
+
+        if (arrayType === 2) {
+            // IMPORTANT: wasm builds expect full read for text
+            arrayData = module.nc_get_var_text(workingNcid, varid, arraySize);
+        }
+        else if (rank === 0) {
+            if (arrayType === 3) arrayData = module.nc_get_var_short(workingNcid, varid, arraySize);
+            else if (arrayType === 4) arrayData = module.nc_get_var_int(workingNcid, varid, arraySize);
+            else if (arrayType === 10) arrayData = module.nc_get_var_longlong(workingNcid, varid, arraySize);
+            else if (arrayType === 5) arrayData = module.nc_get_var_float(workingNcid, varid, arraySize);
+            else if (arrayType === 6) arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+            else arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+        }
+        else {
+            const start = new Array(rank).fill(0);
+            const count = [...info.shape];
+
+            if (arrayType === 3) arrayData = module.nc_get_vara_short(workingNcid, varid, start, count);
+            else if (arrayType === 4) arrayData = module.nc_get_vara_int(workingNcid, varid, start, count);
+            else if (arrayType === 10) arrayData = module.nc_get_vara_longlong(workingNcid, varid, start, count);
+            else if (arrayType === 5) arrayData = module.nc_get_vara_float(workingNcid, varid, start, count);
+            else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+            else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+        }
         
         console.log('nc_get_var returned:', arrayData);
         
