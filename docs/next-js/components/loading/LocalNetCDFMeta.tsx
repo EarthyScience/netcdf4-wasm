@@ -229,23 +229,27 @@ const LocalNetCDFMeta = () => {
     if (!dataset || !variables) return;
     
     setLoadingVariable(varName);
-    setError(null); // Clear previous errors
+    setError(null);
     
     try {
       console.log(`Loading data for ${varName}`, slice ? `with slice ${JSON.stringify(slice)}` : 'full array');
+      console.log('Current group path:', currentGroup.path);
+      
+      // Use the current group path so the getter uses the correct ncid
+      const groupPathForQuery = currentGroup.path === '/' ? undefined : currentGroup.path;
       
       let data;
       if (slice) {
         data = await dataset.getSlicedVariableArray(
-          varName, 
+          varName,  // Use variable name, not ID
           slice.start, 
           slice.count,
-          currentGroup.path === '/' ? undefined : currentGroup.path
+          groupPathForQuery  // This ensures we use the right ncid
         );
       } else {
         data = await dataset.getVariableArray(
-          varName,
-          currentGroup.path === '/' ? undefined : currentGroup.path
+          varName,  // Use variable name, not ID
+          groupPathForQuery  // This ensures we use the right ncid
         );
       }
       
@@ -259,14 +263,6 @@ const LocalNetCDFMeta = () => {
       console.error('Error loading variable data:', err);
       const errorMsg = err.message || String(err);
       setError(`Failed to load data for ${varName}: ${errorMsg}`);
-      
-      // Also log to console for debugging
-      console.error('Full error details:', {
-        variable: varName,
-        slice,
-        error: err,
-        stack: err.stack
-      });
     } finally {
       setLoadingVariable(null);
     }

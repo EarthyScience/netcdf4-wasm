@@ -27,6 +27,7 @@ export function getVariables(
 
         variables[nameResult.name] = {
             id: varid,
+            ncid: workingNcid  // CRITICAL: Store the ncid where this variable lives!
         };
     }
     return variables;
@@ -275,55 +276,81 @@ export function getVariableArray(
     groupPath?: string
 ): Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[] {
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
-    let varid = typeof variable === "number" ? variable : 0;
-    if (typeof variable !== "number") {
-        const result = module.nc_inq_varid(workingNcid, variable);
-        if (result.result !== NC_CONSTANTS.NC_NOERR) throw new Error(`Failed to get variable id for '${variable}'`);
-        varid = result.varid as number;
+    
+    console.log('=== getVariableArray DEBUG ===');
+    console.log('Input ncid:', ncid);
+    console.log('Working ncid:', workingNcid);
+    console.log('Variable:', variable);
+    console.log('Group path:', groupPath);
+    
+    const isId = typeof variable === "number"
+    let varid = isId ? variable as number : 0
+    if (!isId) {
+        console.log('Getting varid for variable name:', variable);
+        const result = module.nc_inq_varid(workingNcid, variable)
+        console.log('nc_inq_varid result:', result);
+        if (result.result !== NC_CONSTANTS.NC_NOERR) {
+            throw new Error(`Failed to get variable id for '${variable}' (error: ${result.result})`);
+        }
+        varid = result.varid as number
     }
-
-    const info = getVariableInfo(module, workingNcid, varid);
-    const arrayType = info.nctype;
-
-    // Hyperslab for full variable
-    const start = new Array(info.shape.length).fill(0);
-    const count = info.shape;
-
+    
+    console.log('Using varid:', varid);
+    
+    const info = getVariableInfo(module, workingNcid, varid)
+    console.log('Variable info:', info);
+    
+    const arraySize = info.size
+    const arrayType = info.nctype
+    
+    console.log(`Array size: ${arraySize}, type: ${arrayType} (${info.dtype})`);
+    console.log(`Shape: [${info.shape.join(', ')}]`);
+    console.log(`Byte size: ${arraySize * DATA_TYPE_SIZE[arrayType]} bytes`);
+    
+    if (!arrayType) throw new Error("Failed to get array type")
+    if (!arraySize || arraySize === 0) throw new Error("Array size is 0 or undefined")
+    
     let arrayData;
     try {
-        if (arrayType === 2) arrayData = module.nc_get_vara_text(workingNcid, varid, start, count);
-        else if (arrayType === 3) arrayData = module.nc_get_vara_short(workingNcid, varid, start, count);
-        else if (arrayType === 4) arrayData = module.nc_get_vara_int(workingNcid, varid, start, count);
-        else if (arrayType === 10) arrayData = module.nc_get_vara_longlong(workingNcid, varid, start, count);
-        else if (arrayType === 5) arrayData = module.nc_get_vara_float(workingNcid, varid, start, count);
-        else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
-        else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
-
-        if (!arrayData.data) throw new Error("nc_get_vara returned no data");
-
-        if (arrayType === 2) {
-            // Convert to string[]
-            const chars = arrayData.data as Uint8Array;
-            const strLen = info.shape[info.shape.length - 1];
-            const numStrings = chars.length / strLen;
-            const strings: string[] = [];
-            const decoder = new TextDecoder();
-            for (let i = 0; i < numStrings; i++) {
-                const s = decoder.decode(chars.subarray(i * strLen, (i + 1) * strLen)).replace(/\0/g, '');
-                strings.push(s);
-            }
-            return strings;
-        } else {
-            // Numeric arrays
-            return arrayData.data as Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array;
+        console.log('Calling nc_get_var with type', arrayType);
+        
+        if (arrayType === 2) arrayData = module.nc_get_var_text(workingNcid, varid, arraySize);
+        else if (arrayType === 3) arrayData = module.nc_get_var_short(workingNcid, varid, arraySize);
+        else if (arrayType === 4) arrayData = module.nc_get_var_int(workingNcid, varid, arraySize);
+        else if (arrayType === 10) arrayData = module.nc_get_var_longlong(workingNcid, varid, arraySize);
+        else if (arrayType === 5) arrayData = module.nc_get_var_float(workingNcid, varid, arraySize);
+        else if (arrayType === 6) arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+        else arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+        
+        console.log('nc_get_var returned:', arrayData);
+        
+        if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
+            throw new Error(`nc_get_var failed with error code: ${arrayData.result}`);
         }
-    } catch (err) {
-        console.error('Error in getVariableArray:', err);
-        throw new Error(`Failed to read array data: ${err}`);
+        
+        if (!arrayData.data) {
+    throw new Error("nc_get_var returned no data")
+}
+
+    console.log(`Successfully loaded ${arrayData.data.length} elements`);
+    // Log first 10 values - handle different array types
+    const firstTen = arrayData.data.slice(0, 10);
+    if (firstTen instanceof BigInt64Array) {
+        console.log('First 10 values:', Array.from(firstTen).map(v => v.toString()));
+    } else if (typeof firstTen[0] === 'string') {
+        console.log('First 10 values:', firstTen);
+    } else {
+        console.log('First 10 values:', Array.from(firstTen as ArrayLike<number>));
     }
 
-    // <-- This satisfies TS even though unreachable
-    throw new Error("Failed to get variable array: unknown error");
+    return arrayData.data;
+        
+    } catch (err) {
+        console.error('=== ERROR in getVariableArray ===');
+        console.error('Error:', err);
+        console.error('Stack:', (err as Error).stack);
+        throw new Error(`Failed to read array data: ${err}`);
+    }
 }
 
 export function getSlicedVariableArray(
@@ -575,7 +602,7 @@ export function getCompleteHierarchy(
 ): Record<string, any> {
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
     
-    // Get variables at this level
+    // Get variables at this level (now includes ncid)
     const variables = getVariables(module, workingNcid);
     
     // Get dimensions at this level
@@ -599,6 +626,7 @@ export function getCompleteHierarchy(
     }
     
     return {
+        ncid: workingNcid,  // Include the ncid at this level
         variables,
         dimensions,
         attributes,
