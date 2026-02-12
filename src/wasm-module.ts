@@ -562,12 +562,11 @@ export class WasmModuleLoader {
                 return { result, data };
             },
             //---- Full Variable Getters ----//
-
             nc_get_var_text: (ncid: number, varid: number, length: number) => {
                 const dataPtr = module._malloc(length);
                 const result = nc_get_var_text_wrapper(ncid, varid, dataPtr);
                 const data = result === NC_CONSTANTS.NC_NOERR
-                    ? Array.from({ length }, (_, i) => module.UTF8ToString(module.getValue(dataPtr + i, 'i8')))
+                    ? [new TextDecoder().decode(module.HEAPU8.subarray(dataPtr, dataPtr + length)).replace(/\0/g, '')]
                     : undefined;
                 module._free(dataPtr);
                 return { result, data };
