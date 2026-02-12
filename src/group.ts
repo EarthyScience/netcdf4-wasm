@@ -178,7 +178,7 @@ export class Group {
         }
 
         // 2. Variables
-        const vars = await this.netcdf.getVariables(this.path);
+        const vars = await this.netcdf.getGroupVariables(this.path);
         for (const key in this.variables) delete this.variables[key];
 
         for (const [name, v] of Object.entries(vars)) {

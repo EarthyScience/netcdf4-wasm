@@ -1,7 +1,7 @@
 import { NC_CONSTANTS, DATA_TYPE_SIZE, CONSTANT_DTYPE_MAP } from './constants.js';
 import type { NetCDF4Module } from './types.js';
 
-export function getVariables(
+export function getGroupVariables(
     module: NetCDF4Module,
     ncid: number,
     groupPath?: string
@@ -512,7 +512,7 @@ export function getCompleteHierarchy(
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
     
     // Get variables at this level (now includes ncid)
-    const variables = getVariables(module, workingNcid);
+    const variables = getGroupVariables(module, workingNcid);
     
     // Get dimensions at this level
     const dimensions = getDims(module, workingNcid);
@@ -551,7 +551,7 @@ export function getCompleteHierarchy(
  * @param currentPath - Current path (used internally for recursion)
  * @returns Flat dictionary with full variable paths
  */
-export function getAllVariablesRecursive(
+export function getVariables(
     module: NetCDF4Module,
     ncid: number,
     currentPath: string = '/'
@@ -559,7 +559,7 @@ export function getAllVariablesRecursive(
     const allVars: Record<string, any> = {};
     
     // Get variables at current level
-    const vars = getVariables(module, ncid);
+    const vars = getGroupVariables(module, ncid);
     for (const [name, varData] of Object.entries(vars)) {
         const fullPath = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
         allVars[fullPath] = { ...varData, path: currentPath, ncid };
@@ -572,7 +572,7 @@ export function getAllVariablesRecursive(
             const nameResult = module.nc_inq_grpname(grpid);
             if (nameResult.result === NC_CONSTANTS.NC_NOERR && nameResult.name) {
                 const newPath = currentPath === '/' ? `/${nameResult.name}` : `${currentPath}/${nameResult.name}`;
-                const subVars = getAllVariablesRecursive(module, grpid, newPath);
+                const subVars = getVariables(module, grpid, newPath);
                 Object.assign(allVars, subVars);
             }
         }

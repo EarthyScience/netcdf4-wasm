@@ -367,12 +367,12 @@ export class NetCDF4 extends Group {
         }
     }
 
-    async getVariables(groupPath?: string): Promise<Record<string, any>> {
+    async getGroupVariables(groupPath?: string): Promise<Record<string, any>> {
         if (this.worker) {
-            return this.callWorker('getVariables', { groupPath })
+            return this.callWorker('getGroupVariables', { groupPath })
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getVariables(this.module as NetCDF4Module, this.ncid, groupPath);
+            return NCGet.getGroupVariables(this.module as NetCDF4Module, this.ncid, groupPath);
         }
     }
 
@@ -783,11 +783,11 @@ export class NetCDF4 extends Group {
      * Get all variables recursively from all groups
      * Returns a flat dictionary with full path keys like "/group1/var1"
      */
-    async getAllVariablesRecursive(): Promise<Record<string, any>> {
+    async getVariables(): Promise<Record<string, any>> {
         if (this.worker) {
-            return this.callWorker('getAllVariablesRecursive');
+            return this.callWorker('getVariables');
         } else {
-            return NCGet.getAllVariablesRecursive(this.module as NetCDF4Module, this.ncid);
+            return NCGet.getVariables(this.module as NetCDF4Module, this.ncid);
         }
     }
 }

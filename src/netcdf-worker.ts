@@ -111,9 +111,9 @@ self.onmessage = async (e: MessageEvent) => {
                 break;
 
             // ---- Vars ----
-            case 'getVariables':
-                // console.log('Worker: getVariables', data.ncid);
-                result = NCGet.getVariables(mod, data.ncid, data.groupPath);
+            case 'getGroupVariables':
+                // console.log('Worker: getGroupVariables', data.ncid);
+                result = NCGet.getGroupVariables(mod, data.ncid, data.groupPath);
                 break;
 
             case 'getVarIDs':
@@ -176,8 +176,8 @@ self.onmessage = async (e: MessageEvent) => {
                 result = NCGet.getCompleteHierarchy(mod, data.ncid, data.groupPath);
                 break;
 
-            case 'getAllVariablesRecursive':
-                result = NCGet.getAllVariablesRecursive(mod, data.ncid);
+            case 'getVariables':
+                result = NCGet.getVariables(mod, data.ncid);
                 break;
 
             default:
