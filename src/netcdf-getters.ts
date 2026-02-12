@@ -76,9 +76,10 @@ export function getDims(
 
 export function getDimIDs(
     module: NetCDF4Module,
-    ncid: number
+    ncid: number,
+    includeParents: boolean = false
 ): number[] | Int32Array {    
-    const result = module.nc_inq_dimids(ncid, 0);
+    const result = module.nc_inq_dimids(ncid, includeParents ? 1 : 0);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
         throw new Error(`Failed to get dimension IDs (error: ${result.result})`);
     }
@@ -352,6 +353,7 @@ export function getSlicedVariableArray(
 
 /**
  * Get group ncid by path (supports nested groups)
+ * Uses nc_inq_grp_full_ncid for absolute paths and manual traversal for relative paths
  * @param module - NetCDF4 module
  * @param ncid - Current ncid (can be root or any group)
  * @param groupPath - Can be absolute ("/group1/subgroup") or relative ("subgroup" or "group1/subgroup")
@@ -367,22 +369,46 @@ export function getGroupNCID(
         return ncid;
     }
     
-    // Manual traversal (handles both relative and absolute paths by stripping leading /)
-    const cleanPath = groupPath.startsWith('/') ? groupPath.substring(1) : groupPath;
-    const parts = cleanPath.split('/').filter(p => p.length > 0);
+    // Try using nc_inq_grp_full_ncid for absolute paths (more efficient)
+    if (groupPath.startsWith('/')) {
+        const result = module.nc_inq_grp_full_ncid(ncid, groupPath);
+        if (result.result === NC_CONSTANTS.NC_NOERR) {
+            return result.grp_ncid as number;
+        }
+        
+        // Get current path for better error message
+        const currentPath = getGroupPath(module, ncid);
+        throw new Error(
+            `Failed to find group '${groupPath}' from '${currentPath}' (error: ${result.result})`
+        );
+    }
     
+    // Manual traversal for relative paths
+    const parts = groupPath.split('/').filter(p => p.length > 0);
     let currentNcid = ncid;
     
     for (const part of parts) {
         const result = module.nc_inq_grp_ncid(currentNcid, part);
         if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get group ncid for '${part}' in path '${groupPath}' (error: ${result.result})`);
+            const currentPath = getGroupPath(module, currentNcid);
+            throw new Error(
+                `Failed to get group ncid for '${part}' in path '${groupPath}' from '${currentPath}' (error: ${result.result})`
+            );
         }
         currentNcid = result.grp_ncid as number;
     }
     
     return currentNcid;
 }
+
+/**
+ * Alias for getGroupNCID (matches nc_inq_ncid API)
+ * @param module - NetCDF4 module
+ * @param ncid - Current ncid
+ * @param groupName - Group name or path
+ * @returns The ncid of the requested group
+ */
+export const getNCID = getGroupNCID;
 
 /**
  * Get immediate child groups (non-recursive)
@@ -462,6 +488,7 @@ export function getGroupName(
 
 /**
  * Get the full absolute path of a group
+ * Uses nc_inq_grpname_full for efficient path retrieval
  * @param module - NetCDF4 module
  * @param ncid - Group ncid
  * @returns Full path like "/group1/subgroup"
@@ -470,30 +497,47 @@ export function getGroupPath(
     module: NetCDF4Module,
     ncid: number
 ): string {
-    const parts: string[] = [];
-    let currentNcid = ncid;
-    
-    while (true) {
-        const nameResult = module.nc_inq_grpname(currentNcid);
-        if (nameResult.result !== NC_CONSTANTS.NC_NOERR) {
-            break;
-        }
-        
-        if (nameResult.name === '/' || !nameResult.name) {
-            break; // Reached root
-        }
-        
-        parts.unshift(nameResult.name);
-        
-        const parentResult = module.nc_inq_grp_parent(currentNcid);
-        if (parentResult.result !== NC_CONSTANTS.NC_NOERR) {
-            break; // No parent (at root)
-        }
-        
-        currentNcid = parentResult.parent_ncid as number;
+    // Use nc_inq_grpname_full to get the complete path efficiently
+    const result = module.nc_inq_grpname_full(ncid);
+    if (result.result !== NC_CONSTANTS.NC_NOERR) {
+        throw new Error(`Failed to get group full name (error: ${result.result})`);
     }
     
-    return parts.length > 0 ? '/' + parts.join('/') : '/';
+    return result.full_name || '/';
+}
+
+/**
+ * Get the length of a group's full path name
+ * @param module - NetCDF4 module
+ * @param ncid - Group ncid
+ * @returns Length of the full group path name
+ */
+export function getGroupPathLength(
+    module: NetCDF4Module,
+    ncid: number
+): number {
+    const result = module.nc_inq_grpname_len(ncid);
+    if (result.result !== NC_CONSTANTS.NC_NOERR) {
+        throw new Error(`Failed to get group name length (error: ${result.result})`);
+    }
+    return result.lenp || 0;
+}
+
+/**
+ * Get the parent group ncid
+ * @param module - NetCDF4 module
+ * @param ncid - Group ncid
+ * @returns Parent group ncid, or null if this is the root group
+ */
+export function getGroupParent(
+    module: NetCDF4Module,
+    ncid: number
+): number | null {
+    const result = module.nc_inq_grp_parent(ncid);
+    if (result.result !== NC_CONSTANTS.NC_NOERR) {
+        return null; // No parent (at root)
+    }
+    return result.parent_ncid as number;
 }
 
 /**
@@ -502,12 +546,14 @@ export function getGroupPath(
  * @param module - NetCDF4 module
  * @param ncid - Group ncid to start from
  * @param groupPath - Optional path to a specific starting group
+ * @param includeParentDims - Whether to include parent dimensions in each group (default: false)
  * @returns Complete hierarchical structure
  */
 export function getCompleteHierarchy(
     module: NetCDF4Module,
     ncid: number,
-    groupPath?: string
+    groupPath?: string,
+    includeParentDims: boolean = false
 ): Record<string, any> {
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
     
@@ -517,8 +563,33 @@ export function getCompleteHierarchy(
     // Get dimensions at this level
     const dimensions = getDims(module, workingNcid);
     
+    // If includeParentDims is true, also get parent dimensions
+    if (includeParentDims) {
+        const result = module.nc_inq_dimids(workingNcid, 1);
+        if (result.result === NC_CONSTANTS.NC_NOERR && result.dimids) {
+            const parentDims: Record<string, any> = {};
+            for (const dimid of result.dimids) {
+                const dim = getDim(module, workingNcid, dimid);
+                // Only add if not already in dimensions (avoid duplicates)
+                if (!dimensions[dim.name]) {
+                    parentDims[dim.name] = {
+                        size: dim.len,
+                        units: dim.units ?? null,
+                        id: dim.id,
+                        inherited: true
+                    };
+                }
+            }
+            // Merge parent dimensions
+            Object.assign(dimensions, parentDims);
+        }
+    }
+    
     // Get attributes at this level
     const attributes = getGlobalAttributes(module, workingNcid);
+    
+    // Get the full path for this group
+    const fullPath = getGroupPath(module, workingNcid);
     
     // Get subgroups and recurse
     const groupsResult = module.nc_inq_grps(workingNcid);
@@ -529,13 +600,19 @@ export function getCompleteHierarchy(
             const nameResult = module.nc_inq_grpname(grpid);
             if (nameResult.result === NC_CONSTANTS.NC_NOERR && nameResult.name) {
                 // Recursively get the complete hierarchy for this subgroup
-                subgroups[nameResult.name] = getCompleteHierarchy(module, grpid);
+                subgroups[nameResult.name] = getCompleteHierarchy(
+                    module, 
+                    grpid, 
+                    undefined, 
+                    includeParentDims
+                );
             }
         }
     }
     
     return {
         ncid: workingNcid,  // Include the ncid at this level
+        path: fullPath,      // Include the full path
         variables,
         dimensions,
         attributes,
@@ -554,15 +631,18 @@ export function getCompleteHierarchy(
 export function getVariables(
     module: NetCDF4Module,
     ncid: number,
-    currentPath: string = '/'
+    currentPath?: string
 ): Record<string, any> {
     const allVars: Record<string, any> = {};
+    
+    // Get the actual path if not provided
+    const path = currentPath || getGroupPath(module, ncid);
     
     // Get variables at current level
     const vars = getGroupVariables(module, ncid);
     for (const [name, varData] of Object.entries(vars)) {
-        const fullPath = currentPath === '/' ? `/${name}` : `${currentPath}/${name}`;
-        allVars[fullPath] = { ...varData, path: currentPath, ncid };
+        const fullPath = path === '/' ? `/${name}` : `${path}/${name}`;
+        allVars[fullPath] = { ...varData, path, ncid };
     }
     
     // Recurse into subgroups
@@ -571,7 +651,7 @@ export function getVariables(
         for (const grpid of groupsResult.grpids) {
             const nameResult = module.nc_inq_grpname(grpid);
             if (nameResult.result === NC_CONSTANTS.NC_NOERR && nameResult.name) {
-                const newPath = currentPath === '/' ? `/${nameResult.name}` : `${currentPath}/${nameResult.name}`;
+                const newPath = path === '/' ? `/${nameResult.name}` : `${path}/${nameResult.name}`;
                 const subVars = getVariables(module, grpid, newPath);
                 Object.assign(allVars, subVars);
             }

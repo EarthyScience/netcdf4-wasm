@@ -112,6 +112,9 @@ export class WasmModuleLoader {
         const nc_inq_grpname_wrapper = module.cwrap('nc_inq_grpname_wrapper', 'number', ['number', 'number']);
         const nc_inq_grp_parent_wrapper = module.cwrap('nc_inq_grp_parent_wrapper', 'number', ['number', 'number']);
         const nc_inq_grp_full_ncid_wrapper = module.cwrap('nc_inq_grp_full_ncid_wrapper', 'number', ['number', 'string', 'number']);
+        const nc_inq_grpname_full_wrapper = module.cwrap('nc_inq_grpname_full_wrapper', 'number', ['number', 'number', 'number']);
+        const nc_inq_grpname_len_wrapper = module.cwrap('nc_inq_grpname_len_wrapper', 'number', ['number', 'number']);
+
         return {
             ...module,
             
@@ -712,6 +715,30 @@ export class WasmModuleLoader {
                 const grp_ncid = result === NC_CONSTANTS.NC_NOERR ? module.getValue(grp_ncidPtr, 'i32') : undefined;
                 module._free(grp_ncidPtr);
                 return { result, grp_ncid };
+            },
+            nc_inq_grpname_full: (ncid: number) => {
+                const maxLen = 1024; // NC_MAX_NAME * path depth estimate
+                const lenpPtr = module._malloc(8); // size_t
+                const namePtr = module._malloc(maxLen);
+                
+                const result = nc_inq_grpname_full_wrapper(ncid, lenpPtr, namePtr);
+                const full_name = result === NC_CONSTANTS.NC_NOERR ? module.UTF8ToString(namePtr) : undefined;
+                
+                module._free(lenpPtr);
+                module._free(namePtr);
+                
+                return { result, full_name };
+            },
+
+            nc_inq_grpname_len: (ncid: number) => {
+                const lenpPtr = module._malloc(8); // size_t
+                
+                const result = nc_inq_grpname_len_wrapper(ncid, lenpPtr);
+                const lenp = result === NC_CONSTANTS.NC_NOERR ? module.getValue(lenpPtr, 'i64') : undefined;
+                
+                module._free(lenpPtr);
+                
+                return { result, lenp };
             },
         };
     }

@@ -99,6 +99,8 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_inq_grpname: (ncid: number) => { result: number; name?: string };
     nc_inq_grp_parent: (ncid: number) => { result: number; parent_ncid?: number };
     nc_inq_grp_full_ncid: (ncid: number, full_name: string) => { result: number; grp_ncid?: number };
+    nc_inq_grpname_full: (ncid: number) => { result: number; full_name?: string };
+    nc_inq_grpname_len: (ncid: number) => { result: number; lenp?: number };
 }
 
 export interface NetCDF4WasmOptions {

@@ -653,6 +653,16 @@ int nc_inq_grp_full_ncid_wrapper(int ncid, const char* full_name, int* grp_ncid)
     return nc_inq_grp_full_ncid(ncid, full_name, grp_ncid);
 }
 
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grpname_full_wrapper(int ncid, size_t* lenp, char* full_name) {
+    return nc_inq_grpname_full(ncid, lenp, full_name);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grpname_len_wrapper(int ncid, size_t* lenp) {
+    return nc_inq_grpname_len(ncid, lenp);
+}
+
 // =========================
 // Attributes
 // =========================
