@@ -102,13 +102,13 @@ apply_config_patches() {
         ' "$config_file"
     else
         # fallback: warn
-        log "⚠️  Skipping ssize_t patch: perl not found, may fail on macOS"
+        log "Skipping ssize_t patch: perl not found, may fail on macOS"
     fi
 
     # Disable HDF5 collective metadata operations for non-parallel build
     sed "${SED_INPLACE[@]}" 's|#define HDF5_HAS_COLL_METADATA_OPS 1|/* #undef HDF5_HAS_COLL_METADATA_OPS */|' "$config_file"
 
-    log "✅ config.h patches applied"
+    log "config.h patches applied"
 }
 
 log "Building NetCDF4 for WebAssembly..."
@@ -197,16 +197,16 @@ if [ ! -f "$INSTALL_DIR/lib/libz.a" ]; then
     log "Installing zlib..."
     check_command emmake make install
     
-    log "✅ zlib built and installed successfully"
+    log "zlib built and installed successfully"
     
     # Verify installation
     if [ -f "$INSTALL_DIR/lib/libz.a" ]; then
-        log "✅ zlib library verified at $INSTALL_DIR/lib/libz.a"
+        log "zlib library verified at $INSTALL_DIR/lib/libz.a"
     else
         error_exit "zlib library not found after installation"
     fi
 else
-    log "✅ zlib already built and installed"
+    log "zlib already built and installed"
 fi
 
 # Build HDF5
@@ -276,23 +276,23 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
     log "Installing HDF5..."
     check_command emmake make install
     
-    log "✅ HDF5 built and installed successfully"
+    log "HDF5 built and installed successfully"
     
     # Verify installation
     if [ -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
-        log "✅ HDF5 library verified at $INSTALL_DIR/lib/libhdf5.a"
+        log "HDF5 library verified at $INSTALL_DIR/lib/libhdf5.a"
     else
         error_exit "HDF5 library not found after installation"
     fi
     
     # Verify HDF5 High-Level library (required by NetCDF)
     if [ -f "$INSTALL_DIR/lib/libhdf5_hl.a" ]; then
-        log "✅ HDF5 High-Level library verified at $INSTALL_DIR/lib/libhdf5_hl.a"
+        log "HDF5 High-Level library verified at $INSTALL_DIR/lib/libhdf5_hl.a"
     else
         error_exit "HDF5 High-Level library not found - NetCDF requires this!"
     fi
 else
-    log "✅ HDF5 already built and installed"
+    log "HDF5 already built and installed"
 fi
 
 # Build NetCDF4
@@ -352,7 +352,7 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
     # Set HAS_HDF5_ROS3 to OFF for Emscripten\
     SET(HAS_HDF5_ROS3 OFF)' CMakeLists.txt || error_exit "Failed to set HAS_HDF5_ROS3"
 
-    log "✅ CMakeLists.txt patches applied"
+    log "CMakeLists.txt patches applied"
     
     mkdir -p build && cd build
     
@@ -402,42 +402,42 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
     log "Installing NetCDF4..."
     check_command emmake make install
     
-    log "✅ NetCDF4 built and installed successfully"
+    log "NetCDF4 built and installed successfully"
     
     # Verify installation
     if [ -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
-        log "✅ NetCDF4 library verified at $INSTALL_DIR/lib/libnetcdf.a"
+        log "NetCDF4 library verified at $INSTALL_DIR/lib/libnetcdf.a"
         
         # Verify filter support
         log "Verifying filter support..."
         if [ -d "$INSTALL_DIR/lib/netcdf/plugins" ]; then
-            log "✅ Plugin directory exists at $INSTALL_DIR/lib/netcdf/plugins"
+            log "Plugin directory exists at $INSTALL_DIR/lib/netcdf/plugins"
         else
-            log "⚠️  Warning: Plugin directory not found (may be expected if no plugins built)"
+            log "Warning: Plugin directory not found (may be expected if no plugins built)"
         fi
         
         # Check for filter-related headers
         if grep -q "H5Z_FILTER_SHUFFLE" "$INSTALL_DIR/include/H5Zpublic.h" 2>/dev/null; then
-            log "✅ Shuffle filter support detected in HDF5 headers"
+            log "Shuffle filter support detected in HDF5 headers"
         else
-            log "⚠️  Warning: Shuffle filter support not detected in headers"
+            log "Warning: Shuffle filter support not detected in headers"
         fi
     else
         error_exit "NetCDF4 library not found after installation"
     fi
 else
-    log "✅ NetCDF4 already built and installed"
+    log "NetCDF4 already built and installed"
 fi
 
 # Create WASM module
 log "Starting WASM module creation..."
-log "✅ Filter support configuration complete:"
+log "Filter support configuration complete:"
 log "  - HDF5 built-in filters: shuffle, fletcher32, deflate (via zlib)"
 log "  - HDF5 High-Level library: ENABLED (required for NetCDF)"
 log "  - NCZarr filter support: ENABLED"
 log "  - Plugin directory: $INSTALL_DIR/lib/netcdf/plugins"
 log ""
-log "📝 Important notes: https://docs.unidata.ucar.edu/netcdf-c/4.9.2/filters.html"
+log "Important notes: https://docs.unidata.ucar.edu/netcdf-c/4.9.2/filters.html"
 log "  - Shuffle, fletcher32, deflate are HDF5 built-ins (no plugins needed)"
 log "  - For plugin filters (bzip2, zstandard, etc.), set HDF5_PLUGIN_PATH at runtime"
 log "  - Built-in filters will work automatically for files that use them"
@@ -1055,11 +1055,11 @@ check_command emcc netcdf_wrapper.c \
     -O2 \
     -o "$DIST_DIR/netcdf4-wasm.js"
 
-log "✅ WASM module created successfully!"
+log "WASM module created successfully!"
 
 # Verify build outputs
 if [ -f "$DIST_DIR/netcdf4-wasm.js" ] && [ -f "$DIST_DIR/netcdf4-wasm.wasm" ]; then
-    log "✅ Build verification successful!"
+    log "Build verification successful!"
     log "Built files:"
     log "  - $DIST_DIR/netcdf4-wasm.js ($(du -h "$DIST_DIR/netcdf4-wasm.js" | cut -f1))"
     log "  - $DIST_DIR/netcdf4-wasm.wasm ($(du -h "$DIST_DIR/netcdf4-wasm.wasm" | cut -f1))"
