@@ -113,8 +113,6 @@ export class WasmModuleLoader {
         const nc_inq_grpname_wrapper = module.cwrap('nc_inq_grpname_wrapper', 'number', ['number', 'number']);
         const nc_inq_grp_parent_wrapper = module.cwrap('nc_inq_grp_parent_wrapper', 'number', ['number', 'number']);
         const nc_inq_grp_full_ncid_wrapper = module.cwrap('nc_inq_grp_full_ncid_wrapper', 'number', ['number', 'string', 'number']);
-        const nc_inq_var_deflate_wrapper = module.cwrap('nc_inq_var_deflate_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
-
         return {
             ...module,
             
@@ -589,8 +587,8 @@ export class WasmModuleLoader {
             nc_get_var_text: (ncid: number, varid: number, length: number) => {
                 const dataPtr = module._malloc(length);
                 const result = nc_get_var_text_wrapper(ncid, varid, dataPtr);
-                const data = (result === NC_CONSTANTS.NC_NOERR || result === NC_CONSTANTS.NC_ERANGE)
-                    ? new Uint8Array(module.HEAPU8.buffer, dataPtr, length).slice()
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? Array.from({ length }, (_, i) => module.UTF8ToString(module.getValue(dataPtr + i, 'i8')))
                     : undefined;
                 module._free(dataPtr);
                 return { result, data };
@@ -736,22 +734,6 @@ export class WasmModuleLoader {
                 const grp_ncid = result === NC_CONSTANTS.NC_NOERR ? module.getValue(grp_ncidPtr, 'i32') : undefined;
                 module._free(grp_ncidPtr);
                 return { result, grp_ncid };
-            },
-            nc_inq_var_deflate: (ncid: number, varid: number) => {
-                const shufflePtr = module._malloc(4);
-                const deflatePtr = module._malloc(4);
-                const deflate_levelPtr = module._malloc(4);
-                const result = nc_inq_var_deflate_wrapper(ncid, varid, shufflePtr, deflatePtr, deflate_levelPtr);
-                let shuffle, deflate, deflate_level;
-                if (result === NC_CONSTANTS.NC_NOERR) {
-                    shuffle = module.getValue(shufflePtr, 'i32');
-                    deflate = module.getValue(deflatePtr, 'i32');
-                    deflate_level = module.getValue(deflate_levelPtr, 'i32');
-                }
-                module._free(shufflePtr);
-                module._free(deflatePtr);
-                module._free(deflate_levelPtr);
-                return { result, shuffle, deflate, deflate_level };
             },
         };
     }

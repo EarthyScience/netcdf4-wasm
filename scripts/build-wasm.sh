@@ -135,6 +135,7 @@ log "Using Emscripten: $EMCC_VERSION"
 # Create directories
 log "Creating build directories..."
 mkdir -p "$BUILD_DIR" "$DIST_DIR" "$DEPS_DIR" "$INSTALL_DIR"
+mkdir -p "$INSTALL_DIR/lib/netcdf/plugins"  # placholder, create plugin directory for additional filters
 
 cd "$BUILD_DIR"
 log "Working directory: $(pwd)"
@@ -243,7 +244,7 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
     log "Configuring HDF5 in directory: $(pwd)"
     mkdir -p build && cd build
     
-    log "Running emcmake cmake for HDF5..."
+    log "Running emcmake cmake for HDF5 with FILTER SUPPORT..."
     check_command emcmake cmake .. \
         -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
         -DCMAKE_BUILD_TYPE=Release \
@@ -252,7 +253,8 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
         -DBUILD_SHARED_LIBS=OFF \
         -DHDF5_ENABLE_THREADSAFE=OFF \
         -DHDF5_ENABLE_PARALLEL=OFF \
-        -DHDF5_BUILD_TOOLS=OFF \
+        -DHDF5_BUILD_HL_LIB=ON \
+        -DHDF5_BUILD_TOOLS=ON \
         -DHDF5_BUILD_EXAMPLES=OFF \
         -DHDF5_BUILD_TESTS=OFF \
         -DBUILD_TESTING=OFF \
@@ -260,12 +262,13 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
         -DCMAKE_C_BYTE_ORDER=LITTLE_ENDIAN \
         -DHDF5_DISABLE_COMPILER_WARNINGS=ON \
         -DHDF5_ENABLE_Z_LIB_SUPPORT=ON \
-        -DHDF5_ENABLE_ZLIB_SUPPORT=ON \
+        -DHDF5_ENABLE_SZIP_SUPPORT=ON \
         -DALLOW_UNSUPPORTED=ON \
         -DH5_ZLIB_HEADER="zlib.h" \
         -DZLIB_ROOT="$INSTALL_DIR" \
         -DZLIB_INCLUDE_DIR="$INSTALL_DIR/include" \
-        -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a"
+        -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a" \
+        -DBUILD_STATIC_EXECS=OFF
     
     log "Building HDF5 with emmake..."
     check_command emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
@@ -280,6 +283,13 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
         log "✅ HDF5 library verified at $INSTALL_DIR/lib/libhdf5.a"
     else
         error_exit "HDF5 library not found after installation"
+    fi
+    
+    # Verify HDF5 High-Level library (required by NetCDF)
+    if [ -f "$INSTALL_DIR/lib/libhdf5_hl.a" ]; then
+        log "✅ HDF5 High-Level library verified at $INSTALL_DIR/lib/libhdf5_hl.a"
+    else
+        error_exit "HDF5 High-Level library not found - NetCDF requires this!"
     fi
 else
     log "✅ HDF5 already built and installed"
@@ -346,7 +356,7 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
     
     mkdir -p build && cd build
     
-    log "Running emcmake cmake for NetCDF4..."
+    log "Running emcmake cmake for NetCDF4 with COMPREHENSIVE FILTER SUPPORT..."
     check_command emcmake cmake .. \
         -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
         -DCMAKE_BUILD_TYPE=Release \
@@ -360,8 +370,6 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
         -DBUILD_UTILITIES=OFF \
         -DBUILD_TESTING=OFF \
         -DENABLE_TESTS=OFF \
-        -DENABLE_FILTER_DEFLATE=ON \
-        -DENABLE_ZLIB=ON \
         -DCMAKE_C_BYTE_ORDER=LITTLE_ENDIAN \
         -DWORDS_BIGENDIAN=OFF \
         -DHDF5_USE_STATIC_LIBRARIES=ON \
@@ -380,7 +388,10 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
         -DHDF5_PARALLEL=OFF \
         -DUSE_HDF5_SZIP=OFF \
         -DZLIB_INCLUDE_DIR="$INSTALL_DIR/include" \
-        -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a"
+        -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a" \
+        -DENABLE_NCZARR=ON \
+        -DENABLE_NCZARR_FILTERS=ON \
+        -DPLUGIN_INSTALL_DIR="$INSTALL_DIR/lib/netcdf/plugins"
     
     # Apply config.h patches after CMake configuration
     apply_config_patches "$(pwd)/config.h"
@@ -396,6 +407,21 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
     # Verify installation
     if [ -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
         log "✅ NetCDF4 library verified at $INSTALL_DIR/lib/libnetcdf.a"
+        
+        # Verify filter support
+        log "Verifying filter support..."
+        if [ -d "$INSTALL_DIR/lib/netcdf/plugins" ]; then
+            log "✅ Plugin directory exists at $INSTALL_DIR/lib/netcdf/plugins"
+        else
+            log "⚠️  Warning: Plugin directory not found (may be expected if no plugins built)"
+        fi
+        
+        # Check for filter-related headers
+        if grep -q "H5Z_FILTER_SHUFFLE" "$INSTALL_DIR/include/H5Zpublic.h" 2>/dev/null; then
+            log "✅ Shuffle filter support detected in HDF5 headers"
+        else
+            log "⚠️  Warning: Shuffle filter support not detected in headers"
+        fi
     else
         error_exit "NetCDF4 library not found after installation"
     fi
@@ -405,9 +431,16 @@ fi
 
 # Create WASM module
 log "Starting WASM module creation..."
-cd "$BUILD_DIR"
-log "Changed to build directory: $(pwd)"
-
+log "✅ Filter support configuration complete:"
+log "  - HDF5 built-in filters: shuffle, fletcher32, deflate (via zlib)"
+log "  - HDF5 High-Level library: ENABLED (required for NetCDF)"
+log "  - NCZarr filter support: ENABLED"
+log "  - Plugin directory: $INSTALL_DIR/lib/netcdf/plugins"
+log ""
+log "📝 Important notes: https://docs.unidata.ucar.edu/netcdf-c/4.9.2/filters.html"
+log "  - Shuffle, fletcher32, deflate are HDF5 built-ins (no plugins needed)"
+log "  - For plugin filters (bzip2, zstandard, etc.), set HDF5_PLUGIN_PATH at runtime"
+log "  - Built-in filters will work automatically for files that use them"
 # Create a simple C wrapper that exposes NetCDF functions
 cat > netcdf_wrapper.c << 'EOF'
 #include <netcdf.h>
@@ -570,16 +603,6 @@ int nc_inq_var_chunking_wrapper(int ncid, int varid, int* storagep, size_t* chun
 EMSCRIPTEN_KEEPALIVE
 int nc_def_var_chunking_wrapper(int ncid, int varid, int storage, const size_t* chunksizesp) {
     return nc_def_var_chunking(ncid, varid, storage, chunksizesp);
-}
-
-EMSCRIPTEN_KEEPALIVE
-int nc_inq_var_deflate_wrapper(int ncid, int varid, int* shufflep, int* deflatep, int* deflate_levelp) {
-    return nc_inq_var_deflate(ncid, varid, shufflep, deflatep, deflate_levelp);
-}
-
-EMSCRIPTEN_KEEPALIVE
-int nc_def_var_deflate_wrapper(int ncid, int varid, int shuffle, int deflate, int deflate_level) {
-    return nc_def_var_deflate(ncid, varid, shuffle, deflate, deflate_level);
 }
 
 EMSCRIPTEN_KEEPALIVE

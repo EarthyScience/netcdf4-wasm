@@ -253,45 +253,6 @@ export function getVariableInfo(
     }
     const chunkElements = chunks.reduce((a: number, b: number) => a * b, 1)
 
-    // Deflate/Compression Info
-    console.log(`=== Checking compression for variable '${result.name}' (varid: ${varid}) ===`);
-    console.log('nc_inq_var_deflate available?', typeof module.nc_inq_var_deflate);
-    
-    let isCompressed = false;
-    let compressionInfo: Record<string, any> | null = null;
-    
-    if (module.nc_inq_var_deflate) {
-        const deflateResult = module.nc_inq_var_deflate(workingNcid, varid as number);
-        console.log('nc_inq_var_deflate result:', deflateResult);
-        
-        if (deflateResult.result === NC_CONSTANTS.NC_NOERR) {
-            isCompressed = deflateResult.deflate === 1;
-            compressionInfo = {
-                shuffle: deflateResult.shuffle === 1,
-                deflate: deflateResult.deflate === 1,
-                deflate_level: deflateResult.deflate_level || 0
-            };
-            
-            console.log('Compression detected:', {
-                isCompressed,
-                shuffle: compressionInfo.shuffle,
-                deflate: compressionInfo.deflate,
-                deflate_level: compressionInfo.deflate_level
-            });
-        } else {
-            console.log('nc_inq_var_deflate failed with error:', deflateResult.result);
-        }
-    } else {
-        console.warn('⚠️ nc_inq_var_deflate function not available in WASM module');
-    }
-    
-    console.log('Variable compression summary:', {
-        name: result.name,
-        isChunked,
-        isCompressed,
-        compressionInfo
-    });
-
     //Output 
     info["name"] = result.name
     info["dtype"] = CONSTANT_DTYPE_MAP[result.type as number]
@@ -304,14 +265,7 @@ export function getVariableInfo(
     info["chunked"] = isChunked
     info["chunks"] = chunks
     info["chunkSize"] = chunkElements * typeMultiplier
-    info["compressed"] = isCompressed
-    info["compression"] = compressionInfo
-
-    // Add warning if compressed
-    if (isCompressed) {
-        console.warn(`⚠️ Variable '${result.name}' is compressed (deflate level ${compressionInfo?.deflate_level}). Reading may fail if zlib filter is not available in WASM build.`);
-    }
-
+    
     return info;
 }
 
@@ -323,115 +277,41 @@ export function getVariableArray(
 ): Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[] {
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
     
-    console.log('=== getVariableArray DEBUG ===');
-    console.log('Input ncid:', ncid);
-    console.log('Working ncid:', workingNcid);
-    console.log('Variable:', variable);
-    console.log('Group path:', groupPath);
+    // console.log('=== getVariableArray DEBUG ===');
+    // console.log('Input ncid:', ncid);
+    // console.log('Working ncid:', workingNcid);
+    // console.log('Variable:', variable);
+    // console.log('Group path:', groupPath);
     
     const isId = typeof variable === "number"
     let varid = isId ? variable as number : 0
     if (!isId) {
-        console.log('Getting varid for variable name:', variable);
         const result = module.nc_inq_varid(workingNcid, variable)
-        console.log('nc_inq_varid result:', result);
-        if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get variable id for '${variable}' (error: ${result.result})`);
-        }
         varid = result.varid as number
     }
-    
-    console.log('Using varid:', varid);
-    
+    // console.log('Using varid:', varid);    
     const info = getVariableInfo(module, workingNcid, varid)
-    console.log('Variable info:', info);
+    // console.log('Variable info:', info);
     
     const arraySize = info.size
     const arrayType = info.nctype
     
-    console.log(`Array size: ${arraySize}, type: ${arrayType} (${info.dtype})`);
-    console.log(`Shape: [${info.shape.join(', ')}]`);
-    console.log(`Byte size: ${arraySize * DATA_TYPE_SIZE[arrayType]} bytes`);
-    
-    if (!arrayType) throw new Error("Failed to get array type")
-    if (!arraySize || arraySize === 0) throw new Error("Array size is 0 or undefined")
-    
-    try {
-        const rank = info.shape.length;
-
-        console.log(
-            arrayType === 2
-                ? 'Calling nc_get_var_text'
-                : rank === 0
-                ? 'Calling nc_get_var (scalar)'
-                : 'Calling nc_get_vara (numeric hyperslab)'
-        );
-
-        if (arrayType === 2) {
-            const textData = module.nc_get_var_text(workingNcid, varid, arraySize);
-            if (textData.result !== NC_CONSTANTS.NC_NOERR) {
-                throw new Error(`nc_get_var_text failed with error code: ${textData.result}`);
-            }
-            if (!textData.data) {
-                throw new Error("nc_get_var_text returned no data");
-            }
-            const chars = textData.data;
-            const shape = info.shape;
-            const decoder = new TextDecoder();
-            if (shape.length <= 1) {
-                return [decoder.decode(chars).replace(/\0/g, '')];
-            }
-            const strLen = shape[shape.length - 1];
-            if (strLen === 0) return [];
-            const numStrings = chars.length / strLen;
-            const strings: string[] = [];
-            for (let i = 0; i < numStrings; i++) {
-                const start = i * strLen;
-                const end = start + strLen;
-                strings.push(decoder.decode(chars.subarray(start, end)).replace(/\0/g, ''));
-            }
-            return strings;
-        }
-
-        let arrayData;
-        if (rank === 0) {
-            if (arrayType === 3) arrayData = module.nc_get_var_short(workingNcid, varid, arraySize);
-            else if (arrayType === 4) arrayData = module.nc_get_var_int(workingNcid, varid, arraySize);
-            else if (arrayType === 10) arrayData = module.nc_get_var_longlong(workingNcid, varid, arraySize);
-            else if (arrayType === 5) arrayData = module.nc_get_var_float(workingNcid, varid, arraySize);
-            else if (arrayType === 6) arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
-            else arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
-        }
-        else {
-            const start = new Array(rank).fill(0);
-            const count = [...info.shape];
-
-            if (arrayType === 3) arrayData = module.nc_get_vara_short(workingNcid, varid, start, count);
-            else if (arrayType === 4) arrayData = module.nc_get_vara_int(workingNcid, varid, start, count);
-            else if (arrayType === 10) arrayData = module.nc_get_vara_longlong(workingNcid, varid, start, count);
-            else if (arrayType === 5) arrayData = module.nc_get_vara_float(workingNcid, varid, start, count);
-            else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
-            else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
-        }
-        
-        console.log('nc_get_var returned:', arrayData);
-        
-        if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`nc_get_var failed with error code: ${arrayData.result}`);
-        }
-        
-        if (!arrayData.data) {
-    throw new Error("nc_get_var returned no data")
-}
-
-        return arrayData.data;
-        
-    } catch (err) {
-        console.error('=== ERROR in getVariableArray ===');
-        console.error('Error:', err);
-        console.error('Stack:', (err as Error).stack);
-        throw new Error(`Failed to read array data: ${err}`);
+    // console.log(`Array size: ${arraySize}, type: ${arrayType} (${info.dtype})`);
+    // console.log(`Shape: [${info.shape.join(', ')}]`);
+    // console.log(`Byte size: ${arraySize * DATA_TYPE_SIZE[arrayType]} bytes`);
+    if (!arrayType || !arraySize) throw new Error("Failed to allocate memory for array")
+    let arrayData;
+    if (arrayType === 2) arrayData = module.nc_get_var_text(ncid, varid, arraySize);
+    else if (arrayType === 3) arrayData = module.nc_get_var_short(workingNcid, varid, arraySize);
+    else if (arrayType === 4) arrayData = module.nc_get_var_int(workingNcid, varid, arraySize);
+    else if (arrayType === 10) arrayData = module.nc_get_var_longlong(workingNcid, varid, arraySize);
+    else if (arrayType === 5) arrayData = module.nc_get_var_float(workingNcid, varid, arraySize);
+    else if (arrayType === 6) arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+    else arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+    if (!arrayData.data) {
+        throw new Error("nc_get_var returned no data")
     }
+    return arrayData.data
 }
 
 export function getSlicedVariableArray(
@@ -455,77 +335,17 @@ export function getSlicedVariableArray(
     
     const info = getVariableInfo(module, workingNcid, varid)
     const arrayType = info.nctype
-    
-    // Calculate total elements in the slice
-    const totalElements = count.reduce((a, b) => a * b, 1);
-    console.log(`Loading sliced array: start=[${start.join(', ')}], count=[${count.join(', ')}], total=${totalElements}, type=${arrayType}`);
-    
-    if (!arrayType) throw new Error("Failed to get array type")
-    if (totalElements === 0) throw new Error("Slice size is 0")
-    
-    // Validate start and count arrays match dimensions
-    if (start.length !== info.shape.length || count.length !== info.shape.length) {
-        throw new Error(`Dimension mismatch: variable has ${info.shape.length} dimensions, but start/count have ${start.length}/${count.length}`);
-    }
-    
-    // Validate start + count doesn't exceed shape
-    for (let i = 0; i < start.length; i++) {
-        if (start[i] + count[i] > info.shape[i]) {
-            throw new Error(`Slice out of bounds for dimension ${i}: start=${start[i]}, count=${count[i]}, shape=${info.shape[i]}`);
-        }
-    }
-    
+    if (!arrayType) throw new Error("Failed to allocate memory for array")
     let arrayData;
-    try {
-        // Handle NC_CHAR (text) conversion for slices
-        if (arrayType === 2) {
-            const textData = module.nc_get_vara_text(workingNcid, varid, start, count);
-            if (textData.result !== NC_CONSTANTS.NC_NOERR && textData.result !== NC_CONSTANTS.NC_ERANGE) {
-                throw new Error(`nc_get_vara_text failed with error code: ${textData.result}`);
-            }
-            if (!textData.data) {
-                throw new Error("nc_get_vara_text returned no data");
-            }
-            const chars = textData.data;
-            // For slices, the last dimension of 'count' is the string length
-            if (count.length > 0) {
-                const strLen = count[count.length - 1];
-                if (strLen === 0) return [];
-                const numStrings = chars.length / strLen;
-                const strings: string[] = [];
-                const decoder = new TextDecoder();
-                
-                for (let i = 0; i < numStrings; i++) {
-                    const strStart = i * strLen;
-                    const strEnd = strStart + strLen;
-                    strings.push(decoder.decode(chars.subarray(strStart, strEnd)).replace(/\0/g, ''));
-                }
-                return strings;
-            }
-            return [new TextDecoder().decode(chars).replace(/\0/g, '')];
-        }
-        
-        if (arrayType === 3) arrayData = module.nc_get_vara_short(workingNcid, varid, start, count);
-        else if (arrayType === 4) arrayData = module.nc_get_vara_int(workingNcid, varid, start, count);
-        else if (arrayType === 5) arrayData = module.nc_get_vara_float(workingNcid, varid, start, count);
-        else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
-        else if (arrayType === 10) arrayData = module.nc_get_vara_longlong(workingNcid, varid, start, count);
-        else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
-        
-        if (arrayData.result !== NC_CONSTANTS.NC_NOERR && arrayData.result !== NC_CONSTANTS.NC_ERANGE) {
-            throw new Error(`nc_get_vara failed with error code: ${arrayData.result}`);
-        }
-        if (!arrayData.data) {
-            throw new Error("nc_get_vara returned no data");
-        }
-
-        console.log(`Successfully loaded ${arrayData.data.length} elements from slice`);
-        return arrayData.data;
-        
-    } catch (err) {
-        console.error('Error in getSlicedVariableArray:', err);
-        throw new Error(`Failed to read sliced array data: ${err}`);
-    }
+    if (arrayType === 3) arrayData = module.nc_get_vara_short(workingNcid, varid, start, count);
+    else if (arrayType === 4) arrayData = module.nc_get_vara_int(workingNcid, varid, start, count);
+    else if (arrayType === 5) arrayData = module.nc_get_vara_float(workingNcid, varid, start, count);
+    else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+    else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+    if (!arrayData.data) {
+        console.log(arrayData)
+        throw new Error("Failed to read array data")}
+    return arrayData.data
 }
 
 //---- Group Functions ----//

@@ -80,7 +80,7 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_get_att_longlong(ncid: number, varid: number, name: string, length: number): { result: number; data?: BigInt[] }
 
     // 5. Variable Getters
-    nc_get_var_text: (ncid: number, varid: number,  length: number) => { result: number; data?: Uint8Array };
+    nc_get_var_text: (ncid: number, varid: number,  length: number) => { result: number; data?: string[] };
     nc_get_var_short: (ncid: number, varid: number,  length: number) => { result: number; data?: Int16Array };
     nc_get_var_int: (ncid: number, varid: number,  length: number) => { result: number; data?: Int32Array };
     nc_get_var_longlong: (ncid: number, varid: number,  length: number) => { result: number; data?: BigInt64Array };
@@ -100,7 +100,6 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_inq_grpname: (ncid: number) => { result: number; name?: string };
     nc_inq_grp_parent: (ncid: number) => { result: number; parent_ncid?: number };
     nc_inq_grp_full_ncid: (ncid: number, full_name: string) => { result: number; grp_ncid?: number };
-    nc_inq_var_deflate: (ncid: number, varid: number) => { result: number; shuffle?: number; deflate?: number; deflate_level?: number };
 }
 
 export interface NetCDF4WasmOptions {
