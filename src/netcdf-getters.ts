@@ -253,7 +253,6 @@ export function getVariableInfo(
 ): Record<string, any> {
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
     const info: Record<string, any> = {}
-
     const isId = typeof variable === "number"
     let varid = variable
     if (!isId) {
@@ -265,22 +264,27 @@ export function getVariableInfo(
         throw new Error(`Failed to get variable info (error: ${result.result})`);
     }
     const typeMultiplier = DATA_TYPE_SIZE[result.type as number]
-
-    //Dim Info
+    
+    // Dim Info - FIXED to preserve order
     const dimids = result.dimids
     const dims = []
     const shape = []
+    const dimensions: string[] = []  // Array to store dimension names in order
     let size = 1
+    
     if (dimids) {
-        for (const dimid of dimids) {
+        // Iterate through dimids in order - this matches the shape order
+        for (let i = 0; i < dimids.length; i++) {
+            const dimid = dimids[i]
             const dim = getDim(module, workingNcid, dimid)
             size *= dim.len
             dims.push(dim)
             shape.push(dim.len)
+            dimensions.push(dim.name)  // Add dimension name in the same order
         }
     }
     
-    //Attribute Info
+    // Attribute Info
     const attNames = []
     if (result.natts) {
         for (let i = 0; i < result.natts; i++) {
@@ -295,8 +299,8 @@ export function getVariableInfo(
             atts[attname] = getAttributeValues(module, workingNcid, varid as number, attname)
         }
     }
-
-    //Chunking Info
+    
+    // Chunking Info
     let chunks: number[];
     const chunkResult = module.nc_inq_var_chunking(workingNcid, varid as number);
     const isChunked = chunkResult.chunking === NC_CONSTANTS.NC_CHUNKED
@@ -306,13 +310,14 @@ export function getVariableInfo(
         chunks = shape
     }
     const chunkElements = chunks.reduce((a: number, b: number) => a * b, 1)
-
-    //Output 
+    
+    // Output 
     info["name"] = result.name
     info["dtype"] = CONSTANT_DTYPE_MAP[result.type as number]
     info['nctype'] = result.type
     info["shape"] = shape
     info['dims'] = dims
+    info["dimensions"] = dimensions  // Add ordered dimension names array
     info["size"] = size
     info["totalSize"] = size * typeMultiplier
     info["attributes"] = atts

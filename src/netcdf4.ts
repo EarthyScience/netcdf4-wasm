@@ -792,13 +792,27 @@ export class NetCDF4 extends Group {
     }
 }
 
+// Enhanced DataTree class for NetCDF4
+// This provides UI-friendly navigation with hierarchical group tree support
+
+export interface GroupNode {
+    name: string;
+    path: string;
+    children: GroupNode[];
+    hasVariables: boolean;
+    hasAttributes: boolean;
+    variableCount: number;
+    attributeCount: number;
+}
+
 /**
  * UI-friendly wrapper around NetCDF4
- * Builds a full dataTree of groups, variables, attributes
+ * Builds a full dataTree of groups, variables, attributes with enhanced navigation
  */
 export class DataTree {
     private dataset: NetCDF4;
     public tree: Record<string, any> = {};
+    private groupTreeCache: GroupNode | null = null;
 
     constructor(dataset: NetCDF4) {
         this.dataset = dataset;
@@ -806,6 +820,8 @@ export class DataTree {
 
     async buildTree(): Promise<void> {
         this.tree = await this.dataset.getCompleteHierarchy();
+        // Clear cache when tree is rebuilt
+        this.groupTreeCache = null;
     }
 
     // --------------------------------------------------
@@ -871,6 +887,134 @@ export class DataTree {
     }
 
     // --------------------------------------------------
+    // Hierarchical Group Tree
+    // --------------------------------------------------
+
+    /**
+     * Build a hierarchical tree structure of all groups
+     * Returns a tree with parent-child relationships
+     * Results are cached until buildTree() is called again
+     */
+    buildGroupTree(): GroupNode {
+        // Return cached version if available
+        if (this.groupTreeCache) {
+            return this.groupTreeCache;
+        }
+
+        const allGroups = this.listAllGroups();
+        
+        // Create root node
+        const root: GroupNode = {
+            name: '/',
+            path: '/',
+            children: [],
+            hasVariables: this.hasVariables('/'),
+            hasAttributes: this.hasAttributes('/'),
+            variableCount: this.getVariableCount('/'),
+            attributeCount: this.getAttributeCount('/')
+        };
+
+        // Map to store all nodes by path for quick lookup
+        const nodeMap = new Map<string, GroupNode>();
+        nodeMap.set('/', root);
+
+        // Sort groups by path depth to ensure parents are created before children
+        const sortedGroups = allGroups.sort((a, b) => {
+            const depthA = a.path.split('/').filter(Boolean).length;
+            const depthB = b.path.split('/').filter(Boolean).length;
+            return depthA - depthB;
+        });
+
+        // Build the tree
+        for (const { name, path } of sortedGroups) {
+            const node: GroupNode = {
+                name,
+                path,
+                children: [],
+                hasVariables: this.hasVariables(path),
+                hasAttributes: this.hasAttributes(path),
+                variableCount: this.getVariableCount(path),
+                attributeCount: this.getAttributeCount(path)
+            };
+
+            nodeMap.set(path, node);
+
+            // Find parent path
+            const pathParts = path.split('/').filter(Boolean);
+            const parentPath = pathParts.length === 1 
+                ? '/' 
+                : '/' + pathParts.slice(0, -1).join('/');
+
+            const parent = nodeMap.get(parentPath);
+            if (parent) {
+                parent.children.push(node);
+            }
+        }
+
+        // Cache the result
+        this.groupTreeCache = root;
+        
+        return root;
+    }
+
+    /**
+     * Get a specific node from the group tree by path
+     */
+    getGroupNode(path: string): GroupNode | null {
+        const tree = this.buildGroupTree();
+        
+        if (path === '/') return tree;
+
+        const parts = path.split('/').filter(Boolean);
+        let current = tree;
+
+        for (const part of parts) {
+            const child = current.children.find(c => c.name === part);
+            if (!child) return null;
+            current = child;
+        }
+
+        return current;
+    }
+
+    /**
+     * Get breadcrumb trail for a given path
+     * Returns array of {name, path} from root to target
+     */
+    getBreadcrumbs(groupPath: string): { name: string; path: string }[] {
+        if (groupPath === '/') {
+            return [{ name: 'root', path: '/' }];
+        }
+
+        const parts = groupPath.split('/').filter(Boolean);
+        const breadcrumbs: { name: string; path: string }[] = [
+            { name: 'root', path: '/' }
+        ];
+
+        let currentPath = '';
+        for (const part of parts) {
+            currentPath += '/' + part;
+            breadcrumbs.push({
+                name: part,
+                path: currentPath
+            });
+        }
+
+        return breadcrumbs;
+    }
+
+    /**
+     * Search for groups by name (case-insensitive)
+     */
+    searchGroups(query: string): { name: string; path: string }[] {
+        const lowerQuery = query.toLowerCase();
+        return this.listAllGroups().filter(g => 
+            g.name.toLowerCase().includes(lowerQuery) ||
+            g.path.toLowerCase().includes(lowerQuery)
+        );
+    }
+
+    // --------------------------------------------------
     // Variables
     // --------------------------------------------------
 
@@ -878,6 +1022,52 @@ export class DataTree {
     getAllVariables(groupPath: string = '/'): Record<string, any> {
         const group = this.getGroup(groupPath);
         return group?.variables || {};
+    }
+
+    /** check if group has variables */
+    hasVariables(groupPath: string = '/'): boolean {
+        const vars = this.getAllVariables(groupPath);
+        return Object.keys(vars).length > 0;
+    }
+
+    /** count variables in a group */
+    getVariableCount(groupPath: string = '/'): number {
+        return Object.keys(this.getAllVariables(groupPath)).length;
+    }
+
+    /** get variable names as array */
+    getVariableNames(groupPath: string = '/'): string[] {
+        return Object.keys(this.getAllVariables(groupPath));
+    }
+
+    /**
+     * Search for variables by name across all groups
+     */
+    searchVariables(query: string): { name: string; groupPath: string; path: string }[] {
+        const results: { name: string; groupPath: string; path: string }[] = [];
+        const lowerQuery = query.toLowerCase();
+
+        const searchInGroup = (groupPath: string) => {
+            const vars = this.getAllVariables(groupPath);
+            for (const varName of Object.keys(vars)) {
+                if (varName.toLowerCase().includes(lowerQuery)) {
+                    results.push({
+                        name: varName,
+                        groupPath,
+                        path: `${groupPath === '/' ? '' : groupPath}/${varName}`
+                    });
+                }
+            }
+
+            // Recurse into subgroups
+            const subgroups = this.listGroups(groupPath);
+            for (const { path } of subgroups) {
+                searchInGroup(path);
+            }
+        };
+
+        searchInGroup('/');
+        return results;
     }
 
     // --------------------------------------------------
@@ -890,6 +1080,106 @@ export class DataTree {
         return group?.attributes || {};
     }
 
+    /** check if group has attributes */
+    hasAttributes(groupPath: string = '/'): boolean {
+        const attrs = this.getAttributes(groupPath);
+        return Object.keys(attrs).length > 0;
+    }
+
+    /** count attributes in a group */
+    getAttributeCount(groupPath: string = '/'): number {
+        return Object.keys(this.getAttributes(groupPath)).length;
+    }
+
+    // --------------------------------------------------
+    // Dimensions
+    // --------------------------------------------------
+
+    /** get dimensions for a group */
+    getDimensions(groupPath: string = '/'): Record<string, any> {
+        const group = this.getGroup(groupPath);
+        return group?.dimensions || {};
+    }
+
+    /** check if group has dimensions */
+    hasDimensions(groupPath: string = '/'): boolean {
+        const dims = this.getDimensions(groupPath);
+        return Object.keys(dims).length > 0;
+    }
+
+    /** count dimensions in a group */
+    getDimensionCount(groupPath: string = '/'): number {
+        return Object.keys(this.getDimensions(groupPath)).length;
+    }
+
+    // --------------------------------------------------
+    // Statistics and Summaries
+    // --------------------------------------------------
+
+    /**
+     * Get summary statistics for a group
+     */
+    getGroupSummary(groupPath: string = '/'): {
+        path: string;
+        name: string;
+        variableCount: number;
+        attributeCount: number;
+        dimensionCount: number;
+        subgroupCount: number;
+        hasSubgroups: boolean;
+    } | null {
+        const group = this.getGroup(groupPath);
+        if (!group) return null;
+
+        return {
+            path: groupPath,
+            name: this.getGroupName(groupPath),
+            variableCount: this.getVariableCount(groupPath),
+            attributeCount: this.getAttributeCount(groupPath),
+            dimensionCount: this.getDimensionCount(groupPath),
+            subgroupCount: this.listGroups(groupPath).length,
+            hasSubgroups: this.hasSubgroups(groupPath)
+        };
+    }
+
+    /**
+     * Get complete statistics for the entire dataset
+     */
+    getDatasetSummary(): {
+        totalGroups: number;
+        totalVariables: number;
+        totalAttributes: number;
+        totalDimensions: number;
+        maxDepth: number;
+    } {
+        let totalVariables = 0;
+        let totalAttributes = 0;
+        let totalDimensions = 0;
+        let maxDepth = 0;
+
+        const countInGroup = (groupPath: string, depth: number) => {
+            totalVariables += this.getVariableCount(groupPath);
+            totalAttributes += this.getAttributeCount(groupPath);
+            totalDimensions += this.getDimensionCount(groupPath);
+            maxDepth = Math.max(maxDepth, depth);
+
+            const subgroups = this.listGroups(groupPath);
+            for (const { path } of subgroups) {
+                countInGroup(path, depth + 1);
+            }
+        };
+
+        countInGroup('/', 0);
+
+        return {
+            totalGroups: this.listAllGroups().length + 1, // +1 for root
+            totalVariables,
+            totalAttributes,
+            totalDimensions,
+            maxDepth
+        };
+    }
+
     // --------------------------------------------------
     // Heavy operations → still go to dataset
     // --------------------------------------------------
@@ -898,7 +1188,16 @@ export class DataTree {
         return this.dataset.getVariableArray(variable, groupPath);
     }
 
-    async getSlicedVariableArray(variable: number | string, start: number[], count: number[], groupPath?: string) {
+    async getSlicedVariableArray(
+        variable: number | string, 
+        start: number[], 
+        count: number[], 
+        groupPath?: string
+    ) {
         return this.dataset.getSlicedVariableArray(variable, start, count, groupPath);
+    }
+
+    async getVariableInfo(variable: number | string, groupPath?: string) {
+        return this.dataset.getVariableInfo(variable, groupPath);
     }
 }
