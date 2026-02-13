@@ -19,10 +19,12 @@ export function getGroupVariables(
             );
             continue;
         }
-
         // A coordinate variable is one whose name matches a dimension.
-        const dimCheck = module.nc_inq_dimid(workingNcid, nameResult.name);
-        const isCoordinate = dimCheck.result === NC_CONSTANTS.NC_NOERR;
+        const isCoordinate = findDimInHierarchy(
+            module,
+            workingNcid,
+            nameResult.name
+        );
         if (isCoordinate) continue;
 
         variables[nameResult.name] = {
@@ -83,7 +85,29 @@ export function getDimIDs(
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
         throw new Error(`Failed to get dimension IDs (error: ${result.result})`);
     }
-    return result.dimids || [0];
+    return result.dimids ?? [];
+}
+
+function findCoordinateVariable(
+    module: NetCDF4Module,
+    startNcid: number,
+    name: string
+): { ncid: number; varid: number } | null {
+
+    let current: number | null = startNcid;
+
+    while (current !== null) {
+        const result = module.nc_inq_varid(current, name);
+        if (result.result === NC_CONSTANTS.NC_NOERR) {
+            return {
+                ncid: current,
+                varid: result.varid as number
+            };
+        }
+        current = getGroupParent(module, current);
+    }
+
+    return null;
 }
 
 export function getDim(
@@ -95,17 +119,34 @@ export function getDim(
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
         throw new Error(`Failed to get dim (error: ${result.result})`);
     }
-    const varResult = module.nc_inq_varid(ncid, result.name as string) 
-    const varID = varResult.varid as number
-    const {result: output, ...dim} = result
-    const unitResult = getAttributeValues(module, ncid, varID, "units")
-    return {...dim, units: unitResult, id: varID}; 
+
+    const { result: _r, ...dim } = result;
+
+    let varID: number | null = null;
+    let units: any = null;
+    let coordNcid: number | null = null;
+
+    // Search upward for coordinate variable
+    const coord = findCoordinateVariable(module, ncid, dim.name as string);
+
+    if (coord) {
+        varID = coord.varid;
+        coordNcid = coord.ncid;
+        units = getAttributeValues(module, coordNcid, varID, "units");
+    }
+
+    return {
+        ...dim,
+        id: varID,
+        units,
+        coordNcid   // useful for debugging
+    };
 }
 
 export function getAttributeValues(
     module: NetCDF4Module,
     ncid: number,
-    varid: number, 
+    varid: number,
     attname: string
 ): any {
     const attInfo = module.nc_inq_att(ncid, varid, attname);
@@ -113,18 +154,30 @@ export function getAttributeValues(
         console.warn(`Failed to get attribute info for ${attname} (error: ${attInfo.result})`);
         return null;
     }
+
     const attType = attInfo.type;
     if (!attType) throw new Error("Failed to allocate memory for attribute type.");
-    let attValue;
-    if (attType === 2) attValue = module.nc_get_att_text(ncid, varid, attname, attInfo.len as number);
-    else if (attType === 3) attValue = module.nc_get_att_short(ncid, varid, attname, attInfo.len as number);
-    else if (attType === 4) attValue = module.nc_get_att_int(ncid, varid, attname, attInfo.len as number);
-    else if (attType === 5) attValue = module.nc_get_att_float(ncid, varid, attname, attInfo.len as number);
-    else if (attType === 6) attValue = module.nc_get_att_double(ncid, varid, attname, attInfo.len as number);
-    else if (attType === 10) attValue = module.nc_get_att_longlong(ncid, varid, attname, attInfo.len as number);
-    else attValue = module.nc_get_att_double(ncid, varid, attname, attInfo.len as number);
 
-    return attValue.data
+    // Dispatch table: maps NetCDF type -> module getter
+    const getterMap: { [key: number]: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: any } } = {
+        [NC_CONSTANTS.NC_CHAR]: module.nc_get_att_text,
+        [NC_CONSTANTS.NC_SHORT]: module.nc_get_att_short,
+        [NC_CONSTANTS.NC_INT]: module.nc_get_att_int,
+        [NC_CONSTANTS.NC_FLOAT]: module.nc_get_att_float,
+        [NC_CONSTANTS.NC_DOUBLE]: module.nc_get_att_double,
+        [NC_CONSTANTS.NC_UBYTE]: module.nc_get_att_uchar,
+        [NC_CONSTANTS.NC_UINT]: module.nc_get_att_uint,
+        [NC_CONSTANTS.NC_USHORT]: module.nc_get_att_ushort,
+        [NC_CONSTANTS.NC_LONGLONG]: module.nc_get_att_longlong,
+        [NC_CONSTANTS.NC_UINT64]: module.nc_get_att_ulonglong,
+        [NC_CONSTANTS.NC_STRING]: module.nc_get_att_string
+    };
+
+    const getter = getterMap[attType];
+    if (!getter) throw new Error(`Unsupported attribute type ${attType}`);
+
+    const attValue = getter(ncid, varid, attname, attInfo.len as number);
+    return attValue.data;
 }
 
 export function getGlobalAttributes(
@@ -189,7 +242,7 @@ export function getVarIDs(
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
         throw new Error(`Failed to get variable IDs (error: ${result.result})`);
     }
-    return result.varids || [0];
+    return result.varids ?? [];
 }
 
 export function getVariableInfo(
@@ -302,7 +355,7 @@ export function getVariableArray(
     // console.log(`Byte size: ${arraySize * DATA_TYPE_SIZE[arrayType]} bytes`);
     if (!arrayType || !arraySize) throw new Error("Failed to allocate memory for array")
     let arrayData;
-    if (arrayType === 2) arrayData = module.nc_get_var_text(ncid, varid, arraySize);
+    if (arrayType === 2) arrayData = module.nc_get_var_text(workingNcid, varid, arraySize);
     else if (arrayType === 3) arrayData = module.nc_get_var_short(workingNcid, varid, arraySize);
     else if (arrayType === 4) arrayData = module.nc_get_var_int(workingNcid, varid, arraySize);
     else if (arrayType === 10) arrayData = module.nc_get_var_longlong(workingNcid, varid, arraySize);
@@ -538,6 +591,24 @@ export function getGroupParent(
         return null; // No parent (at root)
     }
     return result.parent_ncid as number;
+}
+function findDimInHierarchy(
+    module: NetCDF4Module,
+    startNcid: number,
+    name: string
+): boolean {
+
+    let current: number | null = startNcid;
+
+    while (current !== null) {
+        const result = module.nc_inq_dimid(current, name);
+        if (result.result === NC_CONSTANTS.NC_NOERR) {
+            return true;
+        }
+        current = getGroupParent(module, current);
+    }
+
+    return false;
 }
 
 /**

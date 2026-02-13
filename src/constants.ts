@@ -13,14 +13,19 @@ export const NC_CONSTANTS = {
     NC_NETCDF4: 4096,
     
     // Data types
+    // See: https://docs.unidata.ucar.edu/nug/current/md_types.html
     NC_BYTE: 1,
     NC_CHAR: 2,
     NC_SHORT: 3,
     NC_INT: 4,
     NC_FLOAT: 5,
     NC_DOUBLE: 6,
+    NC_UINT: 7,
+    NC_UINT64: 8,
+    NC_UBYTE: 9,
     NC_LONGLONG: 10,
-    
+    NC_USHORT: 11,
+    NC_STRING: 12,
     // Storage types
     NC_CHUNKED: 0,
     NC_CONTIGUOUS: 1,
@@ -45,7 +50,12 @@ export const DATA_TYPE_MAP: { [key: string]: number } = {
     'short': NC_CONSTANTS.NC_SHORT,
     'byte': NC_CONSTANTS.NC_BYTE,
     'char': NC_CONSTANTS.NC_CHAR,
-    'longlong': NC_CONSTANTS.NC_LONGLONG
+    'longlong': NC_CONSTANTS.NC_LONGLONG,
+    'str': NC_CONSTANTS.NC_STRING,
+    'u1': NC_CONSTANTS.NC_UBYTE,
+    'u2': NC_CONSTANTS.NC_USHORT,
+    'u4': NC_CONSTANTS.NC_UINT,
+    'u8': NC_CONSTANTS.NC_UINT64
 };
 
 export const CONSTANT_DTYPE_MAP: { [key: number]: string } = {
@@ -55,7 +65,12 @@ export const CONSTANT_DTYPE_MAP: { [key: number]: string } = {
     4: 'i4',
     5: 'f4',
     6: 'f8',
-    10: 'i8'
+    7: 'u4',
+    8: 'u8',
+    9: 'u1',
+    10: 'i8',
+    11: 'u2',
+    12: 'str'
 }
 
 export const DATA_TYPE_SIZE: { [key: number]: number } = {
@@ -65,5 +80,10 @@ export const DATA_TYPE_SIZE: { [key: number]: number } = {
     4: 4,
     5: 4,
     6: 8,
-    10: 8
+    7: 4,
+    8: 8,
+    9: 1,
+    10: 8,
+    11: 2,
+    12: 0
 }

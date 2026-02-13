@@ -91,6 +91,16 @@ export class WasmModuleLoader {
         const nc_get_att_float_wrapper = module.cwrap('nc_get_att_float_wrapper', 'number', ['number', 'number', 'string', 'number']);
         const nc_get_att_double_wrapper = module.cwrap('nc_get_att_double_wrapper', 'number', ['number', 'number', 'string', 'number']);
         const nc_get_att_longlong_wrapper = module.cwrap('nc_get_att_longlong_wrapper', 'number', ['number', 'number', 'string', 'number']);
+        const nc_get_att_string_wrapper = module.cwrap('nc_get_att_string_wrapper', 'number', ['number', 'number', 'string', 'number']);
+        const nc_free_string_wrapper = module.cwrap('nc_free_string_wrapper', 'number', ['number', 'number']);
+        // 8-bit unsigned
+        const nc_get_att_uchar_wrapper = module.cwrap('nc_get_att_uchar_wrapper', 'number', ['number', 'number', 'string', 'number']);
+        // 16-bit unsigned
+        const nc_get_att_ushort_wrapper = module.cwrap('nc_get_att_ushort_wrapper', 'number', ['number', 'number', 'string', 'number']);
+        // 32-bit unsigned
+        const nc_get_att_uint_wrapper = module.cwrap('nc_get_att_uint_wrapper', 'number', ['number', 'number', 'string', 'number']);
+        // 64-bit unsigned
+        const nc_get_att_ulonglong_wrapper = module.cwrap('nc_get_att_ulonglong_wrapper', 'number', ['number', 'number', 'string', 'number']);
 
         // Variable getters
         const nc_get_vara_short_wrapper = module.cwrap('nc_get_vara_short_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
@@ -739,6 +749,74 @@ export class WasmModuleLoader {
                 module._free(lenpPtr);
                 
                 return { result, lenp };
+            },
+            nc_get_att_string: (ncid: number, varid: number, name: string, length: number) => {
+                // allocate space for char*
+                const ptrArray = module._malloc(length * 4); // pointer array (32bit in wasm)
+
+                const result = nc_get_att_string_wrapper(ncid, varid, name, ptrArray);
+
+                if (result !== NC_CONSTANTS.NC_NOERR) {
+                    module._free(ptrArray);
+                    return { result, data: undefined };
+                }
+
+                const data: string[] = [];
+
+                for (let i = 0; i < length; i++) {
+                    const strPtr = module.getValue(ptrArray + i * 4, '*');
+                    data.push(module.UTF8ToString(strPtr));
+                }
+
+                // free strings allocated by netcdf
+                nc_free_string_wrapper(length, ptrArray);
+
+                return { result, data };
+            },
+            nc_get_att_uchar: (ncid: number, varid: number, name: string, length: number) => {
+                const dataPtr = module._malloc(length);
+                const result = nc_get_att_uchar_wrapper(ncid, varid, name, dataPtr);
+                let data: Uint8Array | undefined;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    data = new Uint8Array(module.HEAPU8.buffer, dataPtr, length).slice();
+                }
+                module._free(dataPtr);
+                return { result, data };
+            },
+            // 16-bit unsigned (NC_USHORT)
+            nc_get_att_ushort: (ncid: number, varid: number, name: string, length: number) => {
+                const dataPtr = module._malloc(length * 2);
+                const result = nc_get_att_ushort_wrapper(ncid, varid, name, dataPtr);
+                let data: Uint16Array | undefined;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    data = new Uint16Array(module.HEAPU16.buffer, dataPtr, length).slice();
+                }
+                module._free(dataPtr);
+                return { result, data };
+            },
+
+            // 32-bit unsigned (NC_UINT)
+            nc_get_att_uint: (ncid: number, varid: number, name: string, length: number) => {
+                const dataPtr = module._malloc(length * 4);
+                const result = nc_get_att_uint_wrapper(ncid, varid, name, dataPtr);
+                let data: Uint32Array | undefined;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    data = new Uint32Array(module.HEAPU32.buffer, dataPtr, length).slice();
+                }
+                module._free(dataPtr);
+                return { result, data };
+            },
+
+            // 64-bit unsigned (NC_UINT64 / NC_ULONGLONG)
+            nc_get_att_ulonglong: (ncid: number, varid: number, name: string, length: number) => {
+                const dataPtr = module._malloc(length * 8);
+                const result = nc_get_att_ulonglong_wrapper(ncid, varid, name, dataPtr);
+                let data: BigUint64Array | undefined;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    data = new BigUint64Array(module.HEAPU64.buffer, dataPtr, length).slice();
+                }
+                module._free(dataPtr);
+                return { result, data };
             },
         };
     }

@@ -696,26 +696,31 @@ int nc_inq_attlen_wrapper(int ncid, int varid, const char* name, size_t* lenp) {
     return nc_inq_attlen(ncid, varid, name, lenp);
 }
 
+// Fixed text
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_text_wrapper(int ncid, int varid, const char* name, char* value) {
     return nc_get_att_text(ncid, varid, name, value);
 }
 
+// 8-bit unsigned
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_uchar_wrapper(int ncid, int varid, const char* name, unsigned char* value) {
     return nc_get_att_uchar(ncid, varid, name, value);
 }
 
+// 8-bit signed
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_schar_wrapper(int ncid, int varid, const char* name, signed char* value) {
     return nc_get_att_schar(ncid, varid, name, value);
 }
 
+// 16-bit signed
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_short_wrapper(int ncid, int varid, const char* name, short* value) {
     return nc_get_att_short(ncid, varid, name, value);
 }
 
+// 32-bit signed
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_int_wrapper(int ncid, int varid, const char* name, int* value) {
     return nc_get_att_int(ncid, varid, name, value);
@@ -726,31 +731,37 @@ int nc_get_att_long_wrapper(int ncid, int varid, const char* name, long* value) 
     return nc_get_att_long(ncid, varid, name, value);
 }
 
+// 32-bit float
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_float_wrapper(int ncid, int varid, const char* name, float* value) {
     return nc_get_att_float(ncid, varid, name, value);
 }
 
+// 64-bit float
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_double_wrapper(int ncid, int varid, const char* name, double* value) {
     return nc_get_att_double(ncid, varid, name, value);
 }
 
+// 16-bit unsigned
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_ushort_wrapper(int ncid, int varid, const char* name, unsigned short* value) {
     return nc_get_att_ushort(ncid, varid, name, value);
 }
 
+// 32-bit unsigned
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_uint_wrapper(int ncid, int varid, const char* name, unsigned int* value) {
     return nc_get_att_uint(ncid, varid, name, value);
 }
 
+// 64-bit signed
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_longlong_wrapper(int ncid, int varid, const char* name, long long* value) {
     return nc_get_att_longlong(ncid, varid, name, value);
 }
 
+// 64-bit unsigned
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_ulonglong_wrapper(int ncid, int varid, const char* name, unsigned long long* value) {
     return nc_get_att_ulonglong(ncid, varid, name, value);
@@ -789,6 +800,19 @@ int nc_del_att_wrapper(int ncid, int varid, const char* name) {
 EMSCRIPTEN_KEEPALIVE
 int nc_rename_att_wrapper(int ncid, int varid, const char* name, const char* newname) {
     return nc_rename_att(ncid, varid, name, newname);
+}
+
+// Variable-length strings
+EMSCRIPTEN_KEEPALIVE
+int nc_get_att_string_wrapper(int ncid, int varid, const char* name, char** value) {
+    return nc_get_att_string(ncid, varid, name, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_free_string_wrapper(size_t len, char** value) {
+    nc_free_string(len, value);
+    free(value);
+    return 0;
 }
 
 // =========================
@@ -1055,7 +1079,7 @@ check_command emcc netcdf_wrapper.c \
     -s ENVIRONMENT=web,worker \
     -s EXPORT_NAME="NetCDF4Module" \
     -s FORCE_FILESYSTEM=1 \
-    -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","getValue","setValue","UTF8ToString","stringToUTF8","lengthBytesUTF8","FS","WORKERFS","cwrap","ccall","HEAP8","HEAP16","HEAP32","HEAPF32","HEAPF64","HEAP64","HEAPU8","HEAPU16","HEAPU32"]' \
+    -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","getValue","setValue","UTF8ToString","stringToUTF8","lengthBytesUTF8","FS","WORKERFS","cwrap","ccall","HEAP8","HEAP16","HEAP32","HEAPF32","HEAPF64","HEAP64","HEAPU8","HEAPU16","HEAPU32", "HEAPU64"]' \
     -s EXPORTED_FUNCTIONS='["_malloc","_free"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s INITIAL_MEMORY=16777216 \

@@ -20,7 +20,10 @@ export interface EmscriptenModule {
     HEAP32: Int32Array;
     HEAPF32: Float32Array;
     HEAPU8: Uint8Array;
-    HEAP16: Float16Array;
+    HEAP16: Int16Array;
+    HEAPU16: Uint16Array;
+    HEAPU32: Uint32Array;
+    HEAPU64: BigUint64Array;
 }
 
 export interface NetCDF4Module extends EmscriptenModule {
@@ -78,6 +81,15 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_get_att_float(ncid: number, varid: number, name: string, length: number): { result: number; data?: number[] }
     nc_get_att_double(ncid: number, varid: number, name: string, length: number): { result: number; data?: number[] }
     nc_get_att_longlong(ncid: number, varid: number, name: string, length: number): { result: number; data?: BigInt[] }
+    nc_get_att_string: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: string[] };
+    // 8-bit unsigned
+    nc_get_att_uchar: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: Uint8Array };
+    // 16-bit unsigned
+    nc_get_att_ushort: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: Uint16Array };
+    // 32-bit unsigned
+    nc_get_att_uint: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: Uint32Array };
+    // 64-bit unsigned
+    nc_get_att_ulonglong: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: BigUint64Array };
 
     // 5. Variable Getters
     nc_get_var_text: (ncid: number, varid: number,  length: number) => { result: number; data?: string[] };
