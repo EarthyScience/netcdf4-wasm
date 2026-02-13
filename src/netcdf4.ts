@@ -791,3 +791,114 @@ export class NetCDF4 extends Group {
         }
     }
 }
+
+/**
+ * UI-friendly wrapper around NetCDF4
+ * Builds a full dataTree of groups, variables, attributes
+ */
+export class DataTree {
+    private dataset: NetCDF4;
+    public tree: Record<string, any> = {};
+
+    constructor(dataset: NetCDF4) {
+        this.dataset = dataset;
+    }
+
+    async buildTree(): Promise<void> {
+        this.tree = await this.dataset.getCompleteHierarchy();
+    }
+
+    // --------------------------------------------------
+    // Core navigation
+    // --------------------------------------------------
+
+    getGroup(groupPath: string = '/'): Record<string, any> | null {
+        if (!this.tree) return null;
+
+        if (groupPath === '/' || !groupPath) return this.tree;
+
+        const parts = groupPath.split('/').filter(Boolean);
+        let current = this.tree;
+
+        for (const part of parts) {
+            if (!current.groups || !current.groups[part]) return null;
+            current = current.groups[part];
+        }
+
+        return current;
+    }
+
+    getGroupName(groupPath?: string): string {
+        if (!groupPath || groupPath === '/') return 'root';
+        const parts = groupPath.split('/').filter(Boolean);
+        return parts[parts.length - 1];
+    }
+
+    hasSubgroups(groupPath: string = '/'): boolean {
+        const group = this.getGroup(groupPath);
+        return group ? Object.keys(group.groups || {}).length > 0 : false;
+    }
+
+    // --------------------------------------------------
+    // Groups (for dropdowns)
+    // --------------------------------------------------
+
+    /** immediate children only */
+    listGroups(groupPath: string = '/'): { name: string; path: string }[] {
+        const group = this.getGroup(groupPath);
+        if (!group || !group.groups) return [];
+
+        return Object.entries(group.groups).map(([name, g]: any) => ({
+            name,
+            path: g.path || `${groupPath === '/' ? '' : groupPath}/${name}`
+        }));
+    }
+
+    /** every group recursively */
+    listAllGroups(): { name: string; path: string }[] {
+        const result: { name: string; path: string }[] = [];
+
+        const walk = (g: any) => {
+            if (!g.groups) return;
+            for (const [name, sub] of Object.entries(g.groups)) {
+                result.push({ name, path: (sub as any).path });
+                walk(sub);
+            }
+        };
+
+        walk(this.tree);
+        return result;
+    }
+
+    // --------------------------------------------------
+    // Variables
+    // --------------------------------------------------
+
+    /** variables inside a group */
+    getAllVariables(groupPath: string = '/'): Record<string, any> {
+        const group = this.getGroup(groupPath);
+        return group?.variables || {};
+    }
+
+    // --------------------------------------------------
+    // Attributes
+    // --------------------------------------------------
+
+    /** attributes from the tree (fast) */
+    getAttributes(groupPath: string = '/'): Record<string, any> {
+        const group = this.getGroup(groupPath);
+        return group?.attributes || {};
+    }
+
+    // --------------------------------------------------
+    // Heavy operations → still go to dataset
+    // --------------------------------------------------
+
+    async getVariableArray(variable: number | string, groupPath?: string) {
+        return this.dataset.getVariableArray(variable, groupPath);
+    }
+
+    async getSlicedVariableArray(variable: number | string, start: number[], count: number[], groupPath?: string) {
+        return this.dataset.getSlicedVariableArray(variable, start, count, groupPath);
+    }
+}

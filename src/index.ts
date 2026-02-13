@@ -2,7 +2,7 @@
 // JavaScript API modeled on netcdf4-python for familiarity
 
 // Export all classes and types
-export { NetCDF4 } from './netcdf4.js';
+export { NetCDF4, DataTree } from './netcdf4.js';
 export { Variable } from './variable.js';
 export { Dimension } from './dimension.js';
 export { Group } from './group.js';
