@@ -16,6 +16,7 @@ import {
   Info,
   Search,
   ChevronRight,
+  ChevronDown,
   Database
 } from 'lucide-react';
 import {
@@ -65,6 +66,12 @@ const LocalNetCDFMeta = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingVariable, setLoadingVariable] = useState<string | null>(null);
 
+  // Expand/collapse state
+  const [expandedVariableInfo, setExpandedVariableInfo] = useState(true);
+  const [expandedVariableAttrs, setExpandedVariableAttrs] = useState(true);
+  const [expandedDimensions, setExpandedDimensions] = useState(true);
+  const [expandedAttributes, setExpandedAttributes] = useState(true);
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
@@ -103,7 +110,7 @@ const LocalNetCDFMeta = () => {
       return (
         <DropdownMenuItem 
           onClick={() => onSelect(node.path)}
-          className={isSelected ? 'bg-accent' : ''}
+          className={`cursor-pointer ${isSelected ? 'bg-accent' : ''}`}
         >
           <Folder className="h-4 w-4 mr-2" />
           <div className="flex items-center justify-between flex-1">
@@ -122,7 +129,7 @@ const LocalNetCDFMeta = () => {
 
     return (
       <DropdownMenuSub>
-        <DropdownMenuSubTrigger className={isSelected ? 'bg-accent' : ''}>
+        <DropdownMenuSubTrigger className={`cursor-pointer ${isSelected ? 'bg-accent' : ''}`}>
           <FolderOpen className="h-4 w-4 mr-2" />
           <div className="flex items-center justify-between flex-1">
             <span>{node.name}</span>
@@ -141,7 +148,7 @@ const LocalNetCDFMeta = () => {
         <DropdownMenuSubContent>
           <DropdownMenuItem 
             onClick={() => onSelect(node.path)}
-            className={isSelected ? 'bg-accent font-semibold' : ''}
+            className={`cursor-pointer ${isSelected ? 'bg-accent font-semibold' : ''}`}
           >
             <Folder className="h-4 w-4 mr-2" />
             (Select this group)
@@ -326,6 +333,7 @@ const LocalNetCDFMeta = () => {
         type="file"
         onChange={handleFileSelect}
         disabled={isLoading}
+        className="cursor-pointer"
       />
 
       {/* URL Fetch */}
@@ -370,7 +378,7 @@ const LocalNetCDFMeta = () => {
                   <React.Fragment key={crumb.path}>
                     <button
                       onClick={() => selectGroup(crumb.path)}
-                      className={`hover:text-foreground transition-colors ${
+                      className={`hover:text-foreground transition-colors cursor-pointer ${
                         crumb.path === currentGroupPath ? 'text-foreground font-semibold' : ''
                       }`}
                     >
@@ -388,7 +396,7 @@ const LocalNetCDFMeta = () => {
                 {/* Group Browser */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" className="cursor-pointer">
                       <FolderOpen className="h-4 w-4 mr-2" />
                       Browse Groups
                     </Button>
@@ -401,7 +409,7 @@ const LocalNetCDFMeta = () => {
                         <>
                           <DropdownMenuItem 
                             onClick={() => selectGroup('/')}
-                            className={currentGroupPath === '/' ? 'bg-accent font-semibold' : ''}
+                            className={`cursor-pointer ${currentGroupPath === '/' ? 'bg-accent font-semibold' : ''}`}
                           >
                             <Folder className="h-4 w-4 mr-2" />
                             <div className="flex items-center justify-between flex-1">
@@ -432,7 +440,7 @@ const LocalNetCDFMeta = () => {
                 {Object.keys(variables).length > 0 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" className="cursor-pointer">
                         <FileText className="h-4 w-4 mr-2" />
                         {selectedVariable || 'Select Variable'}
                       </Button>
@@ -445,6 +453,7 @@ const LocalNetCDFMeta = () => {
                             setSelectedVariable(name);
                             if (!variables[name].info) loadVariableInfo(name);
                           }}
+                          className="cursor-pointer"
                         >
                           <FileText className="h-3 w-3 mr-2" />
                           {name}
@@ -515,122 +524,151 @@ const LocalNetCDFMeta = () => {
 
                 {variables[selectedVariable].info && (
                   <div className="space-y-2">
-                    <div className="space-y-1 text-xs">
-                      {/* Name */}
-                      <div className="grid grid-cols-[150px_1fr] gap-2">
-                        <span className="font-mono text-muted-foreground">name:</span>
-                        <span className="font-mono break-all">
-                          {variables[selectedVariable].info.name}
-                        </span>
-                      </div>
-
-                      {/* Data Type */}
-                      <div className="grid grid-cols-[150px_1fr] gap-2">
-                        <span className="font-mono text-muted-foreground">dtype:</span>
-                        <span className="font-mono break-all">
-                          {variables[selectedVariable].info.dtype}
-                        </span>
-                      </div>
-
-                      {/* NC Type */}
-                      {variables[selectedVariable].info.nctype !== undefined && (
-                        <div className="grid grid-cols-[150px_1fr] gap-2">
-                          <span className="font-mono text-muted-foreground">nctype:</span>
-                          <span className="font-mono break-all">
-                            {variables[selectedVariable].info.nctype}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Shape */}
-                      <div className="grid grid-cols-[150px_1fr] gap-2">
-                        <span className="font-mono text-muted-foreground">shape:</span>
-                        <span className="font-mono break-all">
-                          [{variables[selectedVariable].info.shape.join(', ')}]
-                        </span>
-                      </div>
-
-                      {/* Dimensions */}
-                      <div className="grid grid-cols-[150px_1fr] gap-2">
-                        <span className="font-mono text-muted-foreground">dimensions:</span>
-                        <span className="font-mono break-all">
-                          [{variables[selectedVariable].info.dimensions?.join(', ') || 'N/A'}]
-                        </span>
-                      </div>
-
-                      {/* Size */}
-                      <div className="grid grid-cols-[150px_1fr] gap-2">
-                        <span className="font-mono text-muted-foreground">size:</span>
-                        <span className="font-mono break-all">
-                          {variables[selectedVariable].info.size.toLocaleString()}
-                        </span>
-                      </div>
-
-                      {/* Total Size */}
-                      {variables[selectedVariable].info.totalSize !== undefined && (
-                        <div className="grid grid-cols-[150px_1fr] gap-2">
-                          <span className="font-mono text-muted-foreground">totalSize:</span>
-                          <span className="font-mono break-all">
-                            {variables[selectedVariable].info.totalSize.toLocaleString()} bytes
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Chunked */}
-                      {variables[selectedVariable].info.chunked !== undefined && (
-                        <div className="grid grid-cols-[150px_1fr] gap-2">
-                          <span className="font-mono text-muted-foreground">chunked:</span>
-                          <span className="font-mono break-all">
-                            {String(variables[selectedVariable].info.chunked)}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Chunks */}
-                      {variables[selectedVariable].info.chunks && (
-                        <div className="grid grid-cols-[150px_1fr] gap-2">
-                          <span className="font-mono text-muted-foreground">chunks:</span>
-                          <span className="font-mono break-all">
-                            [{variables[selectedVariable].info.chunks.join(', ')}]
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Chunk Size */}
-                      {variables[selectedVariable].info.chunkSize !== undefined && (
-                        <div className="grid grid-cols-[150px_1fr] gap-2">
-                          <span className="font-mono text-muted-foreground">chunkSize:</span>
-                          <span className="font-mono break-all">
-                            {variables[selectedVariable].info.chunkSize.toLocaleString()} bytes
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Variable Attributes */}
-                      {variables[selectedVariable].info.attributes && 
-                       Object.keys(variables[selectedVariable].info.attributes).length > 0 && (
-                        <>
-                          <div className="grid grid-cols-[150px_1fr] gap-2 pt-2 border-t">
-                            <span className="font-mono text-muted-foreground font-semibold">attributes:</span>
+                    {/* Collapsible Variable Info */}
+                    <div className="border rounded-lg">
+                      <button
+                        onClick={() => setExpandedVariableInfo(!expandedVariableInfo)}
+                        className="w-full flex items-center justify-between p-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                      >
+                        <span className="text-sm font-semibold">Variable Info</span>
+                        {expandedVariableInfo ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                      
+                      {expandedVariableInfo && (
+                        <div className="px-3 pb-3 space-y-1 text-xs">
+                          {/* Name */}
+                          <div className="grid grid-cols-[150px_1fr] gap-2">
+                            <span className="font-mono text-muted-foreground">name:</span>
                             <span className="font-mono break-all">
-                              ({Object.keys(variables[selectedVariable].info.attributes).length})
+                              {variables[selectedVariable].info.name}
                             </span>
                           </div>
-                          {Object.entries(variables[selectedVariable].info.attributes).map(([k, v]) => (
-                            <div key={k} className="grid grid-cols-[150px_1fr] gap-2 pl-4">
-                              <span className="font-mono text-muted-foreground">{k}:</span>
+
+                          {/* Data Type */}
+                          <div className="grid grid-cols-[150px_1fr] gap-2">
+                            <span className="font-mono text-muted-foreground">dtype:</span>
+                            <span className="font-mono break-all">
+                              {variables[selectedVariable].info.dtype}
+                            </span>
+                          </div>
+
+                          {/* NC Type */}
+                          {variables[selectedVariable].info.nctype !== undefined && (
+                            <div className="grid grid-cols-[150px_1fr] gap-2">
+                              <span className="font-mono text-muted-foreground">nctype:</span>
                               <span className="font-mono break-all">
-                                {typeof v === 'object'
-                                  ? JSON.stringify(v, (_k, val) =>
-                                      typeof val === 'bigint' ? Number(val) : val
-                                    )
-                                  : String(v)}
+                                {variables[selectedVariable].info.nctype}
                               </span>
                             </div>
-                          ))}
-                        </>
+                          )}
+
+                          {/* Shape */}
+                          <div className="grid grid-cols-[150px_1fr] gap-2">
+                            <span className="font-mono text-muted-foreground">shape:</span>
+                            <span className="font-mono break-all">
+                              [{variables[selectedVariable].info.shape.join(', ')}]
+                            </span>
+                          </div>
+
+                          {/* Dimensions */}
+                          <div className="grid grid-cols-[150px_1fr] gap-2">
+                            <span className="font-mono text-muted-foreground">dimensions:</span>
+                            <span className="font-mono break-all">
+                              [{variables[selectedVariable].info.dimensions?.join(', ') || 'N/A'}]
+                            </span>
+                          </div>
+
+                          {/* Size */}
+                          <div className="grid grid-cols-[150px_1fr] gap-2">
+                            <span className="font-mono text-muted-foreground">size:</span>
+                            <span className="font-mono break-all">
+                              {variables[selectedVariable].info.size.toLocaleString()}
+                            </span>
+                          </div>
+
+                          {/* Total Size */}
+                          {variables[selectedVariable].info.totalSize !== undefined && (
+                            <div className="grid grid-cols-[150px_1fr] gap-2">
+                              <span className="font-mono text-muted-foreground">totalSize:</span>
+                              <span className="font-mono break-all">
+                                {variables[selectedVariable].info.totalSize.toLocaleString()} bytes
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Chunked */}
+                          {variables[selectedVariable].info.chunked !== undefined && (
+                            <div className="grid grid-cols-[150px_1fr] gap-2">
+                              <span className="font-mono text-muted-foreground">chunked:</span>
+                              <span className="font-mono break-all">
+                                {String(variables[selectedVariable].info.chunked)}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Chunks */}
+                          {variables[selectedVariable].info.chunks && (
+                            <div className="grid grid-cols-[150px_1fr] gap-2">
+                              <span className="font-mono text-muted-foreground">chunks:</span>
+                              <span className="font-mono break-all">
+                                [{variables[selectedVariable].info.chunks.join(', ')}]
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Chunk Size */}
+                          {variables[selectedVariable].info.chunkSize !== undefined && (
+                            <div className="grid grid-cols-[150px_1fr] gap-2">
+                              <span className="font-mono text-muted-foreground">chunkSize:</span>
+                              <span className="font-mono break-all">
+                                {variables[selectedVariable].info.chunkSize.toLocaleString()} bytes
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       )}
                     </div>
+
+                    {/* Collapsible Variable Attributes */}
+                    {variables[selectedVariable].info.attributes && 
+                     Object.keys(variables[selectedVariable].info.attributes).length > 0 && (
+                      <div className="border rounded-lg">
+                        <button
+                          onClick={() => setExpandedVariableAttrs(!expandedVariableAttrs)}
+                          className="w-full flex items-center justify-between p-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                        >
+                          <span className="text-sm font-semibold">
+                            Variable Attributes ({Object.keys(variables[selectedVariable].info.attributes).length})
+                          </span>
+                          {expandedVariableAttrs ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </button>
+                        
+                        {expandedVariableAttrs && (
+                          <div className="px-3 pb-3 space-y-1 text-xs">
+                            {Object.entries(variables[selectedVariable].info.attributes).map(([k, v]) => (
+                              <div key={k} className="grid grid-cols-[150px_1fr] gap-2">
+                                <span className="font-mono text-muted-foreground">{k}:</span>
+                                <span className="font-mono break-all">
+                                  {typeof v === 'object'
+                                    ? JSON.stringify(v, (_k, val) =>
+                                        typeof val === 'bigint' ? Number(val) : val
+                                      )
+                                    : String(v)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     <Button
                       size="sm"
@@ -655,55 +693,85 @@ const LocalNetCDFMeta = () => {
             </Card>
           )}
 
-          {/* Dimensions */}
+          {/* Collapsible Dimensions */}
           {Object.keys(dimensions).length > 0 && (
             <Card className="overflow-hidden">
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Info className="h-4 w-4" />
-                  Dimensions ({Object.keys(dimensions).length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-hidden">
-                <div className="space-y-1 max-w-full text-xs">
-                  {Object.entries(dimensions).map(([name, dim]: [string, any]) => (
-                    <div key={name} className="grid grid-cols-[150px_1fr] gap-2">
-                      <span className="font-mono text-muted-foreground">{name}:</span>
-                      <span className="font-mono break-all">
-                        {dim.size || dim.len || dim.length || 'unlimited'}
-                      </span>
+              <button
+                onClick={() => setExpandedDimensions(!expandedDimensions)}
+                className="w-full"
+              >
+                <CardHeader className="hover:bg-accent/50 transition-colors cursor-pointer">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Info className="h-4 w-4" />
+                      Dimensions ({Object.keys(dimensions).length})
                     </div>
-                  ))}
-                </div>
-              </CardContent>
+                    {expandedDimensions ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </CardTitle>
+                </CardHeader>
+              </button>
+              
+              {expandedDimensions && (
+                <CardContent className="overflow-hidden">
+                  <div className="space-y-1 max-w-full text-xs">
+                    {Object.entries(dimensions).map(([name, dim]: [string, any]) => (
+                      <div key={name} className="grid grid-cols-[150px_1fr] gap-2">
+                        <span className="font-mono text-muted-foreground">{name}:</span>
+                        <span className="font-mono break-all">
+                          {dim.size || dim.len || dim.length || 'unlimited'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              )}
             </Card>
           )}
 
-          {/* Attributes */}
+          {/* Collapsible Attributes */}
           {Object.keys(attributes).length > 0 && (
             <Card className="overflow-hidden">
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <Info className="h-4 w-4" />
-                  Attributes ({Object.keys(attributes).length})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="overflow-hidden">
-                <div className="max-h-[300px] overflow-y-auto space-y-1 max-w-full text-xs">
-                  {Object.entries(attributes).map(([k, v]) => (
-                    <div key={k} className="grid grid-cols-[150px_1fr] gap-2">
-                      <span className="font-mono text-muted-foreground">{k}:</span>
-                      <span className="font-mono break-all">
-                        {typeof v === 'object'
-                          ? JSON.stringify(v, (_k, val) =>
-                              typeof val === 'bigint' ? Number(val) : val
-                            )
-                          : String(v)}
-                      </span>
+              <button
+                onClick={() => setExpandedAttributes(!expandedAttributes)}
+                className="w-full"
+              >
+                <CardHeader className="hover:bg-accent/50 transition-colors cursor-pointer">
+                  <CardTitle className="text-base flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Info className="h-4 w-4" />
+                      Attributes ({Object.keys(attributes).length})
                     </div>
-                  ))}
-                </div>
-              </CardContent>
+                    {expandedAttributes ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </CardTitle>
+                </CardHeader>
+              </button>
+              
+              {expandedAttributes && (
+                <CardContent className="overflow-hidden">
+                  <div className="max-h-[300px] overflow-y-auto space-y-1 max-w-full text-xs">
+                    {Object.entries(attributes).map(([k, v]) => (
+                      <div key={k} className="grid grid-cols-[150px_1fr] gap-2">
+                        <span className="font-mono text-muted-foreground">{k}:</span>
+                        <span className="font-mono break-all">
+                          {typeof v === 'object'
+                            ? JSON.stringify(v, (_k, val) =>
+                                typeof val === 'bigint' ? Number(val) : val
+                              )
+                            : String(v)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              )}
             </Card>
           )}
         </div>
