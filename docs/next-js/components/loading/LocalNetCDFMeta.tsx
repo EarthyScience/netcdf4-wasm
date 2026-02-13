@@ -1,6 +1,6 @@
 'use client';
 
-import React, { ChangeEvent, useState } from 'react';
+import React, { ChangeEvent, useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,7 @@ import {
 import {
   Card,
   CardContent,
-  CardDescription,
+  // CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -60,6 +60,9 @@ const LocalNetCDFMeta = () => {
 
   const [selectedVariable, setSelectedVariable] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Array<{name: string; groupPath: string}>>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [pendingVariableLoad, setPendingVariableLoad] = useState<{name: string; groupPath: string} | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [url, setUrl] = useState('');
@@ -83,6 +86,17 @@ const LocalNetCDFMeta = () => {
     setDimensions(dataTree.getDimensions(path));
     setSelectedVariable(null);
   };
+
+  // Handle pending variable loads after group change
+  useEffect(() => {
+    if (pendingVariableLoad && currentGroupPath === pendingVariableLoad.groupPath) {
+      setSelectedVariable(pendingVariableLoad.name);
+      if (variables[pendingVariableLoad.name] && !variables[pendingVariableLoad.name].info) {
+        loadVariableInfo(pendingVariableLoad.name);
+      }
+      setPendingVariableLoad(null);
+    }
+  }, [currentGroupPath, variables, pendingVariableLoad]);
 
   const formatDataPreview = (data: any, maxItems = 20) => {
     if (!data) return 'No data';
@@ -287,17 +301,39 @@ const LocalNetCDFMeta = () => {
   // ---------------------------------------------------------------------------
 
   const handleSearch = () => {
-    if (!tree || !searchQuery.trim()) return;
+    if (!tree || !searchQuery.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
 
     const results = tree.searchVariables(searchQuery);
-    if (results.length > 0) {
-      const first = results[0];
-      selectGroup(first.groupPath);
-      setSelectedVariable(first.name);
-      if (!variables[first.name]?.info) {
-        loadVariableInfo(first.name);
-      }
+    setSearchResults(results);
+    setShowSearchResults(true);
+  };
+
+  const handleSearchInputChange = (value: string) => {
+    setSearchQuery(value);
+    if (!value.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
     }
+
+    // Show partial matches while typing
+    if (tree) {
+      const results = tree.searchVariables(value);
+      setSearchResults(results);
+      setShowSearchResults(true);
+    }
+  };
+
+  const selectSearchResult = (result: {name: string; groupPath: string}) => {
+    setPendingVariableLoad(result);
+    selectGroup(result.groupPath);
+    setShowSearchResults(false);
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
   // ---------------------------------------------------------------------------
@@ -476,12 +512,13 @@ const LocalNetCDFMeta = () => {
                 )}
 
                 {/* Search */}
-                <div className="flex gap-1 flex-1 min-w-[200px]">
+                <div className="flex gap-1 flex-1 min-w-[200px] relative">
                   <Input
                     placeholder="Search variables..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => handleSearchInputChange(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                    onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
                     className="h-9 text-sm"
                   />
                   <Button 
@@ -492,6 +529,45 @@ const LocalNetCDFMeta = () => {
                   >
                     <Search className="h-4 w-4" />
                   </Button>
+
+                  {/* Search Results Dropdown */}
+                  {showSearchResults && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-10" 
+                        onClick={() => setShowSearchResults(false)}
+                      />
+                      <div className="absolute top-full left-0 right-12 mt-1 bg-popover border rounded-md shadow-md max-h-[300px] overflow-y-auto z-20">
+                        {searchResults.length > 0 ? (
+                          <div className="py-1">
+                            {searchResults.map((result, idx) => (
+                              <button
+                                key={`${result.groupPath}-${result.name}-${idx}`}
+                                onClick={() => selectSearchResult(result)}
+                                className="w-full text-left px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                              >
+                                <div className="flex items-start gap-2">
+                                  <FileText className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-mono text-sm break-all">
+                                      {result.name}
+                                    </div>
+                                    <div className="text-xs text-muted-foreground mt-0.5 break-all">
+                                      {result.groupPath}
+                                    </div>
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+                            No variables found matching your search.
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
