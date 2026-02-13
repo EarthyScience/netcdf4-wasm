@@ -373,22 +373,34 @@ const LocalNetCDFMeta = () => {
           <Card>
             <CardContent className="space-y-3">
               {/* Breadcrumbs */}
-              <div className="flex items-center gap-1 text-xs text-muted-foreground flex-wrap">
-                {breadcrumbs.map((crumb, idx) => (
-                  <React.Fragment key={crumb.path}>
-                    <button
-                      onClick={() => selectGroup(crumb.path)}
-                      className={`hover:text-foreground transition-colors cursor-pointer ${
-                        crumb.path === currentGroupPath ? 'text-foreground font-semibold' : ''
-                      }`}
-                    >
-                      {crumb.name}
-                    </button>
-                    {idx < breadcrumbs.length - 1 && (
-                      <ChevronRight className="h-3 w-3" />
-                    )}
-                  </React.Fragment>
-                ))}
+              <div className="flex items-center gap-2 text-xs flex-wrap">
+                <div className="flex items-center gap-1 text-muted-foreground flex-wrap">
+                  {breadcrumbs.map((crumb, idx) => (
+                    <React.Fragment key={crumb.path}>
+                      <button
+                        onClick={() => selectGroup(crumb.path)}
+                        className={`hover:text-foreground transition-colors cursor-pointer ${
+                          crumb.path === currentGroupPath ? 'text-foreground font-semibold' : ''
+                        }`}
+                      >
+                        {crumb.name}
+                      </button>
+                      {idx < breadcrumbs.length - 1 && (
+                        <ChevronRight className="h-3 w-3" />
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+                
+                {selectedVariable && (
+                  <Badge 
+                    className="text-xs h-5"
+                    style={{ backgroundColor: '#644FF0', color: 'white' }}
+                  >
+                    <FileText className="h-3 w-3 mr-1" />
+                    {selectedVariable}
+                  </Badge>
+                )}
               </div>
 
               {/* Controls */}
@@ -442,7 +454,7 @@ const LocalNetCDFMeta = () => {
                     <DropdownMenuTrigger asChild>
                       <Button variant="outline" size="sm" className="cursor-pointer">
                         <FileText className="h-4 w-4 mr-2" />
-                        {selectedVariable || 'Select Variable'}
+                        Select Variable
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent className="max-h-[300px] overflow-y-auto">
