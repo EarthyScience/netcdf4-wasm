@@ -75,6 +75,14 @@ const LocalNetCDFMeta = () => {
   const [expandedDimensions, setExpandedDimensions] = useState(true);
   const [expandedAttributes, setExpandedAttributes] = useState(true);
 
+  // Mobile menu states
+  const [showGroupMenu, setShowGroupMenu] = useState(false);
+  const [showVariableMenu, setShowVariableMenu] = useState(false);
+  const [expandedMobileGroups, setExpandedMobileGroups] = useState<Set<string>>(new Set(['/']));
+
+  // Hover state for showing variables
+  const [hoveredGroupPath, setHoveredGroupPath] = useState<string | null>(null);
+
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
@@ -119,46 +127,102 @@ const LocalNetCDFMeta = () => {
   }> = ({ node, onSelect, currentPath }) => {
     const hasChildren = node.children.length > 0;
     const isSelected = node.path === currentPath;
+    const groupVariables = tree ? tree.getAllVariables(node.path) : {};
+    const variableNames = Object.keys(groupVariables);
+    const showVariables = hoveredGroupPath === node.path && variableNames.length > 0;
+
+    const handleVariableClick = (varName: string) => {
+      // Navigate to the group first if not already there
+      if (currentGroupPath !== node.path) {
+        onSelect(node.path);
+      }
+      // Set as pending so it loads after group change
+      setPendingVariableLoad({ name: varName, groupPath: node.path });
+    };
 
     if (!hasChildren) {
       return (
-        <DropdownMenuItem 
-          onClick={() => onSelect(node.path)}
-          className={`cursor-pointer ${isSelected ? 'bg-accent' : ''}`}
+        <div 
+          onMouseEnter={() => setHoveredGroupPath(node.path)}
+          onMouseLeave={() => setHoveredGroupPath(null)}
         >
-          <Folder className="h-4 w-4 mr-2 flex-shrink-0" />
-          <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
-            <span className="truncate">{node.name}</span>
-            <div className="flex gap-1 flex-shrink-0">
-              {node.variableCount > 0 && (
-                <Badge variant="secondary" className="text-xs h-5">
-                  {node.variableCount} vars
-                </Badge>
+          <DropdownMenuItem 
+            onClick={() => onSelect(node.path)}
+            className={`cursor-pointer ${isSelected ? 'bg-accent' : ''}`}
+          >
+            <Folder className="h-4 w-4 mr-2 flex-shrink-0" />
+            <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
+              <span className="truncate">{node.name}</span>
+              <div className="flex gap-1 flex-shrink-0">
+                {node.variableCount > 0 && (
+                  <Badge variant="secondary" className="text-xs h-5">
+                    {node.variableCount} vars
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </DropdownMenuItem>
+          {showVariables && (
+            <div className="px-4 py-1 text-xs bg-muted/50 space-y-0.5">
+              {variableNames.slice(0, 5).map(name => (
+                <button
+                  key={name}
+                  onClick={() => handleVariableClick(name)}
+                  className="w-full text-left truncate py-1 px-2 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <FileText className="h-3 w-3 inline mr-1" />
+                  {name}
+                </button>
+              ))}
+              {variableNames.length > 5 && (
+                <div className="py-1 px-2 text-muted-foreground">... +{variableNames.length - 5} more</div>
               )}
             </div>
-          </div>
-        </DropdownMenuItem>
+          )}
+        </div>
       );
     }
 
     return (
       <DropdownMenuSub>
-        <DropdownMenuSubTrigger className={`cursor-pointer ${isSelected ? 'bg-accent' : ''}`}>
-          <FolderOpen className="h-4 w-4 mr-2 flex-shrink-0" />
-          <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
-            <span className="truncate">{node.name}</span>
-            <div className="flex gap-1 flex-shrink-0">
-              {node.variableCount > 0 && (
-                <Badge variant="secondary" className="text-xs h-5">
-                  {node.variableCount}
+        <div
+          onMouseEnter={() => setHoveredGroupPath(node.path)}
+          onMouseLeave={() => setHoveredGroupPath(null)}
+        >
+          <DropdownMenuSubTrigger className={`cursor-pointer ${isSelected ? 'bg-accent' : ''}`}>
+            <FolderOpen className="h-4 w-4 mr-2 flex-shrink-0" />
+            <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
+              <span className="truncate">{node.name}</span>
+              <div className="flex gap-1 flex-shrink-0">
+                {node.variableCount > 0 && (
+                  <Badge variant="secondary" className="text-xs h-5">
+                    {node.variableCount}
+                  </Badge>
+                )}
+                <Badge variant="outline" className="text-xs h-5">
+                  {node.children.length}
                 </Badge>
-              )}
-              <Badge variant="outline" className="text-xs h-5">
-                {node.children.length}
-              </Badge>
+              </div>
             </div>
-          </div>
-        </DropdownMenuSubTrigger>
+          </DropdownMenuSubTrigger>
+          {showVariables && (
+            <div className="px-4 py-1 text-xs bg-muted/50 space-y-0.5">
+              {variableNames.slice(0, 5).map(name => (
+                <button
+                  key={name}
+                  onClick={() => handleVariableClick(name)}
+                  className="w-full text-left truncate py-1 px-2 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <FileText className="h-3 w-3 inline mr-1" />
+                  {name}
+                </button>
+              ))}
+              {variableNames.length > 5 && (
+                <div className="py-1 px-2 text-muted-foreground">... +{variableNames.length - 5} more</div>
+              )}
+            </div>
+          )}
+        </div>
         <DropdownMenuSubContent>
           <DropdownMenuItem 
             onClick={() => onSelect(node.path)}
@@ -406,75 +470,152 @@ const LocalNetCDFMeta = () => {
               {/* Controls */}
               <div className="flex gap-2 flex-wrap">
                 {/* Group Browser */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="cursor-pointer flex-shrink-0">
-                      <FolderOpen className="h-4 w-4 mr-2" />
-                      <span className="hidden sm:inline">Browse Groups</span>
-                      <span className="sm:hidden">Groups</span>
-                    </Button>
-                  </DropdownMenuTrigger>
+                <div className="flex-shrink-0">
+                  {/* Desktop: Dropdown Menu */}
+                  <div className="hidden sm:block">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="cursor-pointer flex-shrink-0">
+                          <FolderOpen className="h-4 w-4 mr-2" />
+                          Browse Groups
+                        </Button>
+                      </DropdownMenuTrigger>
 
-                  <DropdownMenuContent className="max-h-[400px] overflow-y-auto w-56 sm:w-64">
-                    {(() => {
-                      const groupTree = tree.buildGroupTree();
-                      return (
-                        <>
-                          <DropdownMenuItem 
-                            onClick={() => selectGroup('/')}
-                            className={`cursor-pointer ${currentGroupPath === '/' ? 'bg-accent font-semibold' : ''}`}
-                          >
-                            <Folder className="h-4 w-4 mr-2 flex-shrink-0" />
-                            <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
-                              <span className="truncate">/ (root)</span>
-                              {groupTree.variableCount > 0 && (
-                                <Badge variant="secondary" className="text-xs h-5 flex-shrink-0">
-                                  {groupTree.variableCount}
-                                </Badge>
-                              )}
-                            </div>
-                          </DropdownMenuItem>
-                          {groupTree.children.length > 0 && <DropdownMenuSeparator />}
-                          {groupTree.children.map((child) => (
-                            <GroupMenuItem
-                              key={child.path}
-                              node={child}
-                              onSelect={selectGroup}
-                              currentPath={currentGroupPath}
-                            />
-                          ))}
-                        </>
-                      );
-                    })()}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                      <DropdownMenuContent className="max-h-[400px] overflow-y-auto w-56 sm:w-64">
+                        {(() => {
+                          const groupTree = tree.buildGroupTree();
+                          const rootVars = tree.getAllVariables('/');
+                          const rootVarNames = Object.keys(rootVars);
+                          const showRootVariables = hoveredGroupPath === '/' && rootVarNames.length > 0;
+
+                          const handleRootVariableClick = (varName: string) => {
+                            if (currentGroupPath !== '/') {
+                              selectGroup('/');
+                            }
+                            setPendingVariableLoad({ name: varName, groupPath: '/' });
+                          };
+
+                          return (
+                            <>
+                              <div
+                                onMouseEnter={() => setHoveredGroupPath('/')}
+                                onMouseLeave={() => setHoveredGroupPath(null)}
+                              >
+                                <DropdownMenuItem 
+                                  onClick={() => selectGroup('/')}
+                                  className={`cursor-pointer ${currentGroupPath === '/' ? 'bg-accent font-semibold' : ''}`}
+                                >
+                                  <Folder className="h-4 w-4 mr-2 flex-shrink-0" />
+                                  <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
+                                    <span className="truncate">/ (root)</span>
+                                    {groupTree.variableCount > 0 && (
+                                      <Badge variant="secondary" className="text-xs h-5 flex-shrink-0">
+                                        {groupTree.variableCount}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </DropdownMenuItem>
+                                {showRootVariables && (
+                                  <div className="px-4 py-1 text-xs bg-muted/50 space-y-0.5">
+                                    {rootVarNames.slice(0, 5).map(name => (
+                                      <button
+                                        key={name}
+                                        onClick={() => handleRootVariableClick(name)}
+                                        className="w-full text-left truncate py-1 px-2 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                                      >
+                                        <FileText className="h-3 w-3 inline mr-1" />
+                                        {name}
+                                      </button>
+                                    ))}
+                                    {rootVarNames.length > 5 && (
+                                      <div className="py-1 px-2 text-muted-foreground">... +{rootVarNames.length - 5} more</div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              {groupTree.children.length > 0 && <DropdownMenuSeparator />}
+                              {groupTree.children.map((child) => (
+                                <GroupMenuItem
+                                  key={child.path}
+                                  node={child}
+                                  onSelect={selectGroup}
+                                  currentPath={currentGroupPath}
+                                />
+                              ))}
+                            </>
+                          );
+                        })()}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {/* Mobile: Expandable Menu */}
+                  <div className="sm:hidden">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setShowGroupMenu(!showGroupMenu)}
+                      className="cursor-pointer flex-shrink-0"
+                    >
+                      <FolderOpen className="h-4 w-4 mr-2" />
+                      Groups
+                      {showGroupMenu ? (
+                        <ChevronDown className="h-3 w-3 ml-1" />
+                      ) : (
+                        <ChevronRight className="h-3 w-3 ml-1" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
 
                 {/* Variable Selector */}
                 {Object.keys(variables).length > 0 && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="cursor-pointer flex-shrink-0">
+                  <div className="flex-shrink-0">
+                    {/* Desktop: Dropdown Menu */}
+                    <div className="hidden sm:block">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="cursor-pointer flex-shrink-0">
+                            <FileText className="h-4 w-4 mr-2" />
+                            Select Variable
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="max-h-[300px] overflow-y-auto w-56 sm:w-64">
+                          {Object.keys(variables).map((name) => (
+                            <DropdownMenuItem
+                              key={name}
+                              onClick={() => {
+                                setSelectedVariable(name);
+                                if (!variables[name].info) loadVariableInfo(name);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <FileText className="h-3 w-3 mr-2 flex-shrink-0" />
+                              <span className="truncate">{name}</span>
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {/* Mobile: Expandable Menu */}
+                    <div className="sm:hidden">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setShowVariableMenu(!showVariableMenu)}
+                        className="cursor-pointer flex-shrink-0"
+                      >
                         <FileText className="h-4 w-4 mr-2" />
-                        <span className="hidden sm:inline">Select Variable</span>
-                        <span className="sm:hidden">Variables</span>
+                        Variables
+                        {showVariableMenu ? (
+                          <ChevronDown className="h-3 w-3 ml-1" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3 ml-1" />
+                        )}
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="max-h-[300px] overflow-y-auto w-56 sm:w-64">
-                      {Object.keys(variables).map((name) => (
-                        <DropdownMenuItem
-                          key={name}
-                          onClick={() => {
-                            setSelectedVariable(name);
-                            if (!variables[name].info) loadVariableInfo(name);
-                          }}
-                          className="cursor-pointer"
-                        >
-                          <FileText className="h-3 w-3 mr-2 flex-shrink-0" />
-                          <span className="truncate">{name}</span>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    </div>
+                  </div>
                 )}
 
                 {/* Search */}
@@ -537,6 +678,202 @@ const LocalNetCDFMeta = () => {
                   )}
                 </div>
               </div>
+
+              {/* Mobile Group Menu (Expanded) */}
+              {showGroupMenu && (
+                <div className="sm:hidden border rounded-md p-2 max-h-[400px] overflow-y-auto bg-card">
+                  {(() => {
+                    const groupTree = tree.buildGroupTree();
+                    
+                    const toggleGroup = (path: string) => {
+                      const newExpanded = new Set(expandedMobileGroups);
+                      if (newExpanded.has(path)) {
+                        newExpanded.delete(path);
+                      } else {
+                        newExpanded.add(path);
+                      }
+                      setExpandedMobileGroups(newExpanded);
+                    };
+
+                    const handleMobileVariableClick = (varName: string, groupPath: string) => {
+                      if (currentGroupPath !== groupPath) {
+                        selectGroup(groupPath);
+                      }
+                      setPendingVariableLoad({ name: varName, groupPath });
+                      setShowGroupMenu(false);
+                    };
+
+                    const renderGroupItem = (node: GroupNode, level: number = 0) => {
+                      const isSelected = node.path === currentGroupPath;
+                      const hasChildren = node.children.length > 0;
+                      const isExpanded = expandedMobileGroups.has(node.path);
+                      const groupVars = tree.getAllVariables(node.path);
+                      const varNames = Object.keys(groupVars);
+
+                      return (
+                        <div key={node.path}>
+                          <div className="flex items-stretch gap-1" style={{ paddingLeft: `${level * 12}px` }}>
+                            {/* Expand/Collapse button for groups with children or variables */}
+                            {(hasChildren || varNames.length > 0) && (
+                              <button
+                                onClick={() => toggleGroup(node.path)}
+                                className="px-1 hover:bg-accent/50 rounded flex items-center"
+                              >
+                                {isExpanded ? (
+                                  <ChevronDown className="h-3 w-3" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3" />
+                                )}
+                              </button>
+                            )}
+                            
+                            {/* Group button */}
+                            <button
+                              onClick={() => {
+                                selectGroup(node.path);
+                                setShowGroupMenu(false);
+                              }}
+                              className={`flex-1 text-left px-2 py-2 rounded text-sm flex items-center justify-between gap-2 ${
+                                isSelected ? 'bg-accent font-semibold' : 'hover:bg-accent/50'
+                              } ${!(hasChildren || varNames.length > 0) ? 'ml-5' : ''}`}
+                            >
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                {hasChildren ? (
+                                  <FolderOpen className="h-4 w-4 flex-shrink-0" />
+                                ) : (
+                                  <Folder className="h-4 w-4 flex-shrink-0" />
+                                )}
+                                <span className="truncate">{node.name}</span>
+                              </div>
+                              <div className="flex gap-1 flex-shrink-0">
+                                {node.variableCount > 0 && (
+                                  <Badge variant="secondary" className="text-xs h-5">
+                                    {node.variableCount}
+                                  </Badge>
+                                )}
+                                {hasChildren && (
+                                  <Badge variant="outline" className="text-xs h-5">
+                                    {node.children.length}
+                                  </Badge>
+                                )}
+                              </div>
+                            </button>
+                          </div>
+
+                          {/* Variables for this group (when expanded) */}
+                          {isExpanded && varNames.length > 0 && (
+                            <div style={{ paddingLeft: `${(level + 1) * 12 + 20}px` }} className="space-y-0.5 py-1">
+                              {varNames.map(name => (
+                                <button
+                                  key={name}
+                                  onClick={() => handleMobileVariableClick(name, node.path)}
+                                  className="w-full text-left px-2 py-1.5 rounded text-xs flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
+                                >
+                                  <FileText className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">{name}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Child groups (when expanded) */}
+                          {isExpanded && hasChildren && (
+                            <div>
+                              {node.children.map(child => renderGroupItem(child, level + 1))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    };
+
+                    // Root group handling
+                    const rootVars = tree.getAllVariables('/');
+                    const rootVarNames = Object.keys(rootVars);
+                    const isRootExpanded = expandedMobileGroups.has('/');
+
+                    return (
+                      <>
+                        <div className="flex items-stretch gap-1">
+                          {/* Expand/Collapse button for root */}
+                          {(groupTree.children.length > 0 || rootVarNames.length > 0) && (
+                            <button
+                              onClick={() => toggleGroup('/')}
+                              className="px-1 hover:bg-accent/50 rounded flex items-center"
+                            >
+                              {isRootExpanded ? (
+                                <ChevronDown className="h-3 w-3" />
+                              ) : (
+                                <ChevronRight className="h-3 w-3" />
+                              )}
+                            </button>
+                          )}
+                          
+                          <button
+                            onClick={() => {
+                              selectGroup('/');
+                              setShowGroupMenu(false);
+                            }}
+                            className={`flex-1 text-left px-2 py-2 rounded text-sm flex items-center justify-between gap-2 ${
+                              currentGroupPath === '/' ? 'bg-accent font-semibold' : 'hover:bg-accent/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <Folder className="h-4 w-4 flex-shrink-0" />
+                              <span className="truncate">/ (root)</span>
+                            </div>
+                            {groupTree.variableCount > 0 && (
+                              <Badge variant="secondary" className="text-xs h-5 flex-shrink-0">
+                                {groupTree.variableCount}
+                              </Badge>
+                            )}
+                          </button>
+                        </div>
+
+                        {/* Root variables (when expanded) */}
+                        {isRootExpanded && rootVarNames.length > 0 && (
+                          <div style={{ paddingLeft: '32px' }} className="space-y-0.5 py-1">
+                            {rootVarNames.map(name => (
+                              <button
+                                key={name}
+                                onClick={() => handleMobileVariableClick(name, '/')}
+                                className="w-full text-left px-2 py-1.5 rounded text-xs flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
+                              >
+                                <FileText className="h-3 w-3 flex-shrink-0" />
+                                <span className="truncate">{name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Root child groups (when expanded) */}
+                        {isRootExpanded && groupTree.children.map(child => renderGroupItem(child, 0))}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Mobile Variable Menu (Expanded) */}
+              {showVariableMenu && Object.keys(variables).length > 0 && (
+                <div className="sm:hidden border rounded-md p-2 max-h-[300px] overflow-y-auto bg-card">
+                  {Object.keys(variables).map((name) => (
+                    <button
+                      key={name}
+                      onClick={() => {
+                        setSelectedVariable(name);
+                        if (!variables[name].info) loadVariableInfo(name);
+                        setShowVariableMenu(false);
+                      }}
+                      className={`w-full text-left px-2 py-2 rounded text-sm flex items-center gap-2 ${
+                        selectedVariable === name ? 'bg-accent font-semibold' : 'hover:bg-accent/50'
+                      }`}
+                    >
+                      <FileText className="h-4 w-4 flex-shrink-0" />
+                      <span className="truncate">{name}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Group Summary */}
               {groupSummary && (
