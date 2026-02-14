@@ -336,75 +336,141 @@ export function getVariableArray(
 ): Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[] {
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
     
-    // console.log('=== getVariableArray DEBUG ===');
-    // console.log('Input ncid:', ncid);
-    // console.log('Working ncid:', workingNcid);
-    // console.log('Variable:', variable);
-    // console.log('Group path:', groupPath);
-    
-    const isId = typeof variable === "number"
-    let varid = isId ? variable as number : 0
-    if (!isId) {
-        const result = module.nc_inq_varid(workingNcid, variable)
-        varid = result.varid as number
+    // Resolve variable id
+    let varid: number;
+    if (typeof variable === "number") {
+        varid = variable;
+    } else {
+        const result = module.nc_inq_varid(workingNcid, variable);
+        if (result.result !== NC_CONSTANTS.NC_NOERR) {
+            throw new Error(`Failed to get variable id for '${variable}' (error: ${result.result})`);
+        }
+        varid = result.varid as number;
     }
-    // console.log('Using varid:', varid);    
-    const info = getVariableInfo(module, workingNcid, varid)
-    // console.log('Variable info:', info);
-    
-    const arraySize = info.size
-    const arrayType = info.nctype
-    
-    // console.log(`Array size: ${arraySize}, type: ${arrayType} (${info.dtype})`);
-    // console.log(`Shape: [${info.shape.join(', ')}]`);
-    // console.log(`Byte size: ${arraySize * DATA_TYPE_SIZE[arrayType]} bytes`);
-    if (!arrayType || !arraySize) throw new Error("Failed to allocate memory for array")
-    let arrayData;
-    if (arrayType === 2) arrayData = module.nc_get_var_text(workingNcid, varid, arraySize);
-    else if (arrayType === 3) arrayData = module.nc_get_var_short(workingNcid, varid, arraySize);
-    else if (arrayType === 4) arrayData = module.nc_get_var_int(workingNcid, varid, arraySize);
-    else if (arrayType === 10) arrayData = module.nc_get_var_longlong(workingNcid, varid, arraySize);
-    else if (arrayType === 5) arrayData = module.nc_get_var_float(workingNcid, varid, arraySize);
-    else if (arrayType === 6) arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
-    else arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+
+    const info = getVariableInfo(module, workingNcid, varid);
+    const arrayType = info.nctype;
+    const arraySize = info.size;
+
+    if (arrayType === undefined || arrayType === null) {
+        throw new Error("Failed to determine variable type");
+    }
+
+    if (arraySize === undefined || arraySize === null) {
+        throw new Error("Failed to determine variable size");
+    }
+
+    type VarArgs = [number, number, number];
+    type VarResult = { result: number; data?: any };
+
+    // Arrow wrappers = safe binding
+    const readers: Record<number, (...args: VarArgs) => VarResult> = {
+        [NC_CONSTANTS.NC_CHAR]:     (...args) => module.nc_get_var_text(...args),
+        [NC_CONSTANTS.NC_SHORT]:    (...args) => module.nc_get_var_short(...args),
+        [NC_CONSTANTS.NC_INT]:      (...args) => module.nc_get_var_int(...args),
+        [NC_CONSTANTS.NC_FLOAT]:    (...args) => module.nc_get_var_float(...args),
+        [NC_CONSTANTS.NC_DOUBLE]:   (...args) => module.nc_get_var_double(...args),
+        [NC_CONSTANTS.NC_LONGLONG]: (...args) => module.nc_get_var_longlong(...args),
+
+        // easy adds later:
+        // [NC_CONSTANTS.NC_UINT]: (...args) => module.nc_get_var_uint(...args),
+    };
+
+    const reader = readers[arrayType];
+
+    let arrayData: VarResult;
+
+    if (!reader) {
+        console.warn(`Unknown NetCDF type ${arrayType}, falling back to double`);
+        arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+    } else {
+        arrayData = reader(workingNcid, varid, arraySize);
+    }
+
+    if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
+        throw new Error(`Failed to read array data (error: ${arrayData.result})`);
+    }
+
     if (!arrayData.data) {
-        throw new Error("nc_get_var returned no data")
+        console.error("nc_get_var result:", arrayData);
+        throw new Error("nc_get_var returned no data");
     }
-    return arrayData.data
+
+    return arrayData.data;
 }
 
 export function getSlicedVariableArray(
     module: NetCDF4Module,
     ncid: number,
-    variable: number | string, 
-    start: number[], 
+    variable: number | string,
+    start: number[],
     count: number[],
     groupPath?: string
 ): Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[] {
+
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
-    const isId = typeof variable === "number"
-    let varid = isId ? variable as number : 0
-    if (!isId) {
-        const result = module.nc_inq_varid(workingNcid, variable)
+
+    // Resolve variable id
+    let varid: number;
+    if (typeof variable === "number") {
+        varid = variable;
+    } else {
+        const result = module.nc_inq_varid(workingNcid, variable);
         if (result.result !== NC_CONSTANTS.NC_NOERR) {
             throw new Error(`Failed to get variable id for '${variable}' (error: ${result.result})`);
         }
-        varid = result.varid as number
+        varid = result.varid as number;
     }
-    
-    const info = getVariableInfo(module, workingNcid, varid)
-    const arrayType = info.nctype
-    if (!arrayType) throw new Error("Failed to allocate memory for array")
-    let arrayData;
-    if (arrayType === 3) arrayData = module.nc_get_vara_short(workingNcid, varid, start, count);
-    else if (arrayType === 4) arrayData = module.nc_get_vara_int(workingNcid, varid, start, count);
-    else if (arrayType === 5) arrayData = module.nc_get_vara_float(workingNcid, varid, start, count);
-    else if (arrayType === 6) arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
-    else arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+
+    const info = getVariableInfo(module, workingNcid, varid);
+    const arrayType = info.nctype;
+
+    if (arrayType === undefined || arrayType === null) {
+        throw new Error("Failed to determine variable type");
+    }
+
+    type VaraArgs = [number, number, number[], number[]];
+    type VaraResult = { result: number; data?: any };
+
+    // 🔥 Arrow wrappers keep module binding intact
+    const readers: Record<number, (...args: VaraArgs) => VaraResult> = {
+        [NC_CONSTANTS.NC_SHORT]:  (...args) => module.nc_get_vara_short(...args),
+        [NC_CONSTANTS.NC_INT]:    (...args) => module.nc_get_vara_int(...args),
+        [NC_CONSTANTS.NC_FLOAT]:  (...args) => module.nc_get_vara_float(...args),
+        [NC_CONSTANTS.NC_DOUBLE]: (...args) => module.nc_get_vara_double(...args),
+
+        // future:
+        // [NC_CONSTANTS.NC_UINT]: (...args) => module.nc_get_vara_uint(...args),
+        // [NC_CONSTANTS.NC_BYTE]: module.nc_get_vara_schar,
+        // [NC_CONSTANTS.NC_UBYTE]: module.nc_get_vara_ubyte,
+        // [NC_CONSTANTS.NC_USHORT]: module.nc_get_vara_ushort,
+        // [NC_CONSTANTS.NC_UINT]: module.nc_get_vara_uint,
+        // [NC_CONSTANTS.NC_INT64]: module.nc_get_vara_longlong,
+        // [NC_CONSTANTS.NC_UINT64]: module.nc_get_vara_ulonglong,
+        // [NC_CONSTANTS.NC_STRING]: module.nc_get_vara_string,
+    };
+
+    const reader = readers[arrayType];
+
+    let arrayData: VaraResult;
+
+    if (!reader) {
+        console.warn(`Unknown NetCDF type ${arrayType}, falling back to double`);
+        arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+    } else {
+        arrayData = reader(workingNcid, varid, start, count);
+    }
+
+    if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
+        throw new Error(`Failed to read sliced array data (error: ${arrayData.result})`);
+    }
+
     if (!arrayData.data) {
-        console.log(arrayData)
-        throw new Error("Failed to read array data")}
-    return arrayData.data
+        console.error("nc_get_vara result:", arrayData);
+        throw new Error("Failed to read array data - no data returned");
+    }
+
+    return arrayData.data;
 }
 
 //---- Group Functions ----//
