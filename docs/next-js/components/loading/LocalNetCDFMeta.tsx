@@ -21,7 +21,6 @@ import {
 import {
   Card,
   CardContent,
-  // CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -99,119 +98,6 @@ const LocalNetCDFMeta = () => {
     );
     const suffix = arr.length > maxItems ? `, ... (${arr.length} total)` : '';
     return `[${preview.join(', ')}${suffix}]`;
-  };
-
-  // ---------------------------------------------------------------------------
-  // Recursive component for nested menu items
-  // ---------------------------------------------------------------------------
-
-  const GroupMenuItem: React.FC<{ 
-    node: GroupNode; 
-    onSelect: (path: string) => void;
-    currentPath: string;
-  }> = ({ node, onSelect, currentPath }) => {
-    const hasChildren = node.children.length > 0;
-    const isSelected = node.path === currentPath;
-    const groupVariables = tree ? tree.getAllVariables(node.path) : {};
-    const variableNames = Object.keys(groupVariables);
-    const isExpanded = expandedMobileGroups.has(node.path);
-
-    const handleVariableClick = (varName: string) => {
-      // Navigate to the group first if not already there
-      if (currentGroupPath !== node.path) {
-        onSelect(node.path);
-      }
-      // Set as pending so it loads after group change
-      setPendingVariableLoad({ name: varName, groupPath: node.path });
-    };
-
-    const toggleGroup = (path: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      const newExpanded = new Set(expandedMobileGroups);
-      if (newExpanded.has(path)) {
-        newExpanded.delete(path);
-      } else {
-        newExpanded.add(path);
-      }
-      setExpandedMobileGroups(newExpanded);
-    };
-
-    return (
-      <div>
-        <div className="flex items-stretch">
-          {/* Expand/Collapse button */}
-          {(hasChildren || variableNames.length > 0) && (
-            <button
-              onClick={(e) => toggleGroup(node.path, e)}
-              className="px-2 hover:bg-accent/50 flex items-center"
-            >
-              {isExpanded ? (
-                <ChevronDown className="h-3 w-3" />
-              ) : (
-                <ChevronRight className="h-3 w-3" />
-              )}
-            </button>
-          )}
-          
-          {/* Group item */}
-          <DropdownMenuItem 
-            onClick={() => onSelect(node.path)}
-            className={`flex-1 cursor-pointer ${isSelected ? 'bg-accent' : ''} ${!(hasChildren || variableNames.length > 0) ? 'ml-6' : ''}`}
-          >
-            {hasChildren ? (
-              <FolderOpen className="h-4 w-4 mr-2 flex-shrink-0" />
-            ) : (
-              <Folder className="h-4 w-4 mr-2 flex-shrink-0" />
-            )}
-            <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
-              <span className="truncate">{node.name}</span>
-              <div className="flex gap-1 flex-shrink-0">
-                {variableNames.length > 0 && (
-                  <Badge variant="secondary" className="text-xs h-5">
-                    {variableNames.length}
-                  </Badge>
-                )}
-                {hasChildren && (
-                  <Badge variant="outline" className="text-xs h-5">
-                    {node.children.length}
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </DropdownMenuItem>
-        </div>
-
-        {/* Variables (when expanded) */}
-        {isExpanded && variableNames.length > 0 && (
-          <div className="pl-8 space-y-0.5 py-1 bg-muted/30">
-            {variableNames.map(name => (
-              <button
-                key={name}
-                onClick={() => handleVariableClick(name)}
-                className="w-full text-left px-3 py-1.5 rounded text-xs flex items-center gap-2 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <FileText className="h-3 w-3 flex-shrink-0" />
-                <span className="truncate">{name}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Child groups (when expanded) */}
-        {isExpanded && hasChildren && (
-          <div className="pl-4">
-            {node.children.map((child) => (
-              <GroupMenuItem
-                key={child.path}
-                node={child}
-                onSelect={onSelect}
-                currentPath={currentPath}
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    );
   };
 
   // ---------------------------------------------------------------------------
@@ -333,18 +219,6 @@ const LocalNetCDFMeta = () => {
   // Search functionality
   // ---------------------------------------------------------------------------
 
-  const handleSearch = () => {
-    if (!tree || !searchQuery.trim()) {
-      setSearchResults([]);
-      setShowSearchResults(false);
-      return;
-    }
-
-    const results = tree.searchVariables(searchQuery);
-    setSearchResults(results);
-    setShowSearchResults(true);
-  };
-
   const handleSearchInputChange = (value: string) => {
     setSearchQuery(value);
     if (!value.trim()) {
@@ -438,7 +312,7 @@ const LocalNetCDFMeta = () => {
             <CardContent className="space-y-3 p-2 sm:p-3">
               {/* Controls */}
               <div className="flex gap-2 flex-wrap">
-                {/* Group Browser - Unified for Desktop and Mobile */}
+                {/* Group Browser */}
                 <Button 
                   variant="outline" 
                   size="sm" 
@@ -455,7 +329,7 @@ const LocalNetCDFMeta = () => {
                   )}
                 </Button>
 
-                {/* Variable Selector - Unified for Desktop and Mobile */}
+                {/* Variable Selector */}
                 {Object.keys(variables).length > 0 && (
                   <Button 
                     variant="outline" 
@@ -480,14 +354,13 @@ const LocalNetCDFMeta = () => {
                     placeholder="Search variables..."
                     value={searchQuery}
                     onChange={(e) => handleSearchInputChange(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                     onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
                     className="h-9 text-sm min-w-0"
                   />
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={handleSearch}
+                    onClick={() => handleSearchInputChange(searchQuery)}
                     disabled={!searchQuery.trim()}
                     className="flex-shrink-0"
                   >
@@ -586,7 +459,7 @@ const LocalNetCDFMeta = () => {
               </div>
             </div>
 
-              {/* Group Menu (Expandable) - Unified for Desktop and Mobile */}
+              {/* Group Menu (Expandable) */}
               {showGroupMenu && (
                 <div className="border rounded-md p-2 max-h-[400px] overflow-y-auto bg-card">
                   {(() => {
