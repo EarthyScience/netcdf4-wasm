@@ -20,16 +20,6 @@ import {
   Database
 } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
-import {
   Card,
   CardContent,
   // CardDescription,
@@ -78,10 +68,7 @@ const LocalNetCDFMeta = () => {
   // Mobile menu states
   const [showGroupMenu, setShowGroupMenu] = useState(false);
   const [showVariableMenu, setShowVariableMenu] = useState(false);
-  const [expandedMobileGroups, setExpandedMobileGroups] = useState<Set<string>>(new Set(['/']));
-
-  // Hover state for showing variables
-  const [hoveredGroupPath, setHoveredGroupPath] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['/']));
 
   // ---------------------------------------------------------------------------
   // Helpers
@@ -129,7 +116,7 @@ const LocalNetCDFMeta = () => {
     const isSelected = node.path === currentPath;
     const groupVariables = tree ? tree.getAllVariables(node.path) : {};
     const variableNames = Object.keys(groupVariables);
-    const showVariables = hoveredGroupPath === node.path && variableNames.length > 0;
+    const isExpanded = expandedMobileGroups.has(node.path);
 
     const handleVariableClick = (varName: string) => {
       // Navigate to the group first if not already there
@@ -140,108 +127,92 @@ const LocalNetCDFMeta = () => {
       setPendingVariableLoad({ name: varName, groupPath: node.path });
     };
 
-    if (!hasChildren) {
-      return (
-        <div 
-          onMouseEnter={() => setHoveredGroupPath(node.path)}
-          onMouseLeave={() => setHoveredGroupPath(null)}
-        >
-          <DropdownMenuItem 
-            onClick={() => onSelect(node.path)}
-            className={`cursor-pointer ${isSelected ? 'bg-accent' : ''}`}
-          >
-            <Folder className="h-4 w-4 mr-2 flex-shrink-0" />
-            <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
-              <span className="truncate">{node.name}</span>
-              <div className="flex gap-1 flex-shrink-0">
-                {node.variableCount > 0 && (
-                  <Badge variant="secondary" className="text-xs h-5">
-                    {node.variableCount} vars
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </DropdownMenuItem>
-          {showVariables && (
-            <div className="px-4 py-1 text-xs bg-muted/50 space-y-0.5">
-              {variableNames.slice(0, 5).map(name => (
-                <button
-                  key={name}
-                  onClick={() => handleVariableClick(name)}
-                  className="w-full text-left truncate py-1 px-2 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <FileText className="h-3 w-3 inline mr-1" />
-                  {name}
-                </button>
-              ))}
-              {variableNames.length > 5 && (
-                <div className="py-1 px-2 text-muted-foreground">... +{variableNames.length - 5} more</div>
-              )}
-            </div>
-          )}
-        </div>
-      );
-    }
+    const toggleGroup = (path: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const newExpanded = new Set(expandedMobileGroups);
+      if (newExpanded.has(path)) {
+        newExpanded.delete(path);
+      } else {
+        newExpanded.add(path);
+      }
+      setExpandedMobileGroups(newExpanded);
+    };
 
     return (
-      <DropdownMenuSub>
-        <div
-          onMouseEnter={() => setHoveredGroupPath(node.path)}
-          onMouseLeave={() => setHoveredGroupPath(null)}
-        >
-          <DropdownMenuSubTrigger className={`cursor-pointer ${isSelected ? 'bg-accent' : ''}`}>
-            <FolderOpen className="h-4 w-4 mr-2 flex-shrink-0" />
+      <div>
+        <div className="flex items-stretch">
+          {/* Expand/Collapse button */}
+          {(hasChildren || variableNames.length > 0) && (
+            <button
+              onClick={(e) => toggleGroup(node.path, e)}
+              className="px-2 hover:bg-accent/50 flex items-center"
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+            </button>
+          )}
+          
+          {/* Group item */}
+          <DropdownMenuItem 
+            onClick={() => onSelect(node.path)}
+            className={`flex-1 cursor-pointer ${isSelected ? 'bg-accent' : ''} ${!(hasChildren || variableNames.length > 0) ? 'ml-6' : ''}`}
+          >
+            {hasChildren ? (
+              <FolderOpen className="h-4 w-4 mr-2 flex-shrink-0" />
+            ) : (
+              <Folder className="h-4 w-4 mr-2 flex-shrink-0" />
+            )}
             <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
               <span className="truncate">{node.name}</span>
               <div className="flex gap-1 flex-shrink-0">
-                {node.variableCount > 0 && (
+                {variableNames.length > 0 && (
                   <Badge variant="secondary" className="text-xs h-5">
-                    {node.variableCount}
+                    {variableNames.length}
                   </Badge>
                 )}
-                <Badge variant="outline" className="text-xs h-5">
-                  {node.children.length}
-                </Badge>
+                {hasChildren && (
+                  <Badge variant="outline" className="text-xs h-5">
+                    {node.children.length}
+                  </Badge>
+                )}
               </div>
             </div>
-          </DropdownMenuSubTrigger>
-          {showVariables && (
-            <div className="px-4 py-1 text-xs bg-muted/50 space-y-0.5">
-              {variableNames.slice(0, 5).map(name => (
-                <button
-                  key={name}
-                  onClick={() => handleVariableClick(name)}
-                  className="w-full text-left truncate py-1 px-2 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <FileText className="h-3 w-3 inline mr-1" />
-                  {name}
-                </button>
-              ))}
-              {variableNames.length > 5 && (
-                <div className="py-1 px-2 text-muted-foreground">... +{variableNames.length - 5} more</div>
-              )}
-            </div>
-          )}
-        </div>
-        <DropdownMenuSubContent>
-          <DropdownMenuItem 
-            onClick={() => onSelect(node.path)}
-            className={`cursor-pointer ${isSelected ? 'bg-accent font-semibold' : ''}`}
-          >
-            <Folder className="h-4 w-4 mr-2 flex-shrink-0" />
-            (Select this group)
           </DropdownMenuItem>
-          {node.children.length > 0 && <DropdownMenuSeparator />}
-          {node.children.map((child) => (
-            <GroupMenuItem
-              key={child.path}
-              node={child}
-              onSelect={onSelect}
-              currentPath={currentPath}
-            />
-          ))}
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>
+        </div>
+
+        {/* Variables (when expanded) */}
+        {isExpanded && variableNames.length > 0 && (
+          <div className="pl-8 space-y-0.5 py-1 bg-muted/30">
+            {variableNames.map(name => (
+              <button
+                key={name}
+                onClick={() => handleVariableClick(name)}
+                className="w-full text-left px-3 py-1.5 rounded text-xs flex items-center gap-2 hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <FileText className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Child groups (when expanded) */}
+        {isExpanded && hasChildren && (
+          <div className="pl-4">
+            {node.children.map((child) => (
+              <GroupMenuItem
+                key={child.path}
+                node={child}
+                onSelect={onSelect}
+                currentPath={currentPath}
+              />
+            ))}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -469,153 +440,40 @@ const LocalNetCDFMeta = () => {
             <CardContent className="space-y-3 p-3 sm:p-6">
               {/* Controls */}
               <div className="flex gap-2 flex-wrap">
-                {/* Group Browser */}
-                <div className="flex-shrink-0">
-                  {/* Desktop: Dropdown Menu */}
-                  <div className="hidden sm:block">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="cursor-pointer flex-shrink-0">
-                          <FolderOpen className="h-4 w-4 mr-2" />
-                          Browse Groups
-                        </Button>
-                      </DropdownMenuTrigger>
+                {/* Group Browser - Unified for Desktop and Mobile */}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowGroupMenu(!showGroupMenu)}
+                  className="cursor-pointer flex-shrink-0"
+                >
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Browse Groups</span>
+                  <span className="sm:hidden">Groups</span>
+                  {showGroupMenu ? (
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  ) : (
+                    <ChevronRight className="h-3 w-3 ml-1" />
+                  )}
+                </Button>
 
-                      <DropdownMenuContent className="max-h-[400px] overflow-y-auto w-56 sm:w-64">
-                        {(() => {
-                          const groupTree = tree.buildGroupTree();
-                          const rootVars = tree.getAllVariables('/');
-                          const rootVarNames = Object.keys(rootVars);
-                          const showRootVariables = hoveredGroupPath === '/' && rootVarNames.length > 0;
-
-                          const handleRootVariableClick = (varName: string) => {
-                            if (currentGroupPath !== '/') {
-                              selectGroup('/');
-                            }
-                            setPendingVariableLoad({ name: varName, groupPath: '/' });
-                          };
-
-                          return (
-                            <>
-                              <div
-                                onMouseEnter={() => setHoveredGroupPath('/')}
-                                onMouseLeave={() => setHoveredGroupPath(null)}
-                              >
-                                <DropdownMenuItem 
-                                  onClick={() => selectGroup('/')}
-                                  className={`cursor-pointer ${currentGroupPath === '/' ? 'bg-accent font-semibold' : ''}`}
-                                >
-                                  <Folder className="h-4 w-4 mr-2 flex-shrink-0" />
-                                  <div className="flex items-center justify-between flex-1 min-w-0 gap-2">
-                                    <span className="truncate">/ (root)</span>
-                                    {groupTree.variableCount > 0 && (
-                                      <Badge variant="secondary" className="text-xs h-5 flex-shrink-0">
-                                        {groupTree.variableCount}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </DropdownMenuItem>
-                                {showRootVariables && (
-                                  <div className="px-4 py-1 text-xs bg-muted/50 space-y-0.5">
-                                    {rootVarNames.slice(0, 5).map(name => (
-                                      <button
-                                        key={name}
-                                        onClick={() => handleRootVariableClick(name)}
-                                        className="w-full text-left truncate py-1 px-2 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
-                                      >
-                                        <FileText className="h-3 w-3 inline mr-1" />
-                                        {name}
-                                      </button>
-                                    ))}
-                                    {rootVarNames.length > 5 && (
-                                      <div className="py-1 px-2 text-muted-foreground">... +{rootVarNames.length - 5} more</div>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                              {groupTree.children.length > 0 && <DropdownMenuSeparator />}
-                              {groupTree.children.map((child) => (
-                                <GroupMenuItem
-                                  key={child.path}
-                                  node={child}
-                                  onSelect={selectGroup}
-                                  currentPath={currentGroupPath}
-                                />
-                              ))}
-                            </>
-                          );
-                        })()}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  {/* Mobile: Expandable Menu */}
-                  <div className="sm:hidden">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => setShowGroupMenu(!showGroupMenu)}
-                      className="cursor-pointer flex-shrink-0"
-                    >
-                      <FolderOpen className="h-4 w-4 mr-2" />
-                      Groups
-                      {showGroupMenu ? (
-                        <ChevronDown className="h-3 w-3 ml-1" />
-                      ) : (
-                        <ChevronRight className="h-3 w-3 ml-1" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Variable Selector */}
+                {/* Variable Selector - Unified for Desktop and Mobile */}
                 {Object.keys(variables).length > 0 && (
-                  <div className="flex-shrink-0">
-                    {/* Desktop: Dropdown Menu */}
-                    <div className="hidden sm:block">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="outline" size="sm" className="cursor-pointer flex-shrink-0">
-                            <FileText className="h-4 w-4 mr-2" />
-                            Select Variable
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent className="max-h-[300px] overflow-y-auto w-56 sm:w-64">
-                          {Object.keys(variables).map((name) => (
-                            <DropdownMenuItem
-                              key={name}
-                              onClick={() => {
-                                setSelectedVariable(name);
-                                if (!variables[name].info) loadVariableInfo(name);
-                              }}
-                              className="cursor-pointer"
-                            >
-                              <FileText className="h-3 w-3 mr-2 flex-shrink-0" />
-                              <span className="truncate">{name}</span>
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-
-                    {/* Mobile: Expandable Menu */}
-                    <div className="sm:hidden">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={() => setShowVariableMenu(!showVariableMenu)}
-                        className="cursor-pointer flex-shrink-0"
-                      >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Variables
-                        {showVariableMenu ? (
-                          <ChevronDown className="h-3 w-3 ml-1" />
-                        ) : (
-                          <ChevronRight className="h-3 w-3 ml-1" />
-                        )}
-                      </Button>
-                    </div>
-                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowVariableMenu(!showVariableMenu)}
+                    className="cursor-pointer flex-shrink-0"
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    <span className="hidden sm:inline">Select Variable</span>
+                    <span className="sm:hidden">Variables</span>
+                    {showVariableMenu ? (
+                      <ChevronDown className="h-3 w-3 ml-1" />
+                    ) : (
+                      <ChevronRight className="h-3 w-3 ml-1" />
+                    )}
+                  </Button>
                 )}
 
                 {/* Search */}
@@ -679,23 +537,23 @@ const LocalNetCDFMeta = () => {
                 </div>
               </div>
 
-              {/* Mobile Group Menu (Expanded) */}
+              {/* Group Menu (Expandable) - Unified for Desktop and Mobile */}
               {showGroupMenu && (
-                <div className="sm:hidden border rounded-md p-2 max-h-[400px] overflow-y-auto bg-card">
+                <div className="border rounded-md p-2 max-h-[400px] overflow-y-auto bg-card">
                   {(() => {
                     const groupTree = tree.buildGroupTree();
                     
                     const toggleGroup = (path: string) => {
-                      const newExpanded = new Set(expandedMobileGroups);
+                      const newExpanded = new Set(expandedGroups);
                       if (newExpanded.has(path)) {
                         newExpanded.delete(path);
                       } else {
                         newExpanded.add(path);
                       }
-                      setExpandedMobileGroups(newExpanded);
+                      setExpandedGroups(newExpanded);
                     };
 
-                    const handleMobileVariableClick = (varName: string, groupPath: string) => {
+                    const handleVariableClick = (varName: string, groupPath: string) => {
                       if (currentGroupPath !== groupPath) {
                         selectGroup(groupPath);
                       }
@@ -706,7 +564,7 @@ const LocalNetCDFMeta = () => {
                     const renderGroupItem = (node: GroupNode, level: number = 0) => {
                       const isSelected = node.path === currentGroupPath;
                       const hasChildren = node.children.length > 0;
-                      const isExpanded = expandedMobileGroups.has(node.path);
+                      const isExpanded = expandedGroups.has(node.path);
                       const groupVars = tree.getAllVariables(node.path);
                       const varNames = Object.keys(groupVars);
 
@@ -766,7 +624,7 @@ const LocalNetCDFMeta = () => {
                               {varNames.map(name => (
                                 <button
                                   key={name}
-                                  onClick={() => handleMobileVariableClick(name, node.path)}
+                                  onClick={() => handleVariableClick(name, node.path)}
                                   className="w-full text-left px-2 py-1.5 rounded text-xs flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
                                 >
                                   <FileText className="h-3 w-3 flex-shrink-0" />
@@ -789,7 +647,7 @@ const LocalNetCDFMeta = () => {
                     // Root group handling
                     const rootVars = tree.getAllVariables('/');
                     const rootVarNames = Object.keys(rootVars);
-                    const isRootExpanded = expandedMobileGroups.has('/');
+                    const isRootExpanded = expandedGroups.has('/');
 
                     return (
                       <>
@@ -835,7 +693,7 @@ const LocalNetCDFMeta = () => {
                             {rootVarNames.map(name => (
                               <button
                                 key={name}
-                                onClick={() => handleMobileVariableClick(name, '/')}
+                                onClick={() => handleVariableClick(name, '/')}
                                 className="w-full text-left px-2 py-1.5 rounded text-xs flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
                               >
                                 <FileText className="h-3 w-3 flex-shrink-0" />
@@ -853,9 +711,9 @@ const LocalNetCDFMeta = () => {
                 </div>
               )}
 
-              {/* Mobile Variable Menu (Expanded) */}
+              {/* Variable Menu (Expandable) - Unified for Desktop and Mobile */}
               {showVariableMenu && Object.keys(variables).length > 0 && (
-                <div className="sm:hidden border rounded-md p-2 max-h-[300px] overflow-y-auto bg-card">
+                <div className="border rounded-md p-2 max-h-[300px] overflow-y-auto bg-card">
                   {Object.keys(variables).map((name) => (
                     <button
                       key={name}
