@@ -327,7 +327,7 @@ const LocalNetCDFMeta = () => {
       <Field>
         <ButtonGroup className="w-full">
           <Input
-            placeholder="http:// or https://"
+            placeholder="http://, https://, s3://, gs:// or ftp://"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             disabled={isLoading}
@@ -337,6 +337,9 @@ const LocalNetCDFMeta = () => {
             Fetch
           </Button>
         </ButtonGroup>
+        <p className="text-xs text-muted-foreground mt-1 text-right">
+          🆘 Help wanted
+        </p>
 
         {isLoading && (
           <div className="flex items-center gap-2 mt-2">
@@ -698,13 +701,6 @@ const LocalNetCDFMeta = () => {
           {selectedVariable && variables[selectedVariable] && (
             <Card className="border-0 py-1">
               <CardContent className="space-y-3 p-2 sm:p-3">
-                {loadingVariable === selectedVariable && (
-                  <div className="flex items-center gap-2">
-                    <Spinner className="h-4 w-4" />
-                    <span className="text-sm text-muted-foreground">Loading...</span>
-                  </div>
-                )}
-
                 {variables[selectedVariable].info && (
                   <div className="space-y-2">
                     {/* Collapsible Variable Info */}
@@ -873,7 +869,7 @@ const LocalNetCDFMeta = () => {
                                 placeholder="10"
                               />
                             </div>
-                            <div className="flex gap-2 w-full sm:w-auto">
+                            <div className="flex gap-2 w-full sm:w-auto items-center">
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -898,20 +894,34 @@ const LocalNetCDFMeta = () => {
                               >
                                 Load All
                               </Button>
+                              {loadingVariable === selectedVariable && (
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                  <Spinner className="h-4 w-4" />
+                                  <span className="text-sm text-muted-foreground hidden sm:inline">Loading...</span>
+                                </div>
+                              )}
                             </div>
                           </>
                         )}
                         {/* Show only Load All for S1 and char */}
                         {['S1', 'char'].includes(variables[selectedVariable].info.dtype) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => loadVariableData(selectedVariable)}
-                            disabled={loadingVariable === selectedVariable}
-                            className="w-full sm:w-auto"
-                          >
-                            Load All
-                          </Button>
+                          <div className="flex gap-2 items-center">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => loadVariableData(selectedVariable)}
+                              disabled={loadingVariable === selectedVariable}
+                              className="w-full sm:w-auto"
+                            >
+                              Load All
+                            </Button>
+                            {loadingVariable === selectedVariable && (
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Spinner className="h-4 w-4" />
+                                <span className="text-sm text-muted-foreground hidden sm:inline">Loading...</span>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
