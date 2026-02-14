@@ -333,7 +333,7 @@ export function getVariableArray(
     ncid: number,
     variable: number | string,
     groupPath?: string
-): Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[] {
+): Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array | string[] {
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
     
     // Resolve variable id
@@ -371,9 +371,13 @@ export function getVariableArray(
         [NC_CONSTANTS.NC_FLOAT]:    (...args) => module.nc_get_var_float(...args),
         [NC_CONSTANTS.NC_DOUBLE]:   (...args) => module.nc_get_var_double(...args),
         [NC_CONSTANTS.NC_LONGLONG]: (...args) => module.nc_get_var_longlong(...args),
-
-        // easy adds later:
-        // [NC_CONSTANTS.NC_UINT]: (...args) => module.nc_get_var_uint(...args),
+        [NC_CONSTANTS.NC_BYTE]:     (...args) => module.nc_get_var_schar(...args),
+        [NC_CONSTANTS.NC_UBYTE]:    (...args) => module.nc_get_var_uchar(...args),
+        [NC_CONSTANTS.NC_USHORT]:   (...args) => module.nc_get_var_ushort(...args),
+        [NC_CONSTANTS.NC_UINT]:     (...args) => module.nc_get_var_uint(...args),
+        [NC_CONSTANTS.NC_INT64]:    (...args) => module.nc_get_var_longlong(...args),
+        [NC_CONSTANTS.NC_UINT64]:   (...args) => module.nc_get_var_ulonglong(...args),
+        [NC_CONSTANTS.NC_STRING]:   (...args) => module.nc_get_var_string(...args),
     };
 
     const reader = readers[arrayType];
@@ -406,7 +410,7 @@ export function getSlicedVariableArray(
     start: number[],
     count: number[],
     groupPath?: string
-): Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[] {
+): Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array | string[] {
 
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
 
@@ -432,22 +436,19 @@ export function getSlicedVariableArray(
     type VaraArgs = [number, number, number[], number[]];
     type VaraResult = { result: number; data?: any };
 
-    // 🔥 Arrow wrappers keep module binding intact
+    // Arrow wrappers keep module binding intact
     const readers: Record<number, (...args: VaraArgs) => VaraResult> = {
         [NC_CONSTANTS.NC_SHORT]:  (...args) => module.nc_get_vara_short(...args),
         [NC_CONSTANTS.NC_INT]:    (...args) => module.nc_get_vara_int(...args),
         [NC_CONSTANTS.NC_FLOAT]:  (...args) => module.nc_get_vara_float(...args),
         [NC_CONSTANTS.NC_DOUBLE]: (...args) => module.nc_get_vara_double(...args),
-
-        // future:
-        // [NC_CONSTANTS.NC_UINT]: (...args) => module.nc_get_vara_uint(...args),
-        // [NC_CONSTANTS.NC_BYTE]: module.nc_get_vara_schar,
-        // [NC_CONSTANTS.NC_UBYTE]: module.nc_get_vara_ubyte,
-        // [NC_CONSTANTS.NC_USHORT]: module.nc_get_vara_ushort,
-        // [NC_CONSTANTS.NC_UINT]: module.nc_get_vara_uint,
-        // [NC_CONSTANTS.NC_INT64]: module.nc_get_vara_longlong,
-        // [NC_CONSTANTS.NC_UINT64]: module.nc_get_vara_ulonglong,
-        // [NC_CONSTANTS.NC_STRING]: module.nc_get_vara_string,
+        [NC_CONSTANTS.NC_BYTE]:   (...args) => module.nc_get_vara_schar(...args),
+        [NC_CONSTANTS.NC_UBYTE]:  (...args) => module.nc_get_vara_uchar(...args),
+        [NC_CONSTANTS.NC_USHORT]: (...args) => module.nc_get_vara_ushort(...args),
+        [NC_CONSTANTS.NC_UINT]:   (...args) => module.nc_get_vara_uint(...args),
+        [NC_CONSTANTS.NC_INT64]:  (...args) => module.nc_get_vara_longlong(...args),
+        [NC_CONSTANTS.NC_UINT64]: (...args) => module.nc_get_vara_ulonglong(...args),
+        [NC_CONSTANTS.NC_STRING]: (...args) => module.nc_get_vara_string(...args),
     };
 
     const reader = readers[arrayType];

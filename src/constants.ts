@@ -22,6 +22,7 @@ export const NC_CONSTANTS = {
     NC_DOUBLE: 6,
     NC_UINT: 7,
     NC_UINT64: 8,
+    NC_INT64: 9,
     NC_UBYTE: 9,
     NC_LONGLONG: 10,
     NC_USHORT: 11,

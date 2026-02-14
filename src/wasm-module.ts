@@ -39,6 +39,7 @@ export class WasmModuleLoader {
 
     static wrapModule(module: EmscriptenModule): NetCDF4Module {
         // Create wrappers for NetCDF functions
+        // https://docs.unidata.ucar.edu/netcdf-c/current/group__variables.html#details
         const nc_open_wrapper = module.cwrap('nc_open_wrapper', 'number', ['string', 'number', 'number']);
         const nc_close_wrapper = module.cwrap('nc_close_wrapper', 'number', ['number']);
         const nc_create_wrapper = module.cwrap('nc_create_wrapper', 'number', ['string', 'number', 'number']);
@@ -108,6 +109,12 @@ export class WasmModuleLoader {
         const nc_get_vara_float_wrapper = module.cwrap('nc_get_vara_float_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
         const nc_get_vara_double_wrapper = module.cwrap('nc_get_vara_double_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
         const nc_get_vara_longlong_wrapper = module.cwrap('nc_get_vara_longlong_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
+        const nc_get_vara_schar_wrapper = module.cwrap('nc_get_vara_schar_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
+        const nc_get_vara_uchar_wrapper = module.cwrap('nc_get_vara_uchar_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
+        const nc_get_vara_ushort_wrapper = module.cwrap('nc_get_vara_ushort_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
+        const nc_get_vara_uint_wrapper = module.cwrap('nc_get_vara_uint_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
+        const nc_get_vara_ulonglong_wrapper = module.cwrap('nc_get_vara_ulonglong_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
+        const nc_get_vara_string_wrapper = module.cwrap('nc_get_vara_string_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
 
         const nc_get_var_text_wrapper = module.cwrap('nc_get_var_text_wrapper', 'number', ['number', 'number', 'number']);
         const nc_get_var_short_wrapper = module.cwrap('nc_get_var_short_wrapper', 'number', ['number', 'number', 'number']);
@@ -115,7 +122,14 @@ export class WasmModuleLoader {
         const nc_get_var_longlong_wrapper = module.cwrap('nc_get_var_longlong_wrapper', 'number', ['number', 'number', 'number']);
         const nc_get_var_float_wrapper = module.cwrap('nc_get_var_float_wrapper', 'number', ['number', 'number', 'number']);
         const nc_get_var_double_wrapper = module.cwrap('nc_get_var_double_wrapper', 'number', ['number', 'number', 'number']);
-        
+        const nc_get_var_schar_wrapper = module.cwrap('nc_get_var_schar_wrapper', 'number', ['number', 'number', 'number']);
+        const nc_get_var_uchar_wrapper = module.cwrap('nc_get_var_uchar_wrapper', 'number', ['number', 'number', 'number']);
+        const nc_get_var_ushort_wrapper = module.cwrap('nc_get_var_ushort_wrapper', 'number', ['number', 'number', 'number']);
+        const nc_get_var_uint_wrapper = module.cwrap('nc_get_var_uint_wrapper', 'number', ['number', 'number', 'number']);
+        const nc_get_var_ulonglong_wrapper = module.cwrap('nc_get_var_ulonglong_wrapper', 'number', ['number', 'number', 'number']);
+        const nc_get_var_string_wrapper = module.cwrap('nc_get_var_string_wrapper', 'number', ['number', 'number', 'number']);
+
+
         // Group inquiry wrappers
         const nc_inq_grps_wrapper = module.cwrap('nc_inq_grps_wrapper', 'number', ['number', 'number', 'number']);
         const nc_inq_grp_ncid_wrapper = module.cwrap('nc_inq_grp_ncid_wrapper', 'number', ['number', 'string', 'number']);
@@ -574,6 +588,130 @@ export class WasmModuleLoader {
                 module._free(countPtr);
                 return { result, data };
             },
+            nc_get_vara_schar: (ncid: number, varid: number, start: number[], count: number[]) => {
+                const totalLength = count.reduce((a, b) => a * b, 1);
+                const dataPtr = module._malloc(totalLength * 1);
+                const startPtr = module._malloc(start.length * 8);
+                const countPtr = module._malloc(count.length * 8);
+                
+                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                
+                const result = nc_get_vara_schar_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new Int8Array(module.HEAP8.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                
+                module._free(dataPtr);
+                module._free(startPtr);
+                module._free(countPtr);
+                return { result, data };
+            },
+
+            nc_get_vara_uchar: (ncid: number, varid: number, start: number[], count: number[]) => {
+                const totalLength = count.reduce((a, b) => a * b, 1);
+                const dataPtr = module._malloc(totalLength * 1);
+                const startPtr = module._malloc(start.length * 8);
+                const countPtr = module._malloc(count.length * 8);
+                
+                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                
+                const result = nc_get_vara_uchar_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new Uint8Array(module.HEAPU8.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                
+                module._free(dataPtr);
+                module._free(startPtr);
+                module._free(countPtr);
+                return { result, data };
+            },
+
+            nc_get_vara_ushort: (ncid: number, varid: number, start: number[], count: number[]) => {
+                const totalLength = count.reduce((a, b) => a * b, 1);
+                const dataPtr = module._malloc(totalLength * 2);
+                const startPtr = module._malloc(start.length * 8);
+                const countPtr = module._malloc(count.length * 8);
+                
+                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                
+                const result = nc_get_vara_ushort_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new Uint16Array(module.HEAPU16.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                
+                module._free(dataPtr);
+                module._free(startPtr);
+                module._free(countPtr);
+                return { result, data };
+            },
+
+            nc_get_vara_uint: (ncid: number, varid: number, start: number[], count: number[]) => {
+                const totalLength = count.reduce((a, b) => a * b, 1);
+                const dataPtr = module._malloc(totalLength * 4);
+                const startPtr = module._malloc(start.length * 8);
+                const countPtr = module._malloc(count.length * 8);
+                
+                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                
+                const result = nc_get_vara_uint_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new Uint32Array(module.HEAPU32.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                
+                module._free(dataPtr);
+                module._free(startPtr);
+                module._free(countPtr);
+                return { result, data };
+            },
+
+            nc_get_vara_ulonglong: (ncid: number, varid: number, start: number[], count: number[]) => {
+                const totalLength = count.reduce((a, b) => a * b, 1);
+                const dataPtr = module._malloc(totalLength * 8);
+                const startPtr = module._malloc(start.length * 8);
+                const countPtr = module._malloc(count.length * 8);
+                
+                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                
+                const result = nc_get_vara_ulonglong_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new BigUint64Array(module.HEAP64.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                
+                module._free(dataPtr);
+                module._free(startPtr);
+                module._free(countPtr);
+                return { result, data };
+            },
+
+            nc_get_vara_string: (ncid: number, varid: number, start: number[], count: number[]) => {
+                const totalLength = count.reduce((a, b) => a * b, 1);
+                const dataPtr = module._malloc(totalLength * 4);
+                const startPtr = module._malloc(start.length * 8);
+                const countPtr = module._malloc(count.length * 8);
+                
+                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                
+                const result = nc_get_vara_string_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
+                let data: string[] | undefined;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    data = [];
+                    for (let i = 0; i < totalLength; i++) {
+                        const strPtr = module.getValue(dataPtr + i * 4, '*');
+                        data.push(module.UTF8ToString(strPtr));
+                    }
+                }
+                
+                module._free(dataPtr);
+                module._free(startPtr);
+                module._free(countPtr);
+                return { result, data };
+            },
             //---- Full Variable Getters ----//
             nc_get_var_text: (ncid: number, varid: number, length: number) => {
                 const dataPtr = module._malloc(length);
@@ -626,6 +764,75 @@ export class WasmModuleLoader {
                 if (result === NC_CONSTANTS.NC_NOERR) {
                     // BigInt64Array is used for i64 (long long)
                     data = new BigInt64Array(module.HEAP64.buffer, dataPtr, length).slice();
+                }
+                module._free(dataPtr);
+                return { result, data };
+            },
+            nc_get_var_schar: (ncid: number, varid: number, length: number) => {
+                const dataPtr = module._malloc(length * 1);
+                const result = nc_get_var_schar_wrapper(ncid, varid, dataPtr);
+                let data;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    data = new Int8Array(module.HEAP8.buffer, dataPtr, length).slice();
+                }
+                module._free(dataPtr);
+                return { result, data };
+            },
+
+            nc_get_var_uchar: (ncid: number, varid: number, length: number) => {
+                const dataPtr = module._malloc(length * 1);
+                const result = nc_get_var_uchar_wrapper(ncid, varid, dataPtr);
+                let data;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    data = new Uint8Array(module.HEAPU8.buffer, dataPtr, length).slice();
+                }
+                module._free(dataPtr);
+                return { result, data };
+            },
+
+            nc_get_var_ushort: (ncid: number, varid: number, length: number) => {
+                const dataPtr = module._malloc(length * 2);
+                const result = nc_get_var_ushort_wrapper(ncid, varid, dataPtr);
+                let data;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    data = new Uint16Array(module.HEAPU16.buffer, dataPtr, length).slice();
+                }
+                module._free(dataPtr);
+                return { result, data };
+            },
+
+            nc_get_var_uint: (ncid: number, varid: number, length: number) => {
+                const dataPtr = module._malloc(length * 4);
+                const result = nc_get_var_uint_wrapper(ncid, varid, dataPtr);
+                let data;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    data = new Uint32Array(module.HEAPU32.buffer, dataPtr, length).slice();
+                }
+                module._free(dataPtr);
+                return { result, data };
+            },
+
+            nc_get_var_ulonglong: (ncid: number, varid: number, length: number) => {
+                const dataPtr = module._malloc(length * 8);
+                const result = nc_get_var_ulonglong_wrapper(ncid, varid, dataPtr);
+                let data;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    data = new BigUint64Array(module.HEAP64.buffer, dataPtr, length).slice();
+                }
+                module._free(dataPtr);
+                return { result, data };
+            },
+
+            nc_get_var_string: (ncid: number, varid: number, length: number) => {
+                const dataPtr = module._malloc(length * 4);
+                const result = nc_get_var_string_wrapper(ncid, varid, dataPtr);
+                let data;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    data = [];
+                    for (let i = 0; i < length; i++) {
+                        const strPtr = module.getValue(dataPtr + i * 4, '*');
+                        data.push(module.UTF8ToString(strPtr));
+                    }
                 }
                 module._free(dataPtr);
                 return { result, data };

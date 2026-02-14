@@ -824,6 +824,16 @@ int nc_get_vara_text_wrapper(int ncid, int varid, const size_t* start, const siz
 }
 
 EMSCRIPTEN_KEEPALIVE
+int nc_get_vara_string_wrapper(int ncid, int varid, const size_t* start, const size_t* count, char** value) {
+    return nc_get_vara_string(ncid, varid, start, count, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_put_vara_string_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const char** value) {
+    return nc_put_vara_string(ncid, varid, start, count, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
 int nc_get_vara_uchar_wrapper(int ncid, int varid, const size_t* start, const size_t* count, unsigned char* value) {
     return nc_get_vara_uchar(ncid, varid, start, count, value);
 }
@@ -881,6 +891,16 @@ int nc_get_vara_ulonglong_wrapper(int ncid, int varid, const size_t* start, cons
 EMSCRIPTEN_KEEPALIVE
 int nc_get_var_text_wrapper(int ncid, int varid, char* value) {
     return nc_get_var_text(ncid, varid, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_var_string_wrapper(int ncid, int varid, char** value) {
+    return nc_get_var_string(ncid, varid, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_put_var_string_wrapper(int ncid, int varid, const char** value) {
+    return nc_put_var_string(ncid, varid, value);
 }
 
 EMSCRIPTEN_KEEPALIVE

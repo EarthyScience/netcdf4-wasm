@@ -18,6 +18,7 @@ export interface EmscriptenModule {
     HEAPF64: Float64Array;
     HEAP64: BigInt64Array;
     HEAP32: Int32Array;
+    HEAP8: Int8Array;
     HEAPF32: Float32Array;
     HEAPU8: Uint8Array;
     HEAP16: Int16Array;
@@ -98,12 +99,24 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_get_var_longlong: (ncid: number, varid: number,  length: number) => { result: number; data?: BigInt64Array };
     nc_get_var_float: (ncid: number, varid: number,  length: number) => { result: number; data?: Float32Array };
     nc_get_var_double: (ncid: number, varid: number,  length: number) => { result: number; data?: Float64Array };
+    nc_get_var_schar: (ncid: number, varid: number, length: number) => { result: number; data?: Int8Array };
+    nc_get_var_uchar: (ncid: number, varid: number, length: number) => { result: number; data?: Uint8Array };
+    nc_get_var_ushort: (ncid: number, varid: number, length: number) => { result: number; data?: Uint16Array };
+    nc_get_var_uint: (ncid: number, varid: number, length: number) => { result: number; data?: Uint32Array };
+    nc_get_var_ulonglong: (ncid: number, varid: number, length: number) => { result: number; data?: BigUint64Array };
+    nc_get_var_string: (ncid: number, varid: number, length: number) => { result: number; data?: string[] };
 
     nc_get_vara_short: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Int16Array };
     nc_get_vara_int: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Int32Array };
     nc_get_vara_float: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Float32Array };
     nc_get_vara_double: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Float64Array };
     nc_get_vara_longlong: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: BigInt64Array };
+    nc_get_vara_schar: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Int8Array };
+    nc_get_vara_uchar: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Uint8Array };
+    nc_get_vara_ushort: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Uint16Array };
+    nc_get_vara_uint: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Uint32Array };
+    nc_get_vara_ulonglong: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: BigUint64Array };
+    nc_get_vara_string: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: string[] };
 
     // group types and functions
     nc_inq_grps: (ncid: number) => { result: number; numgrps?: number; grpids?: Int32Array };
@@ -145,6 +158,3 @@ export interface VariableOptions {
     contiguous?: boolean;
     chunksizes?: number[];
 }
-
-// Type for the module factory function
-// export type NetCDF4ModuleFactory = (options?: any) => Promise<EmscriptenModule>;

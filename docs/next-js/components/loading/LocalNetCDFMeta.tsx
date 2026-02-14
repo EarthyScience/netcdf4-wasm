@@ -855,9 +855,11 @@ const LocalNetCDFMeta = () => {
                     )}
 
                     {/* Load data controls */}
-                    {variables[selectedVariable].info.dtype !== 'str' && (
+                    {/* variables[selectedVariable].info.dtype !== 'str' */}
+                    {true && (
                       <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-end">
                         {/* Slice controls - hide for S1 and char */}
+                        {/* !['S1', 'char'].includes(variables[selectedVariable].info.dtype) */}
                         {!['S1', 'char'].includes(variables[selectedVariable].info.dtype) && (
                           <>
                             <div className="w-full sm:w-32">

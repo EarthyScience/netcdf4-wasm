@@ -439,7 +439,7 @@ export class NetCDF4 extends Group {
         }
     }
 
-    async getVariableArray(variable: number | string, groupPath?: string): Promise<Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[]>  {
+    async getVariableArray(variable: number | string, groupPath?: string): Promise<Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array | string[]>  {
         if (this.worker) {
             return this.callWorker('getVariableArray', {variable, groupPath})
         } else {
@@ -448,7 +448,7 @@ export class NetCDF4 extends Group {
         }
     }
 
-    async getSlicedVariableArray(variable: number | string, start: number[], count: number[], groupPath?: string): Promise<Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[]> {
+    async getSlicedVariableArray(variable: number | string, start: number[], count: number[], groupPath?: string): Promise<Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array | string[]> {
         if (this.worker) {
             return this.callWorker('getSlicedVariableArray', {variable, start, count, groupPath})
         } else {
