@@ -1,6 +1,5 @@
 'use client';
-
-import React, { ChangeEvent, useState, useEffect } from 'react';
+import React, { ChangeEvent, useState, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -25,7 +24,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
 import { NetCDF4, DataTree, GroupNode } from '@earthyscience/netcdf4-wasm';
 
 const NETCDF_EXT_REGEX = /\.(nc|netcdf|nc3|nc4)$/i;
@@ -39,46 +37,120 @@ interface VariableData {
 const LocalNetCDFMeta = () => {
   const [tree, setTree] = useState<DataTree | null>(null);
   const [dataset, setDataset] = useState<any>(null);
-
   const [currentGroupPath, setCurrentGroupPath] = useState<string>('/');
   const [variables, setVariables] = useState<Record<string, VariableData>>({});
   const [attributes, setAttributes] = useState<Record<string, unknown>>({});
   const [dimensions, setDimensions] = useState<Record<string, any>>({});
-
   const [selectedVariable, setSelectedVariable] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{name: string; groupPath: string}>>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [pendingVariableLoad, setPendingVariableLoad] = useState<{name: string; groupPath: string} | null>(null);
   const [sliceSize, setSliceSize] = useState<string>('10');
-
   const [error, setError] = useState<string | null>(null);
   const [url, setUrl] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadingVariable, setLoadingVariable] = useState<string | null>(null);
-
+  
   // Expand/collapse state
   const [expandedVariableInfo, setExpandedVariableInfo] = useState(true);
   const [expandedVariableAttrs, setExpandedVariableAttrs] = useState(true);
   const [expandedDimensions, setExpandedDimensions] = useState(true);
   const [expandedAttributes, setExpandedAttributes] = useState(true);
-
+  
   // Mobile menu states
   const [showGroupMenu, setShowGroupMenu] = useState(false);
   const [showVariableMenu, setShowVariableMenu] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['/']));
 
   // ---------------------------------------------------------------------------
-  // Helpers
+  // Helpers wrapped in useCallback
   // ---------------------------------------------------------------------------
-
-  const refreshGroup = (path: string, dataTree: DataTree) => {
+  
+  const refreshGroup = useCallback((path: string, dataTree: DataTree) => {
     setCurrentGroupPath(path);
     setVariables(dataTree.getAllVariables(path));
     setAttributes(dataTree.getAttributes(path));
     setDimensions(dataTree.getDimensions(path));
     setSelectedVariable(null);
-  };
+  }, []);
+
+  const loadVariableInfo = useCallback(async (varName: string) => {
+    if (!dataset) return;
+    setLoadingVariable(varName);
+    try {
+      const info = await dataset.getVariableInfo(
+        varName,
+        currentGroupPath === '/' ? undefined : currentGroupPath
+      );
+      setVariables((prev) => ({
+        ...prev,
+        [varName]: { ...prev[varName], info },
+      }));
+    } finally {
+      setLoadingVariable(null);
+    }
+  }, [dataset, currentGroupPath]);
+
+  const loadVariableData = useCallback(async (varName: string) => {
+    if (!dataset) return;
+    setLoadingVariable(varName);
+    try {
+      const data = await dataset.getVariableArray(
+        varName,
+        currentGroupPath === '/' ? undefined : currentGroupPath
+      );
+      setVariables((prev) => ({
+        ...prev,
+        [varName]: { ...prev[varName], data },
+      }));
+    } finally {
+      setLoadingVariable(null);
+    }
+  }, [dataset, currentGroupPath]);
+
+  const loadVariableSlice = useCallback(async (varName: string, size: number) => {
+    if (!dataset) return;
+    setLoadingVariable(varName);
+    try {
+      const info = variables[varName]?.info;
+      if (!info) return;
+      const totalSize = info.size;
+      const actualSize = Math.min(size, totalSize);
+      
+      // For multi-dimensional arrays, we'll slice along the first dimension
+      const shape = info.shape;
+      if (shape.length === 0) {
+        // Scalar, just load it
+        const data = await dataset.getVariableArray(
+          varName,
+          currentGroupPath === '/' ? undefined : currentGroupPath
+        );
+        setVariables((prev) => ({
+          ...prev,
+          [varName]: { ...prev[varName], data },
+        }));
+      } else {
+        // Create start and count arrays
+        const start = new Array(shape.length).fill(0);
+        const count = [...shape];
+        // Slice along the first dimension
+        count[0] = Math.min(actualSize, shape[0]);
+        const data = await dataset.getSlicedVariableArray(
+          varName,
+          start,
+          count,
+          currentGroupPath === '/' ? undefined : currentGroupPath
+        );
+        setVariables((prev) => ({
+          ...prev,
+          [varName]: { ...prev[varName], data },
+        }));
+      }
+    } finally {
+      setLoadingVariable(null);
+    }
+  }, [dataset, currentGroupPath, variables]);
 
   // Handle pending variable loads after group change
   useEffect(() => {
@@ -89,7 +161,7 @@ const LocalNetCDFMeta = () => {
       }
       setPendingVariableLoad(null);
     }
-  }, [currentGroupPath, variables, pendingVariableLoad]);
+  }, [currentGroupPath, variables, pendingVariableLoad, loadVariableInfo]);
 
   const formatDataPreview = (data: any, maxItems = 20) => {
     if (!data) return 'No data';
@@ -171,100 +243,7 @@ const LocalNetCDFMeta = () => {
     if (!tree) return;
     refreshGroup(path, tree);
   };
-
-  // ---------------------------------------------------------------------------
-  // Variable handling
-  // ---------------------------------------------------------------------------
-
-  const loadVariableInfo = async (varName: string) => {
-    if (!dataset) return;
-
-    setLoadingVariable(varName);
-
-    try {
-      const info = await dataset.getVariableInfo(
-        varName,
-        currentGroupPath === '/' ? undefined : currentGroupPath
-      );
-
-      setVariables((prev) => ({
-        ...prev,
-        [varName]: { ...prev[varName], info },
-      }));
-    } finally {
-      setLoadingVariable(null);
-    }
-  };
-
-  const loadVariableData = async (varName: string) => {
-    if (!dataset) return;
-
-    setLoadingVariable(varName);
-
-    try {
-      const data = await dataset.getVariableArray(
-        varName,
-        currentGroupPath === '/' ? undefined : currentGroupPath
-      );
-
-      setVariables((prev) => ({
-        ...prev,
-        [varName]: { ...prev[varName], data },
-      }));
-    } finally {
-      setLoadingVariable(null);
-    }
-  };
-
-  const loadVariableSlice = async (varName: string, size: number) => {
-    if (!dataset) return;
-
-    setLoadingVariable(varName);
-
-    try {
-      const info = variables[varName]?.info;
-      if (!info) return;
-
-      const totalSize = info.size;
-      const actualSize = Math.min(size, totalSize);
-
-      // For multi-dimensional arrays, we'll slice along the first dimension
-      const shape = info.shape;
-      if (shape.length === 0) {
-        // Scalar, just load it
-        const data = await dataset.getVariableArray(
-          varName,
-          currentGroupPath === '/' ? undefined : currentGroupPath
-        );
-        setVariables((prev) => ({
-          ...prev,
-          [varName]: { ...prev[varName], data },
-        }));
-      } else {
-        // Create start and count arrays
-        const start = new Array(shape.length).fill(0);
-        const count = [...shape];
-        
-        // Slice along the first dimension
-        count[0] = Math.min(actualSize, shape[0]);
-
-        const data = await dataset.getSlicedVariableArray(
-          varName,
-          start,
-          count,
-          currentGroupPath === '/' ? undefined : currentGroupPath
-        );
-
-        setVariables((prev) => ({
-          ...prev,
-          [varName]: { ...prev[varName], data },
-        }));
-      }
-    } finally {
-      setLoadingVariable(null);
-    }
-  };
-
+  
   // ---------------------------------------------------------------------------
   // Search functionality
   // ---------------------------------------------------------------------------
