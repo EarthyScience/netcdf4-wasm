@@ -50,6 +50,7 @@ const LocalNetCDFMeta = () => {
   const [searchResults, setSearchResults] = useState<Array<{name: string; groupPath: string}>>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [pendingVariableLoad, setPendingVariableLoad] = useState<{name: string; groupPath: string} | null>(null);
+  const [sliceSize, setSliceSize] = useState<string>('10');
 
   const [error, setError] = useState<string | null>(null);
   const [url, setUrl] = useState('');
@@ -210,6 +211,55 @@ const LocalNetCDFMeta = () => {
         ...prev,
         [varName]: { ...prev[varName], data },
       }));
+    } finally {
+      setLoadingVariable(null);
+    }
+  };
+
+  const loadVariableSlice = async (varName: string, size: number) => {
+    if (!dataset) return;
+
+    setLoadingVariable(varName);
+
+    try {
+      const info = variables[varName]?.info;
+      if (!info) return;
+
+      const totalSize = info.size;
+      const actualSize = Math.min(size, totalSize);
+
+      // For multi-dimensional arrays, we'll slice along the first dimension
+      const shape = info.shape;
+      if (shape.length === 0) {
+        // Scalar, just load it
+        const data = await dataset.getVariableArray(
+          varName,
+          currentGroupPath === '/' ? undefined : currentGroupPath
+        );
+        setVariables((prev) => ({
+          ...prev,
+          [varName]: { ...prev[varName], data },
+        }));
+      } else {
+        // Create start and count arrays
+        const start = new Array(shape.length).fill(0);
+        const count = [...shape];
+        
+        // Slice along the first dimension
+        count[0] = Math.min(actualSize, shape[0]);
+
+        const data = await dataset.getSlicedVariableArray(
+          varName,
+          start,
+          count,
+          currentGroupPath === '/' ? undefined : currentGroupPath
+        );
+
+        setVariables((prev) => ({
+          ...prev,
+          [varName]: { ...prev[varName], data },
+        }));
+      }
     } finally {
       setLoadingVariable(null);
     }
@@ -803,15 +853,68 @@ const LocalNetCDFMeta = () => {
                       </div>
                     )}
 
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => loadVariableData(selectedVariable)}
-                      disabled={loadingVariable === selectedVariable}
-                      className="w-full sm:w-auto"
-                    >
-                      {variables[selectedVariable].data ? 'Reload Data' : 'Load Data'}
-                    </Button>
+                    {/* Load data controls */}
+                    {variables[selectedVariable].info.dtype !== 'str' && (
+                      <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-end">
+                        {/* Slice controls - hide for S1 and char */}
+                        {!['S1', 'char'].includes(variables[selectedVariable].info.dtype) && (
+                          <>
+                            <div className="w-full sm:w-32">
+                              <Label className="text-xs text-muted-foreground mb-1 block">
+                                Slice size
+                              </Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                max={variables[selectedVariable].info.size}
+                                value={sliceSize}
+                                onChange={(e) => setSliceSize(e.target.value)}
+                                className="h-9 text-sm"
+                                placeholder="10"
+                              />
+                            </div>
+                            <div className="flex gap-2 w-full sm:w-auto">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  const size = Math.min(
+                                    parseInt(sliceSize) || 10,
+                                    variables[selectedVariable].info.size
+                                  );
+                                  loadVariableSlice(selectedVariable, size);
+                                }}
+                                disabled={loadingVariable === selectedVariable}
+                                className="flex-1 sm:flex-initial"
+                              >
+                                Load Slice
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => loadVariableData(selectedVariable)}
+                                disabled={loadingVariable === selectedVariable}
+                                className="flex-1 sm:flex-initial"
+                              >
+                                Load All
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                        {/* Show only Load All for S1 and char */}
+                        {['S1', 'char'].includes(variables[selectedVariable].info.dtype) && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => loadVariableData(selectedVariable)}
+                            disabled={loadingVariable === selectedVariable}
+                            className="w-full sm:w-auto"
+                          >
+                            Load All
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )}
 
