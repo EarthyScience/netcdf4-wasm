@@ -345,23 +345,7 @@ const LocalNetCDFMeta = () => {
   const datasetSummary = tree ? tree.getDatasetSummary() : null;
 
   return (
-    <div className="grid w-full max-w-4xl items-center gap-4 p-4 py-0 overflow-hidden">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <Label className="text-lg font-bold flex items-center justify-center gap-2">
-          <Database className="h-5 w-5" />
-          NetCDF File Browser
-        </Label>
-        {datasetSummary && (
-          <div className="flex gap-2 justify-center text-xs text-muted-foreground flex-wrap">
-            <span>{datasetSummary.totalGroups} groups</span>
-            <span>•</span>
-            <span>{datasetSummary.totalVariables} variables</span>
-            <span>•</span>
-            <span>{datasetSummary.totalDimensions} dimensions</span>
-          </div>
-        )}
-      </div>
+    <div className="grid w-full max-w-4xl items-center gap-4 p-4 py-0 overflow-hidden">      
 
       {/* File Upload */}
       <Input
@@ -371,7 +355,17 @@ const LocalNetCDFMeta = () => {
         disabled={isLoading}
         className="cursor-pointer"
       />
-
+      {/* <div className="text-center space-y-2"> */}
+        {datasetSummary && (
+          <div className="flex gap-2 justify-center text-xs text-muted-foreground flex-wrap">
+            <span>{datasetSummary.totalGroups} groups</span>
+            <span>•</span>
+            <span>{datasetSummary.totalVariables} variables</span>
+            <span>•</span>
+            <span>{datasetSummary.totalDimensions} dimensions</span>
+          </div>
+        )}
+      {/* </div> */}
       {/* URL Fetch */}
       <Field>
         <ButtonGroup>
@@ -406,7 +400,7 @@ const LocalNetCDFMeta = () => {
       {tree && (
         <div className="space-y-4">
           {/* Navigation Bar */}
-          <Card>
+          <Card className='border-0'>
             <CardContent className="space-y-3">
               {/* Controls */}
               <div className="flex gap-2 flex-wrap">
@@ -594,7 +588,7 @@ const LocalNetCDFMeta = () => {
 
           {/* Variable Details */}
           {selectedVariable && variables[selectedVariable] && (
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden border-0">
               <CardContent className="space-y-3 overflow-hidden">
                 {loadingVariable === selectedVariable && (
                   <div className="flex items-center gap-2">
@@ -776,7 +770,7 @@ const LocalNetCDFMeta = () => {
 
           {/* Collapsible Dimensions */}
           {Object.keys(dimensions).length > 0 && (
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden border-0">
               <button
                 onClick={() => setExpandedDimensions(!expandedDimensions)}
                 className="w-full"
@@ -815,7 +809,7 @@ const LocalNetCDFMeta = () => {
 
           {/* Collapsible Attributes */}
           {Object.keys(attributes).length > 0 && (
-            <Card className="overflow-hidden">
+            <Card className="overflow-hidden border-0">
               <button
                 onClick={() => setExpandedAttributes(!expandedAttributes)}
                 className="w-full"
