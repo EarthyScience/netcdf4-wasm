@@ -436,8 +436,8 @@ const LocalNetCDFMeta = () => {
       {tree && (
         <div className="space-y-3 sm:space-y-4">
           {/* Navigation Bar */}
-          <Card className='border-0'>
-            <CardContent className="space-y-3 p-3 sm:p-6">
+          <Card className='border-0 py-4'>
+            <CardContent className="space-y-3 p-2 sm:p-3">
               {/* Controls */}
               <div className="flex gap-2 flex-wrap">
                 {/* Group Browser - Unified for Desktop and Mobile */}
@@ -625,7 +625,7 @@ const LocalNetCDFMeta = () => {
                                 <button
                                   key={name}
                                   onClick={() => handleVariableClick(name, node.path)}
-                                  className="w-full text-left px-2 py-1.5 rounded text-xs flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
+                                  className="w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
                                 >
                                   <FileText className="h-3 w-3 flex-shrink-0" />
                                   <span className="truncate">{name}</span>
@@ -694,7 +694,7 @@ const LocalNetCDFMeta = () => {
                               <button
                                 key={name}
                                 onClick={() => handleVariableClick(name, '/')}
-                                className="w-full text-left px-2 py-1.5 rounded text-xs flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
+                                className="w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
                               >
                                 <FileText className="h-3 w-3 flex-shrink-0" />
                                 <span className="truncate">{name}</span>
@@ -788,8 +788,8 @@ const LocalNetCDFMeta = () => {
 
           {/* Variable Details */}
           {selectedVariable && variables[selectedVariable] && (
-            <Card className="border-0">
-              <CardContent className="space-y-3 p-3 sm:p-6">
+            <Card className="border-0 py-1">
+              <CardContent className="space-y-3 p-2 sm:p-3">
                 {loadingVariable === selectedVariable && (
                   <div className="flex items-center gap-2">
                     <Spinner className="h-4 w-4" />
@@ -818,7 +818,7 @@ const LocalNetCDFMeta = () => {
                           {/* Name */}
                           <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                             <span className="font-mono text-muted-foreground">name:</span>
-                            <span className="font-mono break-all">
+                            <span className="font-mono break-all pl-4 sm:pl-0">
                               {variables[selectedVariable].info.name}
                             </span>
                           </div>
@@ -826,7 +826,7 @@ const LocalNetCDFMeta = () => {
                           {/* Data Type */}
                           <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                             <span className="font-mono text-muted-foreground">dtype:</span>
-                            <span className="font-mono break-all">
+                            <span className="font-mono break-all pl-4 sm:pl-0">
                               {variables[selectedVariable].info.dtype}
                             </span>
                           </div>
@@ -835,7 +835,7 @@ const LocalNetCDFMeta = () => {
                           {variables[selectedVariable].info.nctype !== undefined && (
                             <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                               <span className="font-mono text-muted-foreground">nctype:</span>
-                              <span className="font-mono break-all">
+                              <span className="font-mono break-all pl-4 sm:pl-0">
                                 {variables[selectedVariable].info.nctype}
                               </span>
                             </div>
@@ -844,7 +844,7 @@ const LocalNetCDFMeta = () => {
                           {/* Shape */}
                           <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                             <span className="font-mono text-muted-foreground">shape:</span>
-                            <span className="font-mono break-all">
+                            <span className="font-mono break-all pl-4 sm:pl-0">
                               [{variables[selectedVariable].info.shape.join(', ')}]
                             </span>
                           </div>
@@ -852,7 +852,7 @@ const LocalNetCDFMeta = () => {
                           {/* Dimensions */}
                           <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                             <span className="font-mono text-muted-foreground">dimensions:</span>
-                            <span className="font-mono break-all">
+                            <span className="font-mono break-all pl-4 sm:pl-0">
                               [{variables[selectedVariable].info.dimensions?.join(', ') || 'N/A'}]
                             </span>
                           </div>
@@ -860,7 +860,7 @@ const LocalNetCDFMeta = () => {
                           {/* Size */}
                           <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                             <span className="font-mono text-muted-foreground">size:</span>
-                            <span className="font-mono break-all">
+                            <span className="font-mono break-all pl-4 sm:pl-0">
                               {variables[selectedVariable].info.size.toLocaleString()}
                             </span>
                           </div>
@@ -869,7 +869,7 @@ const LocalNetCDFMeta = () => {
                           {variables[selectedVariable].info.totalSize !== undefined && (
                             <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                               <span className="font-mono text-muted-foreground">totalSize:</span>
-                              <span className="font-mono break-all">
+                              <span className="font-mono break-all pl-4 sm:pl-0">
                                 {variables[selectedVariable].info.totalSize.toLocaleString()} bytes
                               </span>
                             </div>
@@ -879,7 +879,7 @@ const LocalNetCDFMeta = () => {
                           {variables[selectedVariable].info.chunked !== undefined && (
                             <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                               <span className="font-mono text-muted-foreground">chunked:</span>
-                              <span className="font-mono break-all">
+                              <span className="font-mono break-all pl-4 sm:pl-0">
                                 {String(variables[selectedVariable].info.chunked)}
                               </span>
                             </div>
@@ -889,7 +889,7 @@ const LocalNetCDFMeta = () => {
                           {variables[selectedVariable].info.chunks && (
                             <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                               <span className="font-mono text-muted-foreground">chunks:</span>
-                              <span className="font-mono break-all">
+                              <span className="font-mono break-all pl-4 sm:pl-0">
                                 [{variables[selectedVariable].info.chunks.join(', ')}]
                               </span>
                             </div>
@@ -899,7 +899,7 @@ const LocalNetCDFMeta = () => {
                           {variables[selectedVariable].info.chunkSize !== undefined && (
                             <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                               <span className="font-mono text-muted-foreground">chunkSize:</span>
-                              <span className="font-mono break-all">
+                              <span className="font-mono break-all pl-4 sm:pl-0">
                                 {variables[selectedVariable].info.chunkSize.toLocaleString()} bytes
                               </span>
                             </div>
@@ -931,7 +931,7 @@ const LocalNetCDFMeta = () => {
                             {Object.entries(variables[selectedVariable].info.attributes).map(([k, v]) => (
                               <div key={k} className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                                 <span className="font-mono text-muted-foreground">{k}:</span>
-                                <span className="font-mono break-all">
+                                <span className="font-mono break-all pl-4 sm:pl-0">
                                   {typeof v === 'object'
                                     ? JSON.stringify(v, (_k, val) =>
                                         typeof val === 'bigint' ? Number(val) : val
@@ -971,12 +971,12 @@ const LocalNetCDFMeta = () => {
 
           {/* Collapsible Dimensions */}
           {Object.keys(dimensions).length > 0 && (
-            <Card className="border-0">
+            <Card className="border-0 py-0">
               <button
                 onClick={() => setExpandedDimensions(!expandedDimensions)}
                 className="w-full"
               >
-                <CardHeader className="hover:bg-accent/50 transition-colors cursor-pointer p-3 sm:p-6">
+                <CardHeader className="hover:bg-accent/50 transition-colors cursor-pointer p-2 sm:p-3">
                   <CardTitle className="text-base flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <Info className="h-4 w-4 flex-shrink-0" />
@@ -992,12 +992,12 @@ const LocalNetCDFMeta = () => {
               </button>
               
               {expandedDimensions && (
-                <CardContent className="p-3 sm:p-6 pt-0">
-                  <div className="space-y-2 sm:space-y-1 text-xs overflow-x-auto">
+                <CardContent className="p-2 sm:p-3 pt-0">
+                  <div className="space-y-1 text-xs overflow-x-auto">
                     {Object.entries(dimensions).map(([name, dim]: [string, any]) => (
                       <div key={name} className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                         <span className="font-mono text-muted-foreground">{name}:</span>
-                        <span className="font-mono break-all">
+                        <span className="font-mono break-all pl-4 sm:pl-0">
                           {dim.size || dim.len || dim.length || 'unlimited'}
                         </span>
                       </div>
@@ -1010,12 +1010,12 @@ const LocalNetCDFMeta = () => {
 
           {/* Collapsible Attributes */}
           {Object.keys(attributes).length > 0 && (
-            <Card className="border-0">
+            <Card className="border-0 py-0">
               <button
                 onClick={() => setExpandedAttributes(!expandedAttributes)}
                 className="w-full"
               >
-                <CardHeader className="hover:bg-accent/50 transition-colors cursor-pointer p-3 sm:p-6">
+                <CardHeader className="hover:bg-accent/50 transition-colors cursor-pointer p-2 sm:p-3">
                   <CardTitle className="text-base flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <Info className="h-4 w-4 flex-shrink-0" />
@@ -1031,12 +1031,12 @@ const LocalNetCDFMeta = () => {
               </button>
               
               {expandedAttributes && (
-                <CardContent className="p-3 sm:p-6 pt-0">
-                  <div className="max-h-[300px] overflow-y-auto space-y-2 sm:space-y-1 text-xs overflow-x-auto">
+                <CardContent className="p-2 sm:p-3 pt-0">
+                  <div className="max-h-[300px] overflow-y-auto space-y-1 text-xs overflow-x-auto">
                     {Object.entries(attributes).map(([k, v]) => (
-                      <div key={k} className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
-                        <span className="font-mono text-muted-foreground">{k}:</span>
-                        <span className="font-mono break-all">
+                      <div key={k} className="flex flex-col sm:grid sm:grid-cols-[minmax(100px,auto)_1fr] gap-0.5 sm:gap-2 min-w-0">
+                        <span className="font-mono text-muted-foreground break-words">{k}:</span>
+                        <span className="font-mono break-all pl-4 sm:pl-0">
                           {typeof v === 'object'
                             ? JSON.stringify(v, (_k, val) =>
                                 typeof val === 'bigint' ? Number(val) : val
