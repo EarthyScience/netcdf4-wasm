@@ -408,37 +408,6 @@ const LocalNetCDFMeta = () => {
           {/* Navigation Bar */}
           <Card>
             <CardContent className="space-y-3">
-              {/* Breadcrumbs */}
-              <div className="flex items-center gap-2 text-xs flex-wrap">
-                <div className="flex items-center gap-1 text-muted-foreground flex-wrap">
-                  {breadcrumbs.map((crumb, idx) => (
-                    <React.Fragment key={crumb.path}>
-                      <button
-                        onClick={() => selectGroup(crumb.path)}
-                        className={`hover:text-foreground transition-colors cursor-pointer ${
-                          crumb.path === currentGroupPath ? 'text-foreground font-semibold' : ''
-                        }`}
-                      >
-                        {crumb.name}
-                      </button>
-                      {idx < breadcrumbs.length - 1 && (
-                        <ChevronRight className="h-3 w-3" />
-                      )}
-                    </React.Fragment>
-                  ))}
-                </div>
-                
-                {selectedVariable && (
-                  <Badge 
-                    className="text-xs h-5"
-                    style={{ backgroundColor: '#644FF0', color: 'white' }}
-                  >
-                    <FileText className="h-3 w-3 mr-1" />
-                    {selectedVariable}
-                  </Badge>
-                )}
-              </div>
-
               {/* Controls */}
               <div className="flex gap-2 flex-wrap">
                 {/* Group Browser */}
@@ -590,18 +559,42 @@ const LocalNetCDFMeta = () => {
                   )}
                 </div>
               )}
+              {/* Breadcrumbs */}
+              <div className="flex items-center gap-2 text-xs flex-wrap">
+                <div className="flex items-center gap-1 text-muted-foreground flex-wrap">
+                  {breadcrumbs.map((crumb, idx) => (
+                    <React.Fragment key={crumb.path}>
+                      <button
+                        onClick={() => selectGroup(crumb.path)}
+                        className={`hover:text-foreground transition-colors cursor-pointer ${
+                          crumb.path === currentGroupPath ? 'text-foreground font-semibold' : ''
+                        }`}
+                      >
+                        {crumb.name}
+                      </button>
+                      {idx < breadcrumbs.length - 1 && (
+                        <ChevronRight className="h-3 w-3" />
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+                
+                {selectedVariable && (
+                  <Badge 
+                    className="text-xs h-5"
+                    style={{ backgroundColor: '#644FF0', color: 'white' }}
+                  >
+                    <FileText className="h-3 w-3 mr-1" />
+                    {selectedVariable}
+                  </Badge>
+                )}
+              </div>
             </CardContent>
           </Card>
 
           {/* Variable Details */}
           {selectedVariable && variables[selectedVariable] && (
             <Card className="overflow-hidden">
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2 break-all">
-                  <FileText className="h-4 w-4 flex-shrink-0" />
-                  <span className="break-all">{selectedVariable}</span>
-                </CardTitle>
-              </CardHeader>
               <CardContent className="space-y-3 overflow-hidden">
                 {loadingVariable === selectedVariable && (
                   <div className="flex items-center gap-2">
@@ -613,7 +606,7 @@ const LocalNetCDFMeta = () => {
                 {variables[selectedVariable].info && (
                   <div className="space-y-2">
                     {/* Collapsible Variable Info */}
-                    <div className="border rounded-lg">
+                    <div className="border-[0.1px] rounded-lg">
                       <button
                         onClick={() => setExpandedVariableInfo(!expandedVariableInfo)}
                         className="w-full flex items-center justify-between p-3 hover:bg-accent/50 transition-colors cursor-pointer"
@@ -724,7 +717,7 @@ const LocalNetCDFMeta = () => {
                     {/* Collapsible Variable Attributes */}
                     {variables[selectedVariable].info.attributes && 
                      Object.keys(variables[selectedVariable].info.attributes).length > 0 && (
-                      <div className="border rounded-lg">
+                      <div className="border-0 rounded-lg">
                         <button
                           onClick={() => setExpandedVariableAttrs(!expandedVariableAttrs)}
                           className="w-full flex items-center justify-between p-3 hover:bg-accent/50 transition-colors cursor-pointer"
@@ -864,8 +857,6 @@ const LocalNetCDFMeta = () => {
           )}
         </div>
       )}
-
-      <BrowzarrCTA />
     </div>
   );
 };
