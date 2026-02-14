@@ -176,6 +176,31 @@ const LocalNetCDFMeta = () => {
   // ---------------------------------------------------------------------------
   // File / URL loading
   // ---------------------------------------------------------------------------
+  const validateUrl = (urlString: string): boolean => {
+    if (!urlString.trim()) {
+      setError('Please enter a URL.');
+      return false;
+    }
+    
+    // Check for common protocols
+    const validProtocols = ['http://', 'https://', 's3://', 'gs://', 'ftp://'];
+    const hasValidProtocol = validProtocols.some(protocol => 
+      urlString.toLowerCase().startsWith(protocol)
+    );
+    
+    if (!hasValidProtocol) {
+      setError('URL must start with a valid protocol (http://, https://, s3://, gs://, or ftp://)');
+      return false;
+    }
+    
+    // Check if URL ends with NetCDF extension
+    if (!NETCDF_EXT_REGEX.test(urlString)) {
+      setError('URL should point to a NetCDF file (.nc, .netcdf, .nc3, .nc4)');
+      return false;
+    }
+    
+    return true;
+  };
 
   const handleFileSelect = async (event: ChangeEvent<HTMLInputElement>) => {
     setError(null);
@@ -211,14 +236,14 @@ const LocalNetCDFMeta = () => {
   const handleUrlFetch = async () => {
     setError(null);
 
-    if (!NETCDF_EXT_REGEX.test(url)) {
-      setError('URL should point to a NetCDF file.');
+    if (!validateUrl(url)) {
       return;
     }
 
     try {
       setIsLoading(true);
-
+      // const urlTry = await NetCDF4.Dataset("s3://its-live-data/test-space/sample-data/sst.mnmean.nc")
+      // console.log(urlTry)
       const ds = await NetCDF4.Dataset(url);
       const dt = new DataTree(ds);
       await dt.buildTree();
