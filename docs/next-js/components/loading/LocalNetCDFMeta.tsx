@@ -722,7 +722,7 @@ const LocalNetCDFMeta = () => {
                       </button>
                       
                       {expandedVariableInfo && (
-                        <div className="px-3 pb-3 space-y-2 sm:space-y-1 text-xs overflow-x-auto">
+                        <div className="max-h-[300px] overflow-y-auto px-3 pb-3 space-y-2 sm:space-y-1 text-xs overflow-x-auto">
                           {/* Name */}
                           <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
                             <span className="font-mono text-muted-foreground">name:</span>
@@ -835,9 +835,10 @@ const LocalNetCDFMeta = () => {
                         </button>
                         
                         {expandedVariableAttrs && (
-                          <div className="px-3 pb-3 space-y-2 sm:space-y-1 text-xs overflow-x-auto">
+                          <div className="max-h-[300px] overflow-y-auto px-3 pb-3 space-y-2 sm:space-y-1 text-xs overflow-x-auto">
+                          {/* <div className="max-h-[300px] overflow-y-auto space-y-1 text-xs overflow-x-auto"> */}
                             {Object.entries(variables[selectedVariable].info.attributes).map(([k, v]) => (
-                              <div key={k} className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
+                              <div key={k} className="flex flex-col sm:grid sm:grid-cols-[minmax(100px,auto)_1fr] gap-0.5 sm:gap-2 min-w-0">
                                 <span className="font-mono text-muted-foreground">{k}:</span>
                                 <span className="font-mono break-all pl-4 sm:pl-0">
                                   {typeof v === 'object'
