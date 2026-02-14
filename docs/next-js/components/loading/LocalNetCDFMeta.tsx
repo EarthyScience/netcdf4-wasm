@@ -17,7 +17,6 @@ import {
   Search,
   ChevronRight,
   ChevronDown,
-  Database
 } from 'lucide-react';
 import {
   Card,
@@ -29,7 +28,6 @@ import {
 import { Badge } from '@/components/ui/badge';
 
 import { NetCDF4, DataTree, GroupNode } from '@earthyscience/netcdf4-wasm';
-import BrowzarrCTA from './BrowzarrCTA';
 
 const NETCDF_EXT_REGEX = /\.(nc|netcdf|nc3|nc4)$/i;
 
@@ -535,7 +533,58 @@ const LocalNetCDFMeta = () => {
                     </>
                   )}
                 </div>
+                {/* Group Summary */}
+                <div className="flex flex-col gap-3">
+                {groupSummary && (
+                  <div className="flex gap-2 sm:gap-3 text-xs flex-wrap">
+                    <Badge variant="outline" className="flex-shrink-0">
+                      {groupSummary.variableCount} variables
+                    </Badge>
+                    <Badge variant="outline" className="flex-shrink-0">
+                      {groupSummary.dimensionCount} dimensions
+                    </Badge>
+                    <Badge variant="outline" className="flex-shrink-0">
+                      {groupSummary.attributeCount} attributes
+                    </Badge>
+                    {groupSummary.subgroupCount > 0 && (
+                      <Badge variant="outline" className="flex-shrink-0">
+                        {groupSummary.subgroupCount} subgroups
+                      </Badge>
+                    )}
+                  </div>
+                )}
+                {/* Breadcrumbs */}
+              <div className="flex items-center gap-2 text-xs flex-wrap">
+                <div className="flex items-center gap-1 text-muted-foreground flex-wrap">
+                  {breadcrumbs.map((crumb, idx) => (
+                    <React.Fragment key={crumb.path}>
+                      <button
+                        onClick={() => selectGroup(crumb.path)}
+                        className={`hover:text-foreground transition-colors cursor-pointer break-all ${
+                          crumb.path === currentGroupPath ? 'text-foreground font-semibold' : ''
+                        }`}
+                      >
+                        {crumb.name}
+                      </button>
+                      {idx < breadcrumbs.length - 1 && (
+                        <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                      )}
+                    </React.Fragment>
+                  ))}
+                </div>
+                
+                {selectedVariable && (
+                  <Badge 
+                    className="text-xs h-5 max-w-full"
+                    style={{ backgroundColor: '#644FF0', color: 'white' }}
+                  >
+                    <FileText className="h-3 w-3 mr-1 flex-shrink-0" />
+                    <span className="truncate">{selectedVariable}</span>
+                  </Badge>
+                )}
               </div>
+              </div>
+            </div>
 
               {/* Group Menu (Expandable) - Unified for Desktop and Mobile */}
               {showGroupMenu && (
@@ -711,7 +760,7 @@ const LocalNetCDFMeta = () => {
                 </div>
               )}
 
-              {/* Variable Menu (Expandable) - Unified for Desktop and Mobile */}
+              {/* Variable Menu (Expandable) */}
               {showVariableMenu && Object.keys(variables).length > 0 && (
                 <div className="border rounded-md p-2 max-h-[300px] overflow-y-auto bg-card">
                   {Object.keys(variables).map((name) => (
@@ -732,57 +781,6 @@ const LocalNetCDFMeta = () => {
                   ))}
                 </div>
               )}
-
-              {/* Group Summary */}
-              {groupSummary && (
-                <div className="flex gap-2 sm:gap-3 text-xs flex-wrap">
-                  <Badge variant="outline" className="flex-shrink-0">
-                    {groupSummary.variableCount} variables
-                  </Badge>
-                  <Badge variant="outline" className="flex-shrink-0">
-                    {groupSummary.dimensionCount} dimensions
-                  </Badge>
-                  <Badge variant="outline" className="flex-shrink-0">
-                    {groupSummary.attributeCount} attributes
-                  </Badge>
-                  {groupSummary.subgroupCount > 0 && (
-                    <Badge variant="outline" className="flex-shrink-0">
-                      {groupSummary.subgroupCount} subgroups
-                    </Badge>
-                  )}
-                </div>
-              )}
-
-              {/* Breadcrumbs */}
-              <div className="flex items-center gap-2 text-xs flex-wrap">
-                <div className="flex items-center gap-1 text-muted-foreground flex-wrap">
-                  {breadcrumbs.map((crumb, idx) => (
-                    <React.Fragment key={crumb.path}>
-                      <button
-                        onClick={() => selectGroup(crumb.path)}
-                        className={`hover:text-foreground transition-colors cursor-pointer break-all ${
-                          crumb.path === currentGroupPath ? 'text-foreground font-semibold' : ''
-                        }`}
-                      >
-                        {crumb.name}
-                      </button>
-                      {idx < breadcrumbs.length - 1 && (
-                        <ChevronRight className="h-3 w-3 flex-shrink-0" />
-                      )}
-                    </React.Fragment>
-                  ))}
-                </div>
-                
-                {selectedVariable && (
-                  <Badge 
-                    className="text-xs h-5 max-w-full"
-                    style={{ backgroundColor: '#644FF0', color: 'white' }}
-                  >
-                    <FileText className="h-3 w-3 mr-1 flex-shrink-0" />
-                    <span className="truncate">{selectedVariable}</span>
-                  </Badge>
-                )}
-              </div>
             </CardContent>
           </Card>
 
