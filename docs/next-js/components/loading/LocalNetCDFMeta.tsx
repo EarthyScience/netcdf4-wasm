@@ -493,31 +493,25 @@ const LocalNetCDFMeta = () => {
                       return (
                         <div key={node.path}>
                           <div className="flex items-stretch gap-1" style={{ paddingLeft: `${level * 12}px` }}>
-                            {/* Expand/Collapse button for groups with children or variables */}
-                            {(hasChildren || varNames.length > 0) && (
-                              <button
-                                onClick={() => toggleGroup(node.path)}
-                                className="px-1 hover:bg-accent/50 rounded flex items-center"
-                              >
-                                {isExpanded ? (
-                                  <ChevronDown className="h-3 w-3" />
-                                ) : (
-                                  <ChevronRight className="h-3 w-3" />
-                                )}
-                              </button>
-                            )}
-                            
-                            {/* Group button */}
+                            {/* Group button - now just expands/collapses */}
                             <button
-                              onClick={() => {
-                                selectGroup(node.path);
-                                setShowGroupMenu(false);
-                              }}
-                              className={`flex-1 text-left px-2 py-2 rounded text-sm flex items-center justify-between gap-2 ${
-                                isSelected ? 'bg-accent font-semibold' : 'hover:bg-accent/50'
-                              } ${!(hasChildren || varNames.length > 0) ? 'ml-5' : ''}`}
+                              onClick={() => toggleGroup(node.path)}
+                              className={`flex-1 text-left px-2 py-2 rounded text-sm flex items-center justify-between gap-2 hover:bg-accent/50 ${
+                                isSelected ? 'bg-accent font-semibold' : ''
+                              }`}
                             >
                               <div className="flex items-center gap-2 min-w-0 flex-1">
+                                {/* Chevron */}
+                                {(hasChildren || varNames.length > 0) ? (
+                                  isExpanded ? (
+                                    <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                                  )
+                                ) : (
+                                  <div className="w-3 h-3 flex-shrink-0" />
+                                )}
+                                {/* Folder icon */}
                                 {hasChildren ? (
                                   <FolderOpen className="h-4 w-4 flex-shrink-0" />
                                 ) : (
@@ -574,30 +568,23 @@ const LocalNetCDFMeta = () => {
                     return (
                       <>
                         <div className="flex items-stretch gap-1">
-                          {/* Expand/Collapse button for root */}
-                          {(groupTree.children.length > 0 || rootVarNames.length > 0) && (
-                            <button
-                              onClick={() => toggleGroup('/')}
-                              className="px-1 hover:bg-accent/50 rounded flex items-center"
-                            >
-                              {isRootExpanded ? (
-                                <ChevronDown className="h-3 w-3" />
-                              ) : (
-                                <ChevronRight className="h-3 w-3" />
-                              )}
-                            </button>
-                          )}
-                          
                           <button
-                            onClick={() => {
-                              selectGroup('/');
-                              setShowGroupMenu(false);
-                            }}
-                            className={`flex-1 text-left px-2 py-2 rounded text-sm flex items-center justify-between gap-2 ${
-                              currentGroupPath === '/' ? 'bg-accent font-semibold' : 'hover:bg-accent/50'
+                            onClick={() => toggleGroup('/')}
+                            className={`flex-1 text-left px-2 py-2 rounded text-sm flex items-center justify-between gap-2 hover:bg-accent/50 ${
+                              currentGroupPath === '/' ? 'bg-accent font-semibold' : ''
                             }`}
                           >
                             <div className="flex items-center gap-2 min-w-0 flex-1">
+                              {/* Chevron for root */}
+                              {(groupTree.children.length > 0 || rootVarNames.length > 0) ? (
+                                isRootExpanded ? (
+                                  <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                                ) : (
+                                  <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                                )
+                              ) : (
+                                <div className="w-3 h-3 flex-shrink-0" />
+                              )}
                               <Folder className="h-4 w-4 flex-shrink-0" />
                               <span className="truncate">/ (root)</span>
                             </div>
