@@ -245,29 +245,34 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
     mkdir -p build && cd build
     
     log "Running emcmake cmake for HDF5 with FILTER SUPPORT..."
+
+    # Set environment variables to help CMake find zlib
+    export ZLIB_ROOT="$INSTALL_DIR"
+    export ZLIB_INCLUDE_DIR="$INSTALL_DIR/include"
+    export ZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a"
+
     check_command emcmake cmake .. \
         -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="-s ALLOW_MEMORY_GROWTH=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=['FS','cwrap','ccall']" \
-        -DENABLE_FILEMAP=OFF \
+        -DCMAKE_PREFIX_PATH="$INSTALL_DIR" \
+        -DCMAKE_FIND_ROOT_PATH="$INSTALL_DIR" \
         -DBUILD_SHARED_LIBS=OFF \
         -DHDF5_ENABLE_THREADSAFE=OFF \
         -DHDF5_ENABLE_PARALLEL=OFF \
         -DHDF5_BUILD_HL_LIB=ON \
-        -DHDF5_BUILD_TOOLS=ON \
+        -DHDF5_BUILD_TOOLS=OFF \
         -DHDF5_BUILD_EXAMPLES=OFF \
         -DHDF5_BUILD_TESTS=OFF \
         -DBUILD_TESTING=OFF \
-        -DHDF5_ENABLE_TESTS=OFF \
         -DCMAKE_C_BYTE_ORDER=LITTLE_ENDIAN \
         -DHDF5_DISABLE_COMPILER_WARNINGS=ON \
         -DHDF5_ENABLE_Z_LIB_SUPPORT=ON \
-        -DHDF5_ENABLE_SZIP_SUPPORT=ON \
+        -DHDF5_ENABLE_SZIP_SUPPORT=OFF \
         -DALLOW_UNSUPPORTED=ON \
         -DH5_ZLIB_HEADER="zlib.h" \
-        -DZLIB_ROOT="$INSTALL_DIR" \
         -DZLIB_INCLUDE_DIR="$INSTALL_DIR/include" \
         -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a" \
+        -DZLIB_USE_STATIC_LIBS=ON \
         -DBUILD_STATIC_EXECS=OFF
     
     log "Building HDF5 with emmake..."
