@@ -196,6 +196,8 @@ export class NetCDF4 extends Group {
             // Load existing data from mock storage if in test mode
             if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
                 (this as any).loadMockDimensions();
+            } else {
+                await this.load();
             }
         }
 
@@ -329,21 +331,21 @@ export class NetCDF4 extends Group {
         });
     }
 
-    async getGlobalAttributes(): Promise<Record<string, any>> {
+    async getGlobalAttributes(groupPath?: string): Promise<Record<string, any>> {
         if (this.worker) {
-            return this.callWorker('getGlobalAttributes')
+            return this.callWorker('getGlobalAttributes', { groupPath })
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getGlobalAttributes(this.module as NetCDF4Module, this.ncid);
+            return NCGet.getGlobalAttributes(this.module as NetCDF4Module, this.ncid, groupPath);
         }
     }
 
-    async getFullMetadata(): Promise<Record<string, any>[]> {
+    async getFullMetadata(groupPath?: string): Promise<Record<string, any>[]> {
         if (this.worker) {
-            return this.callWorker('getFullMetadata')
+            return this.callWorker('getFullMetadata', { groupPath })
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getFullMetadata(this.module as NetCDF4Module, this.ncid);
+            return NCGet.getFullMetadata(this.module as NetCDF4Module, this.ncid, groupPath);
         }
     }
 
@@ -356,66 +358,66 @@ export class NetCDF4 extends Group {
         }
     }
 
-    async getDimCount(): Promise<number> {
+    async getDimCount(ncid: number = this.ncid): Promise<number> {
         if (this.worker) {
-            return this.callWorker('getDimCount')
+            return this.callWorker('getDimCount', { ncid })
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getDimCount(this.module as NetCDF4Module, this.ncid);
+            return NCGet.getDimCount(this.module as NetCDF4Module, ncid);
         }
     }
 
-    async getVariables(): Promise<Record<string, any>> {
+    async getGroupVariables(groupPath?: string): Promise<Record<string, any>> {
         if (this.worker) {
-            return this.callWorker('getVariables')
+            return this.callWorker('getGroupVariables', { groupPath })
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getVariables(this.module as NetCDF4Module, this.ncid);
+            return NCGet.getGroupVariables(this.module as NetCDF4Module, this.ncid, groupPath);
         }
     }
 
-    async getVarIDs(): Promise<number[] | Int32Array> {    
+    async getVarIDs(ncid: number = this.ncid): Promise<number[] | Int32Array> {    
          if (this.worker) {
-            return this.callWorker('getVarIDs')
+            return this.callWorker('getVarIDs', { ncid })
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getVarIDs(this.module as NetCDF4Module, this.ncid);
+            return NCGet.getVarIDs(this.module as NetCDF4Module, ncid);
         }
     }
 
-    async getDimIDs(): Promise<number[] | Int32Array> {    
+    async getDimIDs(ncid: number = this.ncid): Promise<number[] | Int32Array> {    
         if (this.worker) {
-            return this.callWorker('getDimIDs')
+            return this.callWorker('getDimIDs', { ncid })
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getDimIDs(this.module as NetCDF4Module, this.ncid);
+            return NCGet.getDimIDs(this.module as NetCDF4Module, ncid);
         }
     }
 
-    async getDim(dimid: number): Promise<Record<string, any>> {
+    async getDim(dimid: number, ncid: number = this.ncid): Promise<Record<string, any>> {
         if (this.worker) {
-            return this.callWorker('getDim', {dimid})
+            return this.callWorker('getDim', {dimid, ncid})
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getDim(this.module as NetCDF4Module, this.ncid, dimid);
+            return NCGet.getDim(this.module as NetCDF4Module, ncid, dimid);
         }
     }
 
-    async getDims(): Promise<Record<string, any>> {
+    async getDims(groupPath?: string): Promise<Record<string, any>> {
         if (this.worker) {
-            return this.callWorker('getDims')
+            return this.callWorker('getDims', { groupPath })
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getDims(this.module as NetCDF4Module, this.ncid);
+            return NCGet.getDims(this.module as NetCDF4Module, this.ncid, groupPath);
         }
     }
    
-    async getVarCount(): Promise<number> {    
+    async getVarCount(ncid: number = this.ncid): Promise<number> {    
         if (this.worker) {
-            return this.callWorker('getVarCount')
+            return this.callWorker('getVarCount', { ncid })
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getVarCount(this.module as NetCDF4Module, this.ncid);
+            return NCGet.getVarCount(this.module as NetCDF4Module, ncid);
         }
     }
 
@@ -428,30 +430,71 @@ export class NetCDF4 extends Group {
         }
     }
 
-    async getVariableInfo(variable: number | string): Promise<Record<string, any>>{
+    async getVariableInfo(variable: number | string, groupPath?: string): Promise<Record<string, any>>{
         if (this.worker) {
-            return this.callWorker('getVariableInfo', {variable})
+            return this.callWorker('getVariableInfo', {variable, groupPath})
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getVariableInfo(this.module as NetCDF4Module, this.ncid, variable);
+            return NCGet.getVariableInfo(this.module as NetCDF4Module, this.ncid, variable, groupPath);
         }
     }
 
-    async getVariableArray(variable: number | string): Promise<Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[]>  {
+    async getVariableArray(variable: number | string, groupPath?: string): Promise<Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array | string[]>  {
         if (this.worker) {
-            return this.callWorker('getVariableArray', {variable})
+            return this.callWorker('getVariableArray', {variable, groupPath})
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getVariableArray(this.module as NetCDF4Module, this.ncid, variable);
+            return NCGet.getVariableArray(this.module as NetCDF4Module, this.ncid, variable, groupPath);
         }
     }
 
-    async getSlicedVariableArray(variable: number | string, start: number[], count: number[]): Promise<Float32Array | Float64Array | Int16Array | Int32Array | BigInt64Array | BigInt[] | string[]> {
+    async getSlicedVariableArray(variable: number | string, start: number[], count: number[], groupPath?: string): Promise<Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array | string[]> {
         if (this.worker) {
-            return this.callWorker('getSlicedVariableArray', {variable, start, count})
+            return this.callWorker('getSlicedVariableArray', {variable, start, count, groupPath})
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getSlicedVariableArray(this.module as NetCDF4Module, this.ncid, variable, start, count);
+            return NCGet.getSlicedVariableArray(this.module as NetCDF4Module, this.ncid, variable, start, count, groupPath);
+        }
+    }
+
+    // Group functions
+    async getGroups(ncid: number = this.ncid): Promise<Record<string, number>> {
+        if (this.worker) {
+            return this.callWorker('getGroups', { ncid });
+        } else {
+            return NCGet.getGroups(this.module as NetCDF4Module, ncid);
+        }
+    }
+
+    async getGroupsRecursive(ncid: number = this.ncid): Promise<Record<string, any>> {
+        if (this.worker) {
+            return this.callWorker('getGroupsRecursive', { ncid });
+        } else {
+            return NCGet.getGroupsRecursive(this.module as NetCDF4Module, ncid);
+        }
+    }
+
+    async getGroupNCID(groupPath: string): Promise<number> {
+        if (this.worker) {
+            return this.callWorker('getGroupNCID', { groupPath });
+        } else {
+            return NCGet.getGroupNCID(this.module as NetCDF4Module, this.ncid, groupPath);
+        }
+    }
+
+    async getGroupName(ncid: number = this.ncid): Promise<string> {
+        if (this.worker) {
+            return this.callWorker('getGroupName', { ncid });
+        } else {
+            return NCGet.getGroupName(this.module as NetCDF4Module, ncid);
+        }
+    }
+
+    async getGroupPath(ncid: number = this.ncid): Promise<string> {
+        if (this.worker) {
+            return this.callWorker('getGroupPath', { ncid });
+        } else {
+            return NCGet.getGroupPath(this.module as NetCDF4Module, ncid);
         }
     }
 
@@ -722,5 +765,439 @@ export class NetCDF4 extends Group {
         const status = this._isOpen ? 'open' : 'closed';
         const source = this.memorySource ? '(in-memory)' : '';
         return `<netCDF4.Dataset '${this.filename}'${source}: mode = '${this.mode}', file format = '${this.file_format}', ${status}>`;
+    }
+        /**
+     * Get complete hierarchy of groups, variables, dimensions, and attributes
+     * This is the unified method for exploring the entire file structure
+     * @param groupPath - Optional path to start from a specific group
+     */
+    async getCompleteHierarchy(groupPath?: string): Promise<Record<string, any>> {
+        if (this.worker) {
+            return this.callWorker('getCompleteHierarchy', { groupPath });
+        } else {
+            return NCGet.getCompleteHierarchy(this.module as NetCDF4Module, this.ncid, groupPath);
+        }
+    }
+
+    /**
+     * Get all variables recursively from all groups
+     * Returns a flat dictionary with full path keys like "/group1/var1"
+     */
+    async getVariables(): Promise<Record<string, any>> {
+        if (this.worker) {
+            return this.callWorker('getVariables');
+        } else {
+            return NCGet.getVariables(this.module as NetCDF4Module, this.ncid);
+        }
+    }
+}
+
+// Enhanced DataTree class for NetCDF4
+// This provides UI-friendly navigation with hierarchical group tree support
+
+export interface GroupNode {
+    name: string;
+    path: string;
+    children: GroupNode[];
+    hasVariables: boolean;
+    hasAttributes: boolean;
+    variableCount: number;
+    attributeCount: number;
+}
+
+/**
+ * UI-friendly wrapper around NetCDF4
+ * Builds a full dataTree of groups, variables, attributes with enhanced navigation
+ */
+export class DataTree {
+    private dataset: NetCDF4;
+    public tree: Record<string, any> = {};
+    private groupTreeCache: GroupNode | null = null;
+
+    constructor(dataset: NetCDF4) {
+        this.dataset = dataset;
+    }
+
+    async buildTree(): Promise<void> {
+        this.tree = await this.dataset.getCompleteHierarchy();
+        // Clear cache when tree is rebuilt
+        this.groupTreeCache = null;
+    }
+
+    // --------------------------------------------------
+    // Core navigation
+    // --------------------------------------------------
+
+    getGroup(groupPath: string = '/'): Record<string, any> | null {
+        if (!this.tree) return null;
+
+        if (groupPath === '/' || !groupPath) return this.tree;
+
+        const parts = groupPath.split('/').filter(Boolean);
+        let current = this.tree;
+
+        for (const part of parts) {
+            if (!current.groups || !current.groups[part]) return null;
+            current = current.groups[part];
+        }
+
+        return current;
+    }
+
+    getGroupName(groupPath?: string): string {
+        if (!groupPath || groupPath === '/') return 'root';
+        const parts = groupPath.split('/').filter(Boolean);
+        return parts[parts.length - 1];
+    }
+
+    hasSubgroups(groupPath: string = '/'): boolean {
+        const group = this.getGroup(groupPath);
+        return group ? Object.keys(group.groups || {}).length > 0 : false;
+    }
+
+    // --------------------------------------------------
+    // Groups (for dropdowns)
+    // --------------------------------------------------
+
+    /** immediate children only */
+    listGroups(groupPath: string = '/'): { name: string; path: string }[] {
+        const group = this.getGroup(groupPath);
+        if (!group || !group.groups) return [];
+
+        return Object.entries(group.groups).map(([name, g]: any) => ({
+            name,
+            path: g.path || `${groupPath === '/' ? '' : groupPath}/${name}`
+        }));
+    }
+
+    /** every group recursively */
+    listAllGroups(): { name: string; path: string }[] {
+        const result: { name: string; path: string }[] = [];
+
+        const walk = (g: any) => {
+            if (!g.groups) return;
+            for (const [name, sub] of Object.entries(g.groups)) {
+                result.push({ name, path: (sub as any).path });
+                walk(sub);
+            }
+        };
+
+        walk(this.tree);
+        return result;
+    }
+
+    // --------------------------------------------------
+    // Hierarchical Group Tree
+    // --------------------------------------------------
+
+    /**
+     * Build a hierarchical tree structure of all groups
+     * Returns a tree with parent-child relationships
+     * Results are cached until buildTree() is called again
+     */
+    buildGroupTree(): GroupNode {
+        // Return cached version if available
+        if (this.groupTreeCache) {
+            return this.groupTreeCache;
+        }
+
+        const allGroups = this.listAllGroups();
+        
+        // Create root node
+        const root: GroupNode = {
+            name: '/',
+            path: '/',
+            children: [],
+            hasVariables: this.hasVariables('/'),
+            hasAttributes: this.hasAttributes('/'),
+            variableCount: this.getVariableCount('/'),
+            attributeCount: this.getAttributeCount('/')
+        };
+
+        // Map to store all nodes by path for quick lookup
+        const nodeMap = new Map<string, GroupNode>();
+        nodeMap.set('/', root);
+
+        // Sort groups by path depth to ensure parents are created before children
+        const sortedGroups = allGroups.sort((a, b) => {
+            const depthA = a.path.split('/').filter(Boolean).length;
+            const depthB = b.path.split('/').filter(Boolean).length;
+            return depthA - depthB;
+        });
+
+        // Build the tree
+        for (const { name, path } of sortedGroups) {
+            const node: GroupNode = {
+                name,
+                path,
+                children: [],
+                hasVariables: this.hasVariables(path),
+                hasAttributes: this.hasAttributes(path),
+                variableCount: this.getVariableCount(path),
+                attributeCount: this.getAttributeCount(path)
+            };
+
+            nodeMap.set(path, node);
+
+            // Find parent path
+            const pathParts = path.split('/').filter(Boolean);
+            const parentPath = pathParts.length === 1 
+                ? '/' 
+                : '/' + pathParts.slice(0, -1).join('/');
+
+            const parent = nodeMap.get(parentPath);
+            if (parent) {
+                parent.children.push(node);
+            }
+        }
+
+        // Cache the result
+        this.groupTreeCache = root;
+        
+        return root;
+    }
+
+    /**
+     * Get a specific node from the group tree by path
+     */
+    getGroupNode(path: string): GroupNode | null {
+        const tree = this.buildGroupTree();
+        
+        if (path === '/') return tree;
+
+        const parts = path.split('/').filter(Boolean);
+        let current = tree;
+
+        for (const part of parts) {
+            const child = current.children.find(c => c.name === part);
+            if (!child) return null;
+            current = child;
+        }
+
+        return current;
+    }
+
+    /**
+     * Get breadcrumb trail for a given path
+     * Returns array of {name, path} from root to target
+     */
+    getBreadcrumbs(groupPath: string): { name: string; path: string }[] {
+        if (groupPath === '/') {
+            return [{ name: 'root', path: '/' }];
+        }
+
+        const parts = groupPath.split('/').filter(Boolean);
+        const breadcrumbs: { name: string; path: string }[] = [
+            { name: 'root', path: '/' }
+        ];
+
+        let currentPath = '';
+        for (const part of parts) {
+            currentPath += '/' + part;
+            breadcrumbs.push({
+                name: part,
+                path: currentPath
+            });
+        }
+
+        return breadcrumbs;
+    }
+
+    /**
+     * Search for groups by name (case-insensitive)
+     */
+    searchGroups(query: string): { name: string; path: string }[] {
+        const lowerQuery = query.toLowerCase();
+        return this.listAllGroups().filter(g => 
+            g.name.toLowerCase().includes(lowerQuery) ||
+            g.path.toLowerCase().includes(lowerQuery)
+        );
+    }
+
+    // --------------------------------------------------
+    // Variables
+    // --------------------------------------------------
+
+    /** variables inside a group */
+    getAllVariables(groupPath: string = '/'): Record<string, any> {
+        const group = this.getGroup(groupPath);
+        return group?.variables || {};
+    }
+
+    /** check if group has variables */
+    hasVariables(groupPath: string = '/'): boolean {
+        const vars = this.getAllVariables(groupPath);
+        return Object.keys(vars).length > 0;
+    }
+
+    /** count variables in a group */
+    getVariableCount(groupPath: string = '/'): number {
+        return Object.keys(this.getAllVariables(groupPath)).length;
+    }
+
+    /** get variable names as array */
+    getVariableNames(groupPath: string = '/'): string[] {
+        return Object.keys(this.getAllVariables(groupPath));
+    }
+
+    /**
+     * Search for variables by name across all groups
+     */
+    searchVariables(query: string): { name: string; groupPath: string; path: string }[] {
+        const results: { name: string; groupPath: string; path: string }[] = [];
+        const lowerQuery = query.toLowerCase();
+
+        const searchInGroup = (groupPath: string) => {
+            const vars = this.getAllVariables(groupPath);
+            for (const varName of Object.keys(vars)) {
+                if (varName.toLowerCase().includes(lowerQuery)) {
+                    results.push({
+                        name: varName,
+                        groupPath,
+                        path: `${groupPath === '/' ? '' : groupPath}/${varName}`
+                    });
+                }
+            }
+
+            // Recurse into subgroups
+            const subgroups = this.listGroups(groupPath);
+            for (const { path } of subgroups) {
+                searchInGroup(path);
+            }
+        };
+
+        searchInGroup('/');
+        return results;
+    }
+
+    // --------------------------------------------------
+    // Attributes
+    // --------------------------------------------------
+
+    /** attributes from the tree (fast) */
+    getAttributes(groupPath: string = '/'): Record<string, any> {
+        const group = this.getGroup(groupPath);
+        return group?.attributes || {};
+    }
+
+    /** check if group has attributes */
+    hasAttributes(groupPath: string = '/'): boolean {
+        const attrs = this.getAttributes(groupPath);
+        return Object.keys(attrs).length > 0;
+    }
+
+    /** count attributes in a group */
+    getAttributeCount(groupPath: string = '/'): number {
+        return Object.keys(this.getAttributes(groupPath)).length;
+    }
+
+    // --------------------------------------------------
+    // Dimensions
+    // --------------------------------------------------
+
+    /** get dimensions for a group */
+    getDimensions(groupPath: string = '/'): Record<string, any> {
+        const group = this.getGroup(groupPath);
+        return group?.dimensions || {};
+    }
+
+    /** check if group has dimensions */
+    hasDimensions(groupPath: string = '/'): boolean {
+        const dims = this.getDimensions(groupPath);
+        return Object.keys(dims).length > 0;
+    }
+
+    /** count dimensions in a group */
+    getDimensionCount(groupPath: string = '/'): number {
+        return Object.keys(this.getDimensions(groupPath)).length;
+    }
+
+    // --------------------------------------------------
+    // Statistics and Summaries
+    // --------------------------------------------------
+
+    /**
+     * Get summary statistics for a group
+     */
+    getGroupSummary(groupPath: string = '/'): {
+        path: string;
+        name: string;
+        variableCount: number;
+        attributeCount: number;
+        dimensionCount: number;
+        subgroupCount: number;
+        hasSubgroups: boolean;
+    } | null {
+        const group = this.getGroup(groupPath);
+        if (!group) return null;
+
+        return {
+            path: groupPath,
+            name: this.getGroupName(groupPath),
+            variableCount: this.getVariableCount(groupPath),
+            attributeCount: this.getAttributeCount(groupPath),
+            dimensionCount: this.getDimensionCount(groupPath),
+            subgroupCount: this.listGroups(groupPath).length,
+            hasSubgroups: this.hasSubgroups(groupPath)
+        };
+    }
+
+    /**
+     * Get complete statistics for the entire dataset
+     */
+    getDatasetSummary(): {
+        totalGroups: number;
+        totalVariables: number;
+        totalAttributes: number;
+        totalDimensions: number;
+        maxDepth: number;
+    } {
+        let totalVariables = 0;
+        let totalAttributes = 0;
+        let totalDimensions = 0;
+        let maxDepth = 0;
+
+        const countInGroup = (groupPath: string, depth: number) => {
+            totalVariables += this.getVariableCount(groupPath);
+            totalAttributes += this.getAttributeCount(groupPath);
+            totalDimensions += this.getDimensionCount(groupPath);
+            maxDepth = Math.max(maxDepth, depth);
+
+            const subgroups = this.listGroups(groupPath);
+            for (const { path } of subgroups) {
+                countInGroup(path, depth + 1);
+            }
+        };
+
+        countInGroup('/', 0);
+
+        return {
+            totalGroups: this.listAllGroups().length + 1, // +1 for root
+            totalVariables,
+            totalAttributes,
+            totalDimensions,
+            maxDepth
+        };
+    }
+
+    // --------------------------------------------------
+    // Heavy operations → still go to dataset
+    // --------------------------------------------------
+
+    async getVariableArray(variable: number | string, groupPath?: string) {
+        return this.dataset.getVariableArray(variable, groupPath);
+    }
+
+    async getSlicedVariableArray(
+        variable: number | string, 
+        start: number[], 
+        count: number[], 
+        groupPath?: string
+    ) {
+        return this.dataset.getSlicedVariableArray(variable, start, count, groupPath);
+    }
+
+    async getVariableInfo(variable: number | string, groupPath?: string) {
+        return this.dataset.getVariableInfo(variable, groupPath);
     }
 }

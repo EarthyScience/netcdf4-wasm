@@ -36,7 +36,7 @@ function ObjectViewer({
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+    <div className="grid grid-cols-1 md:grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm w-full">
       {orderedKeys.map((key) => {
         const value = data[key];
         const isDefault = defaultAttributes.includes(key);
@@ -46,12 +46,12 @@ function ObjectViewer({
             <div
               className={`${
                 isDefault ? 'font-semibold' : 'text-foreground opacity-95'
-              }`}
+              } break-words`}
             >
               {key}:
             </div>
             <div 
-              className="whitespace-pre-wrap break-words pl-4 md:pl-0 text-muted-foreground"
+              className="whitespace-pre-wrap break-all pl-4 md:pl-0 text-muted-foreground min-w-0"
               style={{ overflowWrap: 'anywhere' }}
             >
               {typeof value === 'object'
@@ -101,7 +101,7 @@ export function MetaNetCDFButtons({
                 Variables
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] max-w-[800px] max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Variables</DialogTitle>
                 <DialogDescription>
@@ -121,7 +121,7 @@ export function MetaNetCDFButtons({
                 Global Attributes
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] max-w-[800px] max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Global Attributes</DialogTitle>
                 <DialogDescription>
@@ -141,7 +141,7 @@ export function MetaNetCDFButtons({
                 Full Metadata
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+            <DialogContent className="w-[95vw] max-w-[800px] max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Full Metadata</DialogTitle>
                 <DialogDescription>

@@ -102,13 +102,13 @@ apply_config_patches() {
         ' "$config_file"
     else
         # fallback: warn
-        log "⚠️  Skipping ssize_t patch: perl not found, may fail on macOS"
+        log "Skipping ssize_t patch: perl not found, may fail on macOS"
     fi
 
     # Disable HDF5 collective metadata operations for non-parallel build
     sed "${SED_INPLACE[@]}" 's|#define HDF5_HAS_COLL_METADATA_OPS 1|/* #undef HDF5_HAS_COLL_METADATA_OPS */|' "$config_file"
 
-    log "✅ config.h patches applied"
+    log "config.h patches applied"
 }
 
 log "Building NetCDF4 for WebAssembly..."
@@ -135,6 +135,7 @@ log "Using Emscripten: $EMCC_VERSION"
 # Create directories
 log "Creating build directories..."
 mkdir -p "$BUILD_DIR" "$DIST_DIR" "$DEPS_DIR" "$INSTALL_DIR"
+mkdir -p "$INSTALL_DIR/lib/netcdf/plugins"  # placholder, create plugin directory for additional filters
 
 cd "$BUILD_DIR"
 log "Working directory: $(pwd)"
@@ -196,16 +197,16 @@ if [ ! -f "$INSTALL_DIR/lib/libz.a" ]; then
     log "Installing zlib..."
     check_command emmake make install
     
-    log "✅ zlib built and installed successfully"
+    log "zlib built and installed successfully"
     
     # Verify installation
     if [ -f "$INSTALL_DIR/lib/libz.a" ]; then
-        log "✅ zlib library verified at $INSTALL_DIR/lib/libz.a"
+        log "zlib library verified at $INSTALL_DIR/lib/libz.a"
     else
         error_exit "zlib library not found after installation"
     fi
 else
-    log "✅ zlib already built and installed"
+    log "zlib already built and installed"
 fi
 
 # Build HDF5
@@ -243,25 +244,36 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
     log "Configuring HDF5 in directory: $(pwd)"
     mkdir -p build && cd build
     
-    log "Running emcmake cmake for HDF5..."
+    log "Running emcmake cmake for HDF5 with FILTER SUPPORT..."
+
+    # Set environment variables to help CMake find zlib
+    export ZLIB_ROOT="$INSTALL_DIR"
+    export ZLIB_INCLUDE_DIR="$INSTALL_DIR/include"
+    export ZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a"
+
     check_command emcmake cmake .. \
         -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="-s ALLOW_MEMORY_GROWTH=1 -s MODULARIZE=1 -s EXPORT_ES6=1 -s EXPORTED_RUNTIME_METHODS=['FS','cwrap','ccall']" \
-        -DENABLE_FILEMAP=OFF \
+        -DCMAKE_PREFIX_PATH="$INSTALL_DIR" \
+        -DCMAKE_FIND_ROOT_PATH="$INSTALL_DIR" \
         -DBUILD_SHARED_LIBS=OFF \
         -DHDF5_ENABLE_THREADSAFE=OFF \
         -DHDF5_ENABLE_PARALLEL=OFF \
+        -DHDF5_BUILD_HL_LIB=ON \
         -DHDF5_BUILD_TOOLS=OFF \
         -DHDF5_BUILD_EXAMPLES=OFF \
         -DHDF5_BUILD_TESTS=OFF \
         -DBUILD_TESTING=OFF \
-        -DHDF5_ENABLE_TESTS=OFF \
         -DCMAKE_C_BYTE_ORDER=LITTLE_ENDIAN \
         -DHDF5_DISABLE_COMPILER_WARNINGS=ON \
-        -DZLIB_ROOT="$INSTALL_DIR" \
+        -DHDF5_ENABLE_Z_LIB_SUPPORT=ON \
+        -DHDF5_ENABLE_SZIP_SUPPORT=OFF \
+        -DALLOW_UNSUPPORTED=ON \
+        -DH5_ZLIB_HEADER="zlib.h" \
         -DZLIB_INCLUDE_DIR="$INSTALL_DIR/include" \
-        -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a"
+        -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a" \
+        -DZLIB_USE_STATIC_LIBS=ON \
+        -DBUILD_STATIC_EXECS=OFF
     
     log "Building HDF5 with emmake..."
     check_command emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
@@ -269,16 +281,23 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
     log "Installing HDF5..."
     check_command emmake make install
     
-    log "✅ HDF5 built and installed successfully"
+    log "HDF5 built and installed successfully"
     
     # Verify installation
     if [ -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
-        log "✅ HDF5 library verified at $INSTALL_DIR/lib/libhdf5.a"
+        log "HDF5 library verified at $INSTALL_DIR/lib/libhdf5.a"
     else
         error_exit "HDF5 library not found after installation"
     fi
+    
+    # Verify HDF5 High-Level library (required by NetCDF)
+    if [ -f "$INSTALL_DIR/lib/libhdf5_hl.a" ]; then
+        log "HDF5 High-Level library verified at $INSTALL_DIR/lib/libhdf5_hl.a"
+    else
+        error_exit "HDF5 High-Level library not found - NetCDF requires this!"
+    fi
 else
-    log "✅ HDF5 already built and installed"
+    log "HDF5 already built and installed"
 fi
 
 # Build NetCDF4
@@ -338,11 +357,11 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
     # Set HAS_HDF5_ROS3 to OFF for Emscripten\
     SET(HAS_HDF5_ROS3 OFF)' CMakeLists.txt || error_exit "Failed to set HAS_HDF5_ROS3"
 
-    log "✅ CMakeLists.txt patches applied"
+    log "CMakeLists.txt patches applied"
     
     mkdir -p build && cd build
     
-    log "Running emcmake cmake for NetCDF4..."
+    log "Running emcmake cmake for NetCDF4 with COMPREHENSIVE FILTER SUPPORT..."
     check_command emcmake cmake .. \
         -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
         -DCMAKE_BUILD_TYPE=Release \
@@ -374,7 +393,10 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
         -DHDF5_PARALLEL=OFF \
         -DUSE_HDF5_SZIP=OFF \
         -DZLIB_INCLUDE_DIR="$INSTALL_DIR/include" \
-        -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a"
+        -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a" \
+        -DENABLE_NCZARR=ON \
+        -DENABLE_NCZARR_FILTERS=ON \
+        -DPLUGIN_INSTALL_DIR="$INSTALL_DIR/lib/netcdf/plugins"
     
     # Apply config.h patches after CMake configuration
     apply_config_patches "$(pwd)/config.h"
@@ -385,23 +407,45 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
     log "Installing NetCDF4..."
     check_command emmake make install
     
-    log "✅ NetCDF4 built and installed successfully"
+    log "NetCDF4 built and installed successfully"
     
     # Verify installation
     if [ -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
-        log "✅ NetCDF4 library verified at $INSTALL_DIR/lib/libnetcdf.a"
+        log "NetCDF4 library verified at $INSTALL_DIR/lib/libnetcdf.a"
+        
+        # Verify filter support
+        log "Verifying filter support..."
+        if [ -d "$INSTALL_DIR/lib/netcdf/plugins" ]; then
+            log "Plugin directory exists at $INSTALL_DIR/lib/netcdf/plugins"
+        else
+            log "Warning: Plugin directory not found (may be expected if no plugins built)"
+        fi
+        
+        # Check for filter-related headers
+        if grep -q "H5Z_FILTER_SHUFFLE" "$INSTALL_DIR/include/H5Zpublic.h" 2>/dev/null; then
+            log "Shuffle filter support detected in HDF5 headers"
+        else
+            log "Warning: Shuffle filter support not detected in headers"
+        fi
     else
         error_exit "NetCDF4 library not found after installation"
     fi
 else
-    log "✅ NetCDF4 already built and installed"
+    log "NetCDF4 already built and installed"
 fi
 
 # Create WASM module
 log "Starting WASM module creation..."
-cd "$BUILD_DIR"
-log "Changed to build directory: $(pwd)"
-
+log "Filter support configuration complete:"
+log "  - HDF5 built-in filters: shuffle, fletcher32, deflate (via zlib)"
+log "  - HDF5 High-Level library: ENABLED (required for NetCDF)"
+log "  - NCZarr filter support: ENABLED"
+log "  - Plugin directory: $INSTALL_DIR/lib/netcdf/plugins"
+log ""
+log "Important notes: https://docs.unidata.ucar.edu/netcdf-c/4.9.2/filters.html"
+log "  - Shuffle, fletcher32, deflate are HDF5 built-ins (no plugins needed)"
+log "  - For plugin filters (bzip2, zstandard, etc.), set HDF5_PLUGIN_PATH at runtime"
+log "  - Built-in filters will work automatically for files that use them"
 # Create a simple C wrapper that exposes NetCDF functions
 cat > netcdf_wrapper.c << 'EOF'
 #include <netcdf.h>
@@ -567,16 +611,6 @@ int nc_def_var_chunking_wrapper(int ncid, int varid, int storage, const size_t* 
 }
 
 EMSCRIPTEN_KEEPALIVE
-int nc_inq_var_deflate_wrapper(int ncid, int varid, int* shufflep, int* deflatep, int* deflate_levelp) {
-    return nc_inq_var_deflate(ncid, varid, shufflep, deflatep, deflate_levelp);
-}
-
-EMSCRIPTEN_KEEPALIVE
-int nc_def_var_deflate_wrapper(int ncid, int varid, int shuffle, int deflate, int deflate_level) {
-    return nc_def_var_deflate(ncid, varid, shuffle, deflate, deflate_level);
-}
-
-EMSCRIPTEN_KEEPALIVE
 int nc_inq_var_fill_wrapper(int ncid, int varid, int* no_fill, void* fill_valuep) {
     return nc_inq_var_fill(ncid, varid, no_fill, fill_valuep);
 }
@@ -594,6 +628,44 @@ int nc_inq_var_endian_wrapper(int ncid, int varid, int* endianp) {
 EMSCRIPTEN_KEEPALIVE
 int nc_def_var_endian_wrapper(int ncid, int varid, int endian) {
     return nc_def_var_endian(ncid, varid, endian);
+}
+
+// =========================
+// Groups
+// =========================
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grps_wrapper(int ncid, int* numgrps, int* grpids) {
+    return nc_inq_grps(ncid, numgrps, grpids);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grp_ncid_wrapper(int ncid, const char* grp_name, int* grp_ncid) {
+    return nc_inq_grp_ncid(ncid, grp_name, grp_ncid);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grpname_wrapper(int ncid, char* name) {
+    return nc_inq_grpname(ncid, name);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grp_parent_wrapper(int ncid, int* parent_ncid) {
+    return nc_inq_grp_parent(ncid, parent_ncid);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grp_full_ncid_wrapper(int ncid, const char* full_name, int* grp_ncid) {
+    return nc_inq_grp_full_ncid(ncid, full_name, grp_ncid);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grpname_full_wrapper(int ncid, size_t* lenp, char* full_name) {
+    return nc_inq_grpname_full(ncid, lenp, full_name);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_grpname_len_wrapper(int ncid, size_t* lenp) {
+    return nc_inq_grpname_len(ncid, lenp);
 }
 
 // =========================
@@ -629,26 +701,31 @@ int nc_inq_attlen_wrapper(int ncid, int varid, const char* name, size_t* lenp) {
     return nc_inq_attlen(ncid, varid, name, lenp);
 }
 
+// Fixed text
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_text_wrapper(int ncid, int varid, const char* name, char* value) {
     return nc_get_att_text(ncid, varid, name, value);
 }
 
+// 8-bit unsigned
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_uchar_wrapper(int ncid, int varid, const char* name, unsigned char* value) {
     return nc_get_att_uchar(ncid, varid, name, value);
 }
 
+// 8-bit signed
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_schar_wrapper(int ncid, int varid, const char* name, signed char* value) {
     return nc_get_att_schar(ncid, varid, name, value);
 }
 
+// 16-bit signed
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_short_wrapper(int ncid, int varid, const char* name, short* value) {
     return nc_get_att_short(ncid, varid, name, value);
 }
 
+// 32-bit signed
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_int_wrapper(int ncid, int varid, const char* name, int* value) {
     return nc_get_att_int(ncid, varid, name, value);
@@ -659,31 +736,37 @@ int nc_get_att_long_wrapper(int ncid, int varid, const char* name, long* value) 
     return nc_get_att_long(ncid, varid, name, value);
 }
 
+// 32-bit float
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_float_wrapper(int ncid, int varid, const char* name, float* value) {
     return nc_get_att_float(ncid, varid, name, value);
 }
 
+// 64-bit float
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_double_wrapper(int ncid, int varid, const char* name, double* value) {
     return nc_get_att_double(ncid, varid, name, value);
 }
 
+// 16-bit unsigned
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_ushort_wrapper(int ncid, int varid, const char* name, unsigned short* value) {
     return nc_get_att_ushort(ncid, varid, name, value);
 }
 
+// 32-bit unsigned
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_uint_wrapper(int ncid, int varid, const char* name, unsigned int* value) {
     return nc_get_att_uint(ncid, varid, name, value);
 }
 
+// 64-bit signed
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_longlong_wrapper(int ncid, int varid, const char* name, long long* value) {
     return nc_get_att_longlong(ncid, varid, name, value);
 }
 
+// 64-bit unsigned
 EMSCRIPTEN_KEEPALIVE
 int nc_get_att_ulonglong_wrapper(int ncid, int varid, const char* name, unsigned long long* value) {
     return nc_get_att_ulonglong(ncid, varid, name, value);
@@ -724,12 +807,35 @@ int nc_rename_att_wrapper(int ncid, int varid, const char* name, const char* new
     return nc_rename_att(ncid, varid, name, newname);
 }
 
+// Variable-length strings
+EMSCRIPTEN_KEEPALIVE
+int nc_get_att_string_wrapper(int ncid, int varid, const char* name, char** value) {
+    return nc_get_att_string(ncid, varid, name, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_free_string_wrapper(size_t len, char** value) {
+    nc_free_string(len, value);
+    free(value);
+    return 0;
+}
+
 // =========================
 // Data Access (Reading)
 // =========================
 EMSCRIPTEN_KEEPALIVE
 int nc_get_vara_text_wrapper(int ncid, int varid, const size_t* start, const size_t* count, char* value) {
     return nc_get_vara_text(ncid, varid, start, count, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vara_string_wrapper(int ncid, int varid, const size_t* start, const size_t* count, char** value) {
+    return nc_get_vara_string(ncid, varid, start, count, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_put_vara_string_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const char** value) {
+    return nc_put_vara_string(ncid, varid, start, count, value);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -790,6 +896,16 @@ int nc_get_vara_ulonglong_wrapper(int ncid, int varid, const size_t* start, cons
 EMSCRIPTEN_KEEPALIVE
 int nc_get_var_text_wrapper(int ncid, int varid, char* value) {
     return nc_get_var_text(ncid, varid, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_var_string_wrapper(int ncid, int varid, char** value) {
+    return nc_get_var_string(ncid, varid, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_put_var_string_wrapper(int ncid, int varid, const char** value) {
+    return nc_put_var_string(ncid, varid, value);
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -976,6 +1092,7 @@ EOF
 log "Creating C wrapper for NetCDF functions..."
 
 log "Compiling WASM module with emcc..."
+
 check_command emcc netcdf_wrapper.c \
     -I"$INSTALL_DIR/include" \
     -L"$INSTALL_DIR/lib" \
@@ -987,7 +1104,7 @@ check_command emcc netcdf_wrapper.c \
     -s ENVIRONMENT=web,worker \
     -s EXPORT_NAME="NetCDF4Module" \
     -s FORCE_FILESYSTEM=1 \
-    -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","getValue","setValue","UTF8ToString","stringToUTF8","lengthBytesUTF8","FS","WORKERFS","cwrap","ccall","HEAP8","HEAP16","HEAP32","HEAPF32","HEAPF64","HEAP64","HEAPU8","HEAPU16","HEAPU32"]' \
+    -s EXPORTED_RUNTIME_METHODS='["ccall","cwrap","getValue","setValue","UTF8ToString","stringToUTF8","lengthBytesUTF8","FS","WORKERFS","cwrap","ccall","HEAP8","HEAP16","HEAP32","HEAPF32","HEAPF64","HEAP64","HEAPU8","HEAPU16","HEAPU32", "HEAPU64"]' \
     -s EXPORTED_FUNCTIONS='["_malloc","_free"]' \
     -s ALLOW_MEMORY_GROWTH=1 \
     -s INITIAL_MEMORY=16777216 \
@@ -996,11 +1113,11 @@ check_command emcc netcdf_wrapper.c \
     -O2 \
     -o "$DIST_DIR/netcdf4-wasm.js"
 
-log "✅ WASM module created successfully!"
+log "WASM module created successfully!"
 
 # Verify build outputs
 if [ -f "$DIST_DIR/netcdf4-wasm.js" ] && [ -f "$DIST_DIR/netcdf4-wasm.wasm" ]; then
-    log "✅ Build verification successful!"
+    log "Build verification successful!"
     log "Built files:"
     log "  - $DIST_DIR/netcdf4-wasm.js ($(du -h "$DIST_DIR/netcdf4-wasm.js" | cut -f1))"
     log "  - $DIST_DIR/netcdf4-wasm.wasm ($(du -h "$DIST_DIR/netcdf4-wasm.wasm" | cut -f1))"

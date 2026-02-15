@@ -18,9 +18,13 @@ export interface EmscriptenModule {
     HEAPF64: Float64Array;
     HEAP64: BigInt64Array;
     HEAP32: Int32Array;
+    HEAP8: Int8Array;
     HEAPF32: Float32Array;
     HEAPU8: Uint8Array;
-    HEAP16: Float16Array;
+    HEAP16: Int16Array;
+    HEAPU16: Uint16Array;
+    HEAPU32: Uint32Array;
+    HEAPU64: BigUint64Array;
 }
 
 export interface NetCDF4Module extends EmscriptenModule {
@@ -78,6 +82,15 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_get_att_float(ncid: number, varid: number, name: string, length: number): { result: number; data?: number[] }
     nc_get_att_double(ncid: number, varid: number, name: string, length: number): { result: number; data?: number[] }
     nc_get_att_longlong(ncid: number, varid: number, name: string, length: number): { result: number; data?: BigInt[] }
+    nc_get_att_string: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: string[] };
+    // 8-bit unsigned
+    nc_get_att_uchar: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: Uint8Array };
+    // 16-bit unsigned
+    nc_get_att_ushort: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: Uint16Array };
+    // 32-bit unsigned
+    nc_get_att_uint: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: Uint32Array };
+    // 64-bit unsigned
+    nc_get_att_ulonglong: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: BigUint64Array };
 
     // 5. Variable Getters
     nc_get_var_text: (ncid: number, varid: number,  length: number) => { result: number; data?: string[] };
@@ -86,11 +99,33 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_get_var_longlong: (ncid: number, varid: number,  length: number) => { result: number; data?: BigInt64Array };
     nc_get_var_float: (ncid: number, varid: number,  length: number) => { result: number; data?: Float32Array };
     nc_get_var_double: (ncid: number, varid: number,  length: number) => { result: number; data?: Float64Array };
+    nc_get_var_schar: (ncid: number, varid: number, length: number) => { result: number; data?: Int8Array };
+    nc_get_var_uchar: (ncid: number, varid: number, length: number) => { result: number; data?: Uint8Array };
+    nc_get_var_ushort: (ncid: number, varid: number, length: number) => { result: number; data?: Uint16Array };
+    nc_get_var_uint: (ncid: number, varid: number, length: number) => { result: number; data?: Uint32Array };
+    nc_get_var_ulonglong: (ncid: number, varid: number, length: number) => { result: number; data?: BigUint64Array };
+    nc_get_var_string: (ncid: number, varid: number, length: number) => { result: number; data?: string[] };
 
     nc_get_vara_short: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Int16Array };
     nc_get_vara_int: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Int32Array };
     nc_get_vara_float: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Float32Array };
     nc_get_vara_double: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Float64Array };
+    nc_get_vara_longlong: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: BigInt64Array };
+    nc_get_vara_schar: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Int8Array };
+    nc_get_vara_uchar: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Uint8Array };
+    nc_get_vara_ushort: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Uint16Array };
+    nc_get_vara_uint: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: Uint32Array };
+    nc_get_vara_ulonglong: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: BigUint64Array };
+    nc_get_vara_string: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: string[] };
+
+    // group types and functions
+    nc_inq_grps: (ncid: number) => { result: number; numgrps?: number; grpids?: Int32Array };
+    nc_inq_grp_ncid: (ncid: number, grp_name: string) => { result: number; grp_ncid?: number };
+    nc_inq_grpname: (ncid: number) => { result: number; name?: string };
+    nc_inq_grp_parent: (ncid: number) => { result: number; parent_ncid?: number };
+    nc_inq_grp_full_ncid: (ncid: number, full_name: string) => { result: number; grp_ncid?: number };
+    nc_inq_grpname_full: (ncid: number) => { result: number; full_name?: string };
+    nc_inq_grpname_len: (ncid: number) => { result: number; lenp?: number };
 }
 
 export interface NetCDF4WasmOptions {
@@ -123,6 +158,3 @@ export interface VariableOptions {
     contiguous?: boolean;
     chunksizes?: number[];
 }
-
-// Type for the module factory function
-// export type NetCDF4ModuleFactory = (options?: any) => Promise<EmscriptenModule>;
