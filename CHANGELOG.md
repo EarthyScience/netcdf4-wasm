@@ -1,7 +1,9 @@
 # Changelog
 
 ## [0.2.0] - 2026-02-15
-- added group support, use DataTree now to query the full dataset. See also new docs UI in production and functions therein for functionality as well as the summary in pull request. [#37](https://github.com/EarthyScience/netcdf4-wasm/pull/37)
+- Added support for NetCDF groups, enabling hierarchical data organization.
+- Introduced the DataTree class to explore the complete dataset structure.
+- Updated the documentation UI with group browsing and variable search capabilities. [#37](https://github.com/EarthyScience/netcdf4-wasm/pull/37)
 
 ## [0.1.3] - 2026-01-11
 
