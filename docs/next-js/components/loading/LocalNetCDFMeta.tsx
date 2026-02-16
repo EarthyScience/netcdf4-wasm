@@ -23,6 +23,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { NetCDF4, DataTree, GroupNode } from '@earthyscience/netcdf4-wasm';
 
@@ -388,22 +393,30 @@ const LocalNetCDFMeta = () => {
 
                 {/* Variable Selector */}
                 {Object.keys(variables).length > 0 && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setShowVariableMenu(!showVariableMenu)}
-                    className="cursor-pointer flex-shrink-0"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    <span className="hidden sm:inline">Select Variable</span>
-                    <span className="sm:hidden">Variables</span>
-                    {showVariableMenu ? (
-                      <ChevronDown className="h-3 w-3 ml-1" />
-                    ) : (
-                      <ChevronRight className="h-3 w-3 ml-1" />
-                    )}
-                  </Button>
-                )}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setShowVariableMenu(!showVariableMenu)}
+                        className="cursor-pointer flex-shrink-0"
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        <span className="hidden sm:inline">Select Variable</span>
+                        <span className="sm:hidden">Variables</span>
+                        {showVariableMenu ? (
+                          <ChevronDown className="h-3 w-3 ml-1" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3 ml-1" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Variables in current group</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )
+                }
 
                 {/* Search */}
                 <div className="flex gap-1 flex-1 min-w-[180px] sm:min-w-[200px] relative">
@@ -991,7 +1004,8 @@ const LocalNetCDFMeta = () => {
                 <CardContent className="p-2 sm:p-3 pt-0">
                   <div className="space-y-1 text-xs overflow-x-auto">
                     {Object.entries(dimensions).map(([name, dim]: [string, any]) => (
-                      <div key={name} className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
+                      <div key={name} className="flex flex-col sm:grid sm:grid-cols-[minmax(100px,auto)_1fr] gap-0.5 sm:gap-2 min-w-0">
+                        {/* <div key={k} className="flex flex-col sm:grid sm:grid-cols-[minmax(100px,auto)_1fr] gap-0.5 sm:gap-2 min-w-0"> */}
                         <span className="font-mono text-muted-foreground">{name}:</span>
                         <span className="font-mono break-all pl-4 sm:pl-0">
                           {dim.size || dim.len || dim.length || 'unlimited'}
