@@ -282,7 +282,7 @@ const LocalNetCDFMeta = () => {
     let currentPath = '/';
     newExpanded.add(currentPath);
     for (const part of parts) {
-      currentPath = currentPath === '/' ? `/${part}` : `${currentPath}/${part}`;
+      currentPath = `${currentPath}${part}/`;
       newExpanded.add(currentPath);
     }
     setExpandedGroups(newExpanded);
@@ -654,7 +654,8 @@ const LocalNetCDFMeta = () => {
                     const rootVars = tree.getAllVariables('/');
                     const rootVarNames = Object.keys(rootVars);
                     const isRootExpanded = expandedGroups.has('/');
-                    const isRootVarsExpanded = expandedGroups.has('/__root_vars__'); // Special key for root variables
+                    const ROOT_VARS_KEY = '/__root_vars__'; // Special key for root variables
+                    const isRootVarsExpanded = expandedGroups.has(ROOT_VARS_KEY);
 
                     return (
                       <>
@@ -691,7 +692,7 @@ const LocalNetCDFMeta = () => {
                         {isRootExpanded && rootVarNames.length > 0 && (
                           <div style={{ paddingLeft: '12px' }}>
                             <button
-                              onClick={() => toggleGroup('/__root_vars__')}
+                              onClick={() => toggleGroup(ROOT_VARS_KEY)}
                               className="w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
                             >
                               {isRootVarsExpanded ? (
