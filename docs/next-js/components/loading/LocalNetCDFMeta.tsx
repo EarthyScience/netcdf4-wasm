@@ -342,7 +342,7 @@ const LocalNetCDFMeta = () => {
           </Button>
         </ButtonGroup>
         <p className="text-xs text-muted-foreground mt-1 text-right">
-          🆘 Help wanted
+          🆘 Help wanted: no support for remote files yet!
         </p>
 
         {isLoading && (
@@ -621,6 +621,7 @@ const LocalNetCDFMeta = () => {
                     const rootVars = tree.getAllVariables('/');
                     const rootVarNames = Object.keys(rootVars);
                     const isRootExpanded = expandedGroups.has('/');
+                    const isRootVarsExpanded = expandedGroups.has('/__root_vars__'); // Special key for root variables
 
                     return (
                       <>
@@ -653,19 +654,36 @@ const LocalNetCDFMeta = () => {
                           </button>
                         </div>
 
-                        {/* Root variables (when expanded) */}
+                        {/* Root variables section (when root is expanded) */}
                         {isRootExpanded && rootVarNames.length > 0 && (
-                          <div style={{ paddingLeft: '32px' }} className="space-y-0.5 py-1">
-                            {rootVarNames.map(name => (
-                              <button
-                                key={name}
-                                onClick={() => handleVariableClick(name, '/')}
-                                className="w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
-                              >
-                                <FileText className="h-3 w-3 flex-shrink-0" />
-                                <span className="truncate">{name}</span>
-                              </button>
-                            ))}
+                          <div style={{ paddingLeft: '12px' }}>
+                            <button
+                              onClick={() => toggleGroup('/__root_vars__')}
+                              className="w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
+                            >
+                              {isRootVarsExpanded ? (
+                                <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                              ) : (
+                                <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                              )}
+                              <span className="truncate">Variables ({rootVarNames.length})</span>
+                            </button>
+                            
+                            {/* Root variables list (when variables section is expanded) */}
+                            {isRootVarsExpanded && (
+                              <div style={{ paddingLeft: '20px' }} className="space-y-0.5 py-1">
+                                {rootVarNames.map(name => (
+                                  <button
+                                    key={name}
+                                    onClick={() => handleVariableClick(name, '/')}
+                                    className="w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
+                                  >
+                                    <FileText className="h-3 w-3 flex-shrink-0" />
+                                    <span className="truncate">{name}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
 
