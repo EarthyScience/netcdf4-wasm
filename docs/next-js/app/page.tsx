@@ -22,31 +22,41 @@ export default function Home() {
         </div>
         <LocalNetCDFMeta />
       </main>
+
       <footer className="py-6 text-center text-sm bg-[color:var(--card)] text-[color:var(--muted-foreground)] dark:bg-[color:var(--card)] dark:text-[color:var(--muted-foreground)]">
-  <p>
-    Released under the{" "}
-    <a
-      href="https://github.com/EarthyScience/netcdf4-wasm?tab=MIT-1-ov-file#readme"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-[color:var(--accent-foreground)] hover:text-[#644FF0] transition-colors"
-    >
-      MIT License
-    </a>
-    .
-  </p>
-  <p>
-    Copyright © {new Date().getFullYear()}{" "}
-    <a
-      href="https://lazarusa.github.io/"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-[color:var(--accent-foreground)] hover:text-[#644FF0] transition-colors"
-    >
-      Lazaro Alonso
-    </a>
-  </p>
-</footer>
+        <p>
+          Released under the{" "}
+          <a
+            href="https://github.com/EarthyScience/netcdf4-wasm?tab=MIT-1-ov-file#readme"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[color:var(--accent-foreground)] hover:text-[#644FF0] transition-colors"
+          >
+            MIT License
+          </a>
+          .
+        </p>
+        <p>
+          Copyright © {new Date().getFullYear()}{" "}
+          <a
+            href="https://lazarusa.github.io/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[color:var(--accent-foreground)] hover:text-[#644FF0] transition-colors"
+          >
+            Lazaro Alonso
+          </a>
+          {" & "}
+          <a
+            href="https://www.bgc-jena.mpg.de/person/jpoehls/2206"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[color:var(--accent-foreground)] hover:text-[#644FF0] transition-colors"
+          >
+            Jeran Poehls
+            </a>
+        </p>
+      </footer>
 
     </div>
   );

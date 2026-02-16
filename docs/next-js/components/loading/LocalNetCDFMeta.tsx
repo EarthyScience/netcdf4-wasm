@@ -23,6 +23,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { NetCDF4, DataTree, GroupNode } from '@earthyscience/netcdf4-wasm';
 
@@ -267,6 +272,20 @@ const LocalNetCDFMeta = () => {
   const selectGroup = (path: string) => {
     if (!tree) return;
     refreshGroup(path, tree);
+    // Open the group menu and close the variable menu
+    setShowGroupMenu(true);
+    setShowVariableMenu(false);
+    // Expand the selected group and all its parents
+    const newExpanded = new Set(expandedGroups);
+    // Add all parent paths
+    const parts = path.split('/').filter(Boolean);
+    let currentPath = '/';
+    newExpanded.add(currentPath);
+    for (const part of parts) {
+      currentPath = `${currentPath}${part}/`;
+      newExpanded.add(currentPath);
+    }
+    setExpandedGroups(newExpanded);
   };
   
   // ---------------------------------------------------------------------------
@@ -342,7 +361,7 @@ const LocalNetCDFMeta = () => {
           </Button>
         </ButtonGroup>
         <p className="text-xs text-muted-foreground mt-1 text-right">
-          🆘 Help wanted
+          🆘 Help wanted: no support for remote files yet!
         </p>
 
         {isLoading && (
@@ -388,22 +407,36 @@ const LocalNetCDFMeta = () => {
 
                 {/* Variable Selector */}
                 {Object.keys(variables).length > 0 && (
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setShowVariableMenu(!showVariableMenu)}
-                    className="cursor-pointer flex-shrink-0"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    <span className="hidden sm:inline">Select Variable</span>
-                    <span className="sm:hidden">Variables</span>
-                    {showVariableMenu ? (
-                      <ChevronDown className="h-3 w-3 ml-1" />
-                    ) : (
-                      <ChevronRight className="h-3 w-3 ml-1" />
-                    )}
-                  </Button>
-                )}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                          setShowVariableMenu(!showVariableMenu);
+                          // Close group menu when opening variable menu
+                          if (!showVariableMenu) {
+                            setShowGroupMenu(false);
+                          }
+                        }}
+                        className="cursor-pointer flex-shrink-0"
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        <span className="hidden sm:inline">Select Variable</span>
+                        <span className="sm:hidden">Variables</span>
+                        {showVariableMenu ? (
+                          <ChevronDown className="h-3 w-3 ml-1" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3 ml-1" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Variables in current group</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )
+                }
 
                 {/* Search */}
                 <div className="flex gap-1 flex-1 min-w-[180px] sm:min-w-[200px] relative">
@@ -621,6 +654,8 @@ const LocalNetCDFMeta = () => {
                     const rootVars = tree.getAllVariables('/');
                     const rootVarNames = Object.keys(rootVars);
                     const isRootExpanded = expandedGroups.has('/');
+                    const ROOT_VARS_KEY = '/__root_vars__'; // Special key for root variables
+                    const isRootVarsExpanded = expandedGroups.has(ROOT_VARS_KEY);
 
                     return (
                       <>
@@ -653,19 +688,36 @@ const LocalNetCDFMeta = () => {
                           </button>
                         </div>
 
-                        {/* Root variables (when expanded) */}
+                        {/* Root variables section (when root is expanded) */}
                         {isRootExpanded && rootVarNames.length > 0 && (
-                          <div style={{ paddingLeft: '32px' }} className="space-y-0.5 py-1">
-                            {rootVarNames.map(name => (
-                              <button
-                                key={name}
-                                onClick={() => handleVariableClick(name, '/')}
-                                className="w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
-                              >
-                                <FileText className="h-3 w-3 flex-shrink-0" />
-                                <span className="truncate">{name}</span>
-                              </button>
-                            ))}
+                          <div style={{ paddingLeft: '12px' }}>
+                            <button
+                              onClick={() => toggleGroup(ROOT_VARS_KEY)}
+                              className="w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
+                            >
+                              {isRootVarsExpanded ? (
+                                <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                              ) : (
+                                <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                              )}
+                              <span className="truncate">Variables ({rootVarNames.length})</span>
+                            </button>
+                            
+                            {/* Root variables list (when variables section is expanded) */}
+                            {isRootVarsExpanded && (
+                              <div style={{ paddingLeft: '20px' }} className="space-y-0.5 py-1">
+                                {rootVarNames.map(name => (
+                                  <button
+                                    key={name}
+                                    onClick={() => handleVariableClick(name, '/')}
+                                    className="w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
+                                  >
+                                    <FileText className="h-3 w-3 flex-shrink-0" />
+                                    <span className="truncate">{name}</span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -973,7 +1025,8 @@ const LocalNetCDFMeta = () => {
                 <CardContent className="p-2 sm:p-3 pt-0">
                   <div className="space-y-1 text-xs overflow-x-auto">
                     {Object.entries(dimensions).map(([name, dim]: [string, any]) => (
-                      <div key={name} className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
+                      <div key={name} className="flex flex-col sm:grid sm:grid-cols-[minmax(100px,auto)_1fr] gap-0.5 sm:gap-2 min-w-0">
+                        {/* <div key={k} className="flex flex-col sm:grid sm:grid-cols-[minmax(100px,auto)_1fr] gap-0.5 sm:gap-2 min-w-0"> */}
                         <span className="font-mono text-muted-foreground">{name}:</span>
                         <span className="font-mono break-all pl-4 sm:pl-0">
                           {dim.size || dim.len || dim.length || 'unlimited'}
