@@ -272,6 +272,20 @@ const LocalNetCDFMeta = () => {
   const selectGroup = (path: string) => {
     if (!tree) return;
     refreshGroup(path, tree);
+    // Open the group menu and close the variable menu
+    setShowGroupMenu(true);
+    setShowVariableMenu(false);
+    // Expand the selected group and all its parents
+    const newExpanded = new Set(expandedGroups);
+    // Add all parent paths
+    const parts = path.split('/').filter(Boolean);
+    let currentPath = '/';
+    newExpanded.add(currentPath);
+    for (const part of parts) {
+      currentPath = currentPath === '/' ? `/${part}` : `${currentPath}/${part}`;
+      newExpanded.add(currentPath);
+    }
+    setExpandedGroups(newExpanded);
   };
   
   // ---------------------------------------------------------------------------
@@ -398,7 +412,13 @@ const LocalNetCDFMeta = () => {
                       <Button 
                         variant="outline" 
                         size="sm" 
-                        onClick={() => setShowVariableMenu(!showVariableMenu)}
+                        onClick={() => {
+                          setShowVariableMenu(!showVariableMenu);
+                          // Close group menu when opening variable menu
+                          if (!showVariableMenu) {
+                            setShowGroupMenu(false);
+                          }
+                        }}
                         className="cursor-pointer flex-shrink-0"
                       >
                         <FileText className="h-4 w-4 mr-2" />
