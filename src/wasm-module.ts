@@ -138,6 +138,21 @@ export class WasmModuleLoader {
         const nc_inq_grp_full_ncid_wrapper = module.cwrap('nc_inq_grp_full_ncid_wrapper', 'number', ['number', 'string', 'number']);
         const nc_inq_grpname_full_wrapper = module.cwrap('nc_inq_grpname_full_wrapper', 'number', ['number', 'number', 'number']);
         const nc_inq_grpname_len_wrapper = module.cwrap('nc_inq_grpname_len_wrapper', 'number', ['number', 'number']);
+        
+        // enum wrappers
+        const nc_inq_typeids_wrapper = module.cwrap('nc_inq_typeids_wrapper', 'number', ['number', 'number', 'number']);
+        const nc_inq_type_wrapper = module.cwrap('nc_inq_type_wrapper', 'number', ['number', 'number', 'number', 'number']);
+        const nc_inq_user_type_wrapper = module.cwrap('nc_inq_user_type_wrapper', 'number', ['number', 'number', 'number', 'number', 'number', 'number', 'number']);
+        const nc_def_enum_wrapper = module.cwrap('nc_def_enum_wrapper', 'number', ['number', 'number', 'string', 'number']);
+        const nc_insert_enum_wrapper = module.cwrap('nc_insert_enum_wrapper', 'number', ['number', 'number', 'string', 'number']);
+        const nc_inq_enum_wrapper = module.cwrap('nc_inq_enum_wrapper', 'number', ['number', 'number', 'number', 'number', 'number', 'number']);
+        const nc_inq_enum_member_wrapper = module.cwrap('nc_inq_enum_member_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
+        const nc_inq_enum_ident_wrapper = module.cwrap('nc_inq_enum_ident_wrapper', 'number', ['number', 'number', 'number', 'number']);
+
+        // generic type inquiry wrapper
+        const nc_get_var_wrapper = module.cwrap('nc_get_var_wrapper', 'number', ['number', 'number', 'number']);
+        const nc_get_vara_wrapper = module.cwrap('nc_get_vara_wrapper', 'number', ['number', 'number', 'number', 'number', 'number']);
+
 
         return {
             ...module,
@@ -1025,6 +1040,249 @@ export class WasmModuleLoader {
                 module._free(dataPtr);
                 return { result, data };
             },
+
+            // Enum Type Functions
+            nc_inq_typeids: (ncid: number, maxTypeIds: number) => {
+                const ntypesPtr = module._malloc(4);
+                const typeidsPtr = module._malloc(maxTypeIds * 4);
+                
+                const result = nc_inq_typeids_wrapper(ncid, ntypesPtr, typeidsPtr);
+                let ntypes: number | undefined;
+                let typeids: number[] | undefined;
+                
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    ntypes = module.getValue(ntypesPtr, 'i32');
+                    typeids = [];
+                    for (let i = 0; i < ntypes; i++) {
+                        typeids.push(module.getValue(typeidsPtr + i * 4, 'i32'));
+                    }
+                }
+                
+                module._free(ntypesPtr);
+                module._free(typeidsPtr);
+                return { result, ntypes, typeids };
+            },
+
+            nc_inq_type: (ncid: number, xtype: number) => {
+                const namePtr = module._malloc(NC_CONSTANTS.NC_MAX_NAME + 1);
+                const sizePtr = module._malloc(8);
+                
+                const result = nc_inq_type_wrapper(ncid, xtype, namePtr, sizePtr);
+                let name: string | undefined;
+                let size: number | undefined;
+                
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    name = module.UTF8ToString(namePtr);
+                    size = Number(module.getValue(sizePtr, 'i64'));
+                }
+                
+                module._free(namePtr);
+                module._free(sizePtr);
+                return { result, name, size };
+            },
+
+            nc_inq_user_type: (ncid: number, xtype: number) => {
+                const namePtr = module._malloc(NC_CONSTANTS.NC_MAX_NAME + 1);
+                const sizePtr = module._malloc(8);
+                const baseTypePtr = module._malloc(4);
+                const nfieldsPtr = module._malloc(8);
+                const classPtr = module._malloc(4);
+                
+                const result = nc_inq_user_type_wrapper(ncid, xtype, namePtr, sizePtr, 
+                                                        baseTypePtr, nfieldsPtr, classPtr);
+                let name: string | undefined;
+                let size: number | undefined;
+                let baseType: number | undefined;
+                let nfields: number | undefined;
+                let typeClass: number | undefined;
+                
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    name = module.UTF8ToString(namePtr);
+                    size = Number(module.getValue(sizePtr, 'i64'));
+                    baseType = module.getValue(baseTypePtr, 'i32');
+                    nfields = Number(module.getValue(nfieldsPtr, 'i64'));
+                    typeClass = module.getValue(classPtr, 'i32');
+                }
+                
+                module._free(namePtr);
+                module._free(sizePtr);
+                module._free(baseTypePtr);
+                module._free(nfieldsPtr);
+                module._free(classPtr);
+                return { result, name, size, baseType, nfields, typeClass };
+            },
+
+            nc_def_enum: (ncid: number, baseTypeId: number, name: string) => {
+                const typeidPtr = module._malloc(4);
+                
+                const result = nc_def_enum_wrapper(ncid, baseTypeId, name, typeidPtr);
+                let typeid: number | undefined;
+                
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    typeid = module.getValue(typeidPtr, 'i32');
+                }
+                
+                module._free(typeidPtr);
+                return { result, typeid };
+            },
+
+            nc_insert_enum: (ncid: number, xtype: number, name: string, value: number | bigint) => {
+                const valuePtr = module._malloc(8); // Always allocate 8 bytes (max needed)
+                
+                if (typeof value === 'bigint') {
+                    // Write bigint as 64-bit integer
+                    const i64Array = new BigInt64Array(module.HEAP8.buffer, valuePtr, 1);
+                    i64Array[0] = value;
+                } else {
+                    // Write number as 32-bit integer (works for byte, short, int, uint)
+                    module.setValue(valuePtr, value, 'i32');
+                }
+                
+                const result = nc_insert_enum_wrapper(ncid, xtype, name, valuePtr);
+                
+                module._free(valuePtr);
+                return { result };
+            },
+
+            nc_inq_enum: (ncid: number, xtype: number) => {
+                const namePtr = module._malloc(NC_CONSTANTS.NC_MAX_NAME + 1);
+                const baseTypePtr = module._malloc(4);
+                const baseSizePtr = module._malloc(8);  // size_t can be 8 bytes
+                const numMembersPtr = module._malloc(8); // size_t can be 8 bytes
+                
+                const result = nc_inq_enum_wrapper(ncid, xtype, namePtr, baseTypePtr, 
+                                                    baseSizePtr, numMembersPtr);
+                let name: string | undefined;
+                let baseType: number | undefined;
+                let baseSize: number | undefined;
+                let numMembers: number | undefined;
+                
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    name = module.UTF8ToString(namePtr);
+                    baseType = module.getValue(baseTypePtr, 'i32');
+                    // Try reading as 32-bit size_t first
+                    baseSize = Number(module.getValue(baseSizePtr, 'i32'));
+                    numMembers = Number(module.getValue(numMembersPtr, 'i32'));
+                }
+                
+                module._free(namePtr);
+                module._free(baseTypePtr);
+                module._free(baseSizePtr);
+                module._free(numMembersPtr);
+                return { result, name, baseType, baseSize, numMembers };
+            },
+
+            nc_inq_enum_member: (ncid: number, xtype: number, idx: number, baseType: number) => {
+                const namePtr = module._malloc(NC_CONSTANTS.NC_MAX_NAME + 1);
+                const valuePtr = module._malloc(8);
+                
+                const result = nc_inq_enum_member_wrapper(ncid, xtype, idx, namePtr, valuePtr);
+                let name: string | undefined;
+                let value: number | bigint | undefined;
+                
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    name = module.UTF8ToString(namePtr);
+                    
+                    // Read value based on base type
+                    switch (baseType) {
+                        case NC_CONSTANTS.NC_BYTE:
+                            value = module.getValue(valuePtr, 'i8');
+                            break;
+                        case NC_CONSTANTS.NC_UBYTE:
+                            value = module.getValue(valuePtr, 'i8') & 0xFF;
+                            break;
+                        case NC_CONSTANTS.NC_SHORT:
+                            value = module.getValue(valuePtr, 'i16');
+                            break;
+                        case NC_CONSTANTS.NC_USHORT:
+                            value = module.getValue(valuePtr, 'i16') & 0xFFFF;
+                            break;
+                        case NC_CONSTANTS.NC_INT:
+                            value = module.getValue(valuePtr, 'i32');
+                            break;
+                        case NC_CONSTANTS.NC_UINT:
+                            value = module.getValue(valuePtr, 'i32') >>> 0;
+                            break;
+                        case NC_CONSTANTS.NC_INT64:
+                            value = module.getValue(valuePtr, 'i64');
+                            break;
+                        case NC_CONSTANTS.NC_UINT64:
+                            value = module.getValue(valuePtr, 'i64');
+                            break;
+                        default:
+                            value = module.getValue(valuePtr, 'i32');
+                    }
+                }
+                
+                module._free(namePtr);
+                module._free(valuePtr);
+                return { result, name, value };
+            },
+
+            nc_inq_enum_ident: (ncid: number, xtype: number, value: number | bigint) => {
+                const identPtr = module._malloc(NC_CONSTANTS.NC_MAX_NAME + 1);
+                const numValue = typeof value === 'bigint' ? Number(value) : value;
+                
+                const result = nc_inq_enum_ident_wrapper(ncid, xtype, numValue, identPtr);
+                let identifier: string | undefined;
+                
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    identifier = module.UTF8ToString(identPtr);
+                }
+                
+                module._free(identPtr);
+                return { result, identifier };
+            },
+
+            // generic nc_get_var function to module
+            nc_get_var_generic: (ncid: number, varid: number, length: number, elementSize: number) => {
+                const dataPtr = module._malloc(length * elementSize);
+                const result = nc_get_var_wrapper(ncid, varid, dataPtr);
+                let data;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    // Read based on element size
+                    if (elementSize === 1) {
+                        data = new Int8Array(module.HEAP8.buffer, dataPtr, length).slice();
+                    } else if (elementSize === 2) {
+                        data = new Int16Array(module.HEAP16.buffer, dataPtr, length).slice();
+                    } else if (elementSize === 4) {
+                        data = new Int32Array(module.HEAP32.buffer, dataPtr, length).slice();
+                    } else if (elementSize === 8) {
+                        data = new BigInt64Array(module.HEAP64.buffer, dataPtr, length).slice();
+                    }
+                }
+                module._free(dataPtr);
+                return { result, data };
+            },
+            nc_get_vara_generic: (ncid: number, varid: number, start: number[], count: number[], elementSize: number) => {
+            const totalLength = count.reduce((a, b) => a * b, 1);
+            const dataPtr = module._malloc(totalLength * elementSize);
+            const startPtr = module._malloc(start.length * 4);  // size_t is 4 bytes
+            const countPtr = module._malloc(count.length * 4);
+            
+            start.forEach((val, i) => module.setValue(startPtr + i * 4, val, 'i32'));
+            count.forEach((val, i) => module.setValue(countPtr + i * 4, val, 'i32'));
+            
+            const result = nc_get_vara_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
+            let data;
+            if (result === NC_CONSTANTS.NC_NOERR) {
+                // Read based on element size
+                if (elementSize === 1) {
+                    data = new Int8Array(module.HEAP8.buffer, dataPtr, totalLength).slice();
+                } else if (elementSize === 2) {
+                    data = new Int16Array(module.HEAP16.buffer, dataPtr, totalLength).slice();
+                } else if (elementSize === 4) {
+                    data = new Int32Array(module.HEAP32.buffer, dataPtr, totalLength).slice();
+                } else if (elementSize === 8) {
+                    data = new BigInt64Array(module.HEAP64.buffer, dataPtr, totalLength).slice();
+                }
+            }
+            
+            module._free(dataPtr);
+            module._free(startPtr);
+            module._free(countPtr);
+            return { result, data };
+        },
         };
     }
 }

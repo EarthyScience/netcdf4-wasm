@@ -20,7 +20,7 @@ DEPS_DIR="$BUILD_DIR/deps"
 INSTALL_DIR="$BUILD_DIR/install"
 
 # Versions
-ZLIB_VERSION="1.3.1"
+ZLIB_VERSION="1.3.2"
 HDF5_VERSION="1.14.3"
 NETCDF_VERSION="4.9.2"
 
@@ -1084,6 +1084,62 @@ int nc_put_var_longlong_wrapper(int ncid, int varid, const long long* value) {
 EMSCRIPTEN_KEEPALIVE
 int nc_put_var_ulonglong_wrapper(int ncid, int varid, const unsigned long long* value) {
     return nc_put_var_ulonglong(ncid, varid, value);
+}
+
+// =========================
+// User-defined Types (Enums)
+// =========================
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_typeids_wrapper(int ncid, int* ntypes, int* typeids) {
+    return nc_inq_typeids(ncid, ntypes, typeids);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_type_wrapper(int ncid, nc_type xtype, char* name, size_t* sizep) {
+    return nc_inq_type(ncid, xtype, name, sizep);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_user_type_wrapper(int ncid, nc_type xtype, char* name, size_t* sizep, nc_type* base_nc_typep, size_t* nfieldsp, int* classp) {
+    return nc_inq_user_type(ncid, xtype, name, sizep, base_nc_typep, nfieldsp, classp);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_def_enum_wrapper(int ncid, nc_type base_typeid, const char* name, nc_type* typeidp) {
+    return nc_def_enum(ncid, base_typeid, name, typeidp);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_insert_enum_wrapper(int ncid, nc_type xtype, const char* name, const void* value) {
+    return nc_insert_enum(ncid, xtype, name, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_enum_wrapper(int ncid, nc_type xtype, char* name, nc_type* base_nc_typep, size_t* base_sizep, size_t* num_membersp) {
+    return nc_inq_enum(ncid, xtype, name, base_nc_typep, base_sizep, num_membersp);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_enum_member_wrapper(int ncid, nc_type xtype, int idx, char* name, void* value) {
+    return nc_inq_enum_member(ncid, xtype, idx, name, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_inq_enum_ident_wrapper(int ncid, nc_type xtype, long long value, char* identifier) {
+    return nc_inq_enum_ident(ncid, xtype, value, identifier);
+}
+
+// generic untyped reader
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_var_wrapper(int ncid, int varid, void* ip) {
+    return nc_get_var(ncid, varid, ip);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vara_wrapper(int ncid, int varid, const size_t* start, const size_t* count, void* ip) {
+    return nc_get_vara(ncid, varid, start, count, ip);
 }
 
 EOF

@@ -126,6 +126,22 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_inq_grp_full_ncid: (ncid: number, full_name: string) => { result: number; grp_ncid?: number };
     nc_inq_grpname_full: (ncid: number) => { result: number; full_name?: string };
     nc_inq_grpname_len: (ncid: number) => { result: number; lenp?: number };
+    
+    // Generic variable getters (for enums and type-agnostic reading)
+    nc_get_var_generic: (ncid: number, varid: number, length: number, elementSize: number) => { result: number; data?: Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | BigInt64Array | BigUint64Array };
+    nc_get_vara_generic: (ncid: number, varid: number, start: number[], count: number[], elementSize: number) => { result: number; data?: Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | BigInt64Array | BigUint64Array };
+    
+    // User-defined type inquiry
+    nc_inq_typeids: (ncid: number, maxTypeIds: number) => { result: number; ntypes?: number; typeids?: number[] };
+    nc_inq_type: (ncid: number, xtype: number) => { result: number; name?: string; size?: number };
+    nc_inq_user_type: (ncid: number, xtype: number) => { result: number; name?: string; size?: number; baseType?: number; nfields?: number; typeClass?: number };
+    
+    // Enum type functions
+    nc_def_enum: (ncid: number, baseTypeId: number, name: string) => { result: number; typeid?: number };
+    nc_insert_enum: (ncid: number, xtype: number, name: string, value: number | bigint) => { result: number };
+    nc_inq_enum: (ncid: number, xtype: number) => { result: number; name?: string; baseType?: number; baseSize?: number; numMembers?: number };
+    nc_inq_enum_member: (ncid: number, xtype: number, idx: number, baseType: number) => { result: number; name?: string; value?: number | bigint };
+    nc_inq_enum_ident: (ncid: number, xtype: number, value: number | bigint) => { result: number; identifier?: string };
 }
 
 export interface NetCDF4WasmOptions {

@@ -62,7 +62,7 @@ const LocalNetCDFMeta = () => {
   const [expandedVariableAttrs, setExpandedVariableAttrs] = useState(true);
   const [expandedDimensions, setExpandedDimensions] = useState(true);
   const [expandedAttributes, setExpandedAttributes] = useState(true);
-  
+  const [expandedEnumDict, setExpandedEnumDict] = useState(false);
   // Mobile menu states
   const [showGroupMenu, setShowGroupMenu] = useState(false);
   const [showVariableMenu, setShowVariableMenu] = useState(false);
@@ -867,6 +867,64 @@ const LocalNetCDFMeta = () => {
                         </div>
                       )}
                     </div>
+
+                    {/* Collapsible Enum Dictionary */}
+                    {variables[selectedVariable].info.enum && 
+                    Object.keys(variables[selectedVariable].info.enum).length > 0 && (
+                      <div className="border-0 rounded-lg overflow-hidden">
+                        <button
+                          onClick={() => setExpandedEnumDict(!expandedEnumDict)}
+                          className="w-full flex items-center justify-between p-3 hover:bg-accent/50 transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold truncate">
+                              Enum Dictionary
+                            </span>
+                            {variables[selectedVariable].info.enumType && (
+                              <span className="text-xs text-muted-foreground font-mono">
+                                ({variables[selectedVariable].info.enumType.name})
+                              </span>
+                            )}
+                          </div>
+                          {expandedEnumDict ? (
+                            <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                          )}
+                        </button>
+                        
+                        {expandedEnumDict && (
+                          <div className="max-h-[300px] overflow-y-auto px-3 pb-3 space-y-2 sm:space-y-1 text-xs overflow-x-auto">
+                            <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+                              {Object.entries(variables[selectedVariable].info.enum as Record<string, string>)
+                                .sort(([a], [b]) => Number(a) - Number(b))
+                                .map(([value, label]) => (
+                                  <React.Fragment key={value}>
+                                    <span className="font-mono text-muted-foreground text-right">
+                                      {value}:
+                                    </span>
+                                    <span className="font-mono break-all">
+                                      {String(label)}
+                                    </span>
+                                  </React.Fragment>
+                                ))}
+                            </div>
+                            
+                            {variables[selectedVariable].info.enumType && (
+                              <div className="mt-3 pt-3 border-t text-muted-foreground">
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span>Base Type:</span>
+                                  <span className="font-mono">
+                                    {variables[selectedVariable].info.dtype_base || 
+                                    `NC_TYPE_${variables[selectedVariable].info.enumType.baseType}`}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Collapsible Variable Attributes */}
                     {variables[selectedVariable].info.attributes && 
