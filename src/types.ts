@@ -83,6 +83,7 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_get_att_double(ncid: number, varid: number, name: string, length: number): { result: number; data?: number[] }
     nc_get_att_longlong(ncid: number, varid: number, name: string, length: number): { result: number; data?: BigInt[] }
     nc_get_att_string: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: string[] };
+    nc_get_att_schar: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: Int8Array };
     // 8-bit unsigned
     nc_get_att_uchar: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: Uint8Array };
     // 16-bit unsigned
@@ -128,8 +129,8 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_inq_grpname_len: (ncid: number) => { result: number; lenp?: number };
     
     // Generic variable getters (for enums and type-agnostic reading)
-    nc_get_var_generic: (ncid: number, varid: number, length: number, elementSize: number) => { result: number; data?: Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | BigInt64Array | BigUint64Array };
-    nc_get_vara_generic: (ncid: number, varid: number, start: number[], count: number[], elementSize: number) => { result: number; data?: Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | BigInt64Array | BigUint64Array };
+    nc_get_var_generic: (ncid: number, varid: number, length: number, nctype: number) => { result: number; data?: Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | BigInt64Array | BigUint64Array };
+    nc_get_vara_generic: (ncid: number, varid: number, start: number[], count: number[], nctype: number) => { result: number; data?: Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | BigInt64Array | BigUint64Array };
     
     // User-defined type inquiry
     nc_inq_typeids: (ncid: number, maxTypeIds: number) => { result: number; ntypes?: number; typeids?: number[] };

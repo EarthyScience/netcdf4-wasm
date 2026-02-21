@@ -165,6 +165,7 @@ export function getAttributeValues(
         [NC_CONSTANTS.NC_INT]: module.nc_get_att_int,
         [NC_CONSTANTS.NC_FLOAT]: module.nc_get_att_float,
         [NC_CONSTANTS.NC_DOUBLE]: module.nc_get_att_double,
+        [NC_CONSTANTS.NC_BYTE]: module.nc_get_att_schar,
         [NC_CONSTANTS.NC_UBYTE]: module.nc_get_att_uchar,
         [NC_CONSTANTS.NC_UINT]: module.nc_get_att_uint,
         [NC_CONSTANTS.NC_USHORT]: module.nc_get_att_ushort,
@@ -574,7 +575,7 @@ export function getVariableArray(
     let arrayData: VarResult;
 
     if (enumCtx.isEnum) {
-        arrayData = module.nc_get_var_generic(workingNcid, varid, arraySize, DATA_TYPE_SIZE[arrayType]);
+        arrayData = module.nc_get_var_generic(workingNcid, varid, arraySize, arrayType);
     } else {
         const reader = readers[arrayType];
         if (!reader) {
@@ -645,7 +646,7 @@ export function getSlicedVariableArray(
     let arrayData: VaraResult;
 
     if (enumCtx.isEnum) {
-        arrayData = module.nc_get_vara_generic(workingNcid, varid, start, count, DATA_TYPE_SIZE[arrayType]);
+        arrayData = module.nc_get_vara_generic(workingNcid, varid, start, count, arrayType);
     } else {
         const reader = readers[arrayType];
         if (!reader) {
