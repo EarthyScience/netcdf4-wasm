@@ -878,7 +878,7 @@ const LocalNetCDFMeta = () => {
                         >
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold truncate">
-                              Enum Dictionary
+                              Values
                             </span>
                             {variables[selectedVariable].info.enumType && (
                               <span className="text-xs text-muted-foreground font-mono">
