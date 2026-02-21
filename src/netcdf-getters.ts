@@ -165,6 +165,7 @@ export function getAttributeValues(
         [NC_CONSTANTS.NC_INT]: module.nc_get_att_int,
         [NC_CONSTANTS.NC_FLOAT]: module.nc_get_att_float,
         [NC_CONSTANTS.NC_DOUBLE]: module.nc_get_att_double,
+        [NC_CONSTANTS.NC_BYTE]: module.nc_get_att_schar,
         [NC_CONSTANTS.NC_UBYTE]: module.nc_get_att_uchar,
         [NC_CONSTANTS.NC_UINT]: module.nc_get_att_uint,
         [NC_CONSTANTS.NC_USHORT]: module.nc_get_att_ushort,
@@ -245,6 +246,161 @@ export function getVarIDs(
     return result.varids ?? [];
 }
 
+interface EnumInfo {
+    name: string;
+    baseType: number;
+    baseSize: number;
+    numMembers: number;
+}
+
+interface EnumMember {
+    name: string;
+    value: number | bigint;
+}
+
+interface EnumType extends EnumInfo {
+    members: EnumMember[];
+}
+
+export function getEnumType(
+    module: NetCDF4Module,
+    ncid: number,
+    xtype: number
+): EnumType {
+    // Get basic enum info
+    const { result: infoResult, name, baseType, baseSize, numMembers } = module.nc_inq_enum(ncid, xtype);
+    if (infoResult !== NC_CONSTANTS.NC_NOERR || !name || baseType === undefined || numMembers === undefined) {
+        throw new Error(`Failed to get enum info (error: ${infoResult})`);
+    }
+    
+    // Get all members
+    const members: EnumMember[] = [];
+    for (let i = 0; i < numMembers; i++) {
+        const { result, name: memberName, value } = module.nc_inq_enum_member(
+            ncid, 
+            xtype, 
+            i, 
+            baseType
+        );
+        if (result === NC_CONSTANTS.NC_NOERR && memberName !== undefined && value !== undefined) {
+            members.push({ name: memberName, value });
+        }
+    }
+    
+    return {
+        name,
+        baseType,
+        baseSize: baseSize!,
+        numMembers,
+        members
+    };
+}
+
+export function getTypeClass(
+    module: NetCDF4Module,
+    ncid: number,
+    xtype: number
+): number {
+    
+    // Atomic types return themselves as the class
+    if (xtype < 13) { // Below NC_VLEN
+        return xtype;
+    }
+    
+    // For user-defined types, query the class
+    const { result, typeClass } = module.nc_inq_user_type(ncid, xtype);
+    
+    if (result === NC_CONSTANTS.NC_NOERR && typeClass !== undefined) {
+        return typeClass;
+    }
+    
+    return xtype;
+}
+
+function buildEnumDict(
+    module: NetCDF4Module,
+    ncid: number,
+    enumTypeId: number,
+    enumBaseType: number
+): Record<number, string> {
+
+    const enumInqResult = module.nc_inq_enum(ncid, enumTypeId);    
+    const { result: enumResult, numMembers } = enumInqResult;
+
+    if (enumResult !== NC_CONSTANTS.NC_NOERR || numMembers === undefined) {
+        throw new Error(`Failed to get enum info (error: ${enumResult})`);
+    }
+        
+    const enumDict: Record<number, string> = {};
+    for (let i = 0; i < numMembers; i++) {
+        
+        const memberResult = module.nc_inq_enum_member(ncid, enumTypeId, i, enumBaseType);        
+        const { result: memberResultCode, name: memberName, value } = memberResult;
+        
+        if (memberResultCode === NC_CONSTANTS.NC_NOERR && memberName !== undefined && value !== undefined) {
+            // Note: bigint values exceeding Number.MAX_SAFE_INTEGER will lose precision.
+            // In practice enum values are small named constants so this is acceptable.
+            const numValue = typeof value === 'bigint' ? Number(value) : value;
+            enumDict[numValue] = memberName;
+        } else {
+            console.warn(`[buildEnumDict] Skipping member ${i}: result=${memberResultCode}, name=${memberName}, value=${value}`);
+        }
+    }
+
+    return enumDict;
+}
+
+interface EnumContext {
+    isEnum: boolean;
+    baseType: number;
+    enumDict?: Record<number, string>;
+}
+
+function resolveEnumContext(
+    module: NetCDF4Module,
+    ncid: number,
+    varType: number
+): EnumContext {
+    const typeClass = getTypeClass(module, ncid, varType);
+
+    if (typeClass === NC_CONSTANTS.NC_VLEN ||
+        typeClass === NC_CONSTANTS.NC_OPAQUE ||
+        typeClass === NC_CONSTANTS.NC_COMPOUND) {
+        throw new Error(`Unsupported type class: ${typeClass} (VLEN, OPAQUE, and COMPOUND not yet implemented)`);
+    }
+
+    if (typeClass !== NC_CONSTANTS.NC_ENUM) {
+        return { isEnum: false, baseType: varType };
+    }
+
+    const { result, baseType } = module.nc_inq_enum(ncid, varType);
+    if (result !== NC_CONSTANTS.NC_NOERR || baseType === undefined) {
+        throw new Error(`Failed to get enum base type (error: ${result})`);
+    }
+
+    const enumDict = buildEnumDict(module, ncid, varType, baseType);
+    return { isEnum: true, baseType, enumDict };
+}
+
+function resolveVariableType(
+    module: NetCDF4Module,
+    ncid: number,
+    varid: number
+): { nctype: number; size: number; enumCtx: EnumContext } {
+    const result = module.nc_inq_var(ncid, varid);
+    if (result.result !== NC_CONSTANTS.NC_NOERR) {
+        throw new Error(`Failed to get variable info (error: ${result.result})`);
+    }
+
+    const dimids: number[] = result.dimids ? Array.from(result.dimids) : [];
+    const size = dimids.reduce((acc, dimid) => acc * getDim(module, ncid, dimid).len, 1);
+
+    const nctype = result.type as number;
+    const enumCtx = resolveEnumContext(module, ncid, nctype);
+
+    return { nctype, size, enumCtx };
+}
+
 export function getVariableInfo(
     module: NetCDF4Module,
     ncid: number,
@@ -259,84 +415,101 @@ export function getVariableInfo(
         const result = module.nc_inq_varid(workingNcid, variable)
         varid = result.varid as number
     }
+
     const result = module.nc_inq_var(workingNcid, varid as number);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
         throw new Error(`Failed to get variable info (error: ${result.result})`);
     }
-    const typeMultiplier = DATA_TYPE_SIZE[result.type as number]
-    
-    // Dim Info - FIXED to preserve order
+
+    const varType = result.type as number;
+    const enumCtx = resolveEnumContext(module, workingNcid, varType);
+    const actualType = enumCtx.baseType;
+    const typeMultiplier = DATA_TYPE_SIZE[actualType];
+
+    // Dim Info
     const dimids = result.dimids
     const dims = []
     const shape = []
-    const dimensions: string[] = []  // Array to store dimension names in order
+    const dimensions: string[] = []
     let size = 1
-    
+
     if (dimids) {
-        // Iterate through dimids in order - this matches the shape order
         for (let i = 0; i < dimids.length; i++) {
             const dimid = dimids[i]
             const dim = getDim(module, workingNcid, dimid)
             size *= dim.len
             dims.push(dim)
             shape.push(dim.len)
-            dimensions.push(dim.name)  // Add dimension name in the same order
+            dimensions.push(dim.name)
         }
     }
-    
+
     // Attribute Info
     const attNames = []
     if (result.natts) {
         for (let i = 0; i < result.natts; i++) {
-            const attname = getAttributeName(module, workingNcid, varid as number, i)
-            attNames.push(attname)
-        } 
-    }
-    const atts: Record<string, any> = {}
-    if (attNames.length > 0) {
-        for (const attname of attNames) {
-            if (!attname) continue;
-            atts[attname] = getAttributeValues(module, workingNcid, varid as number, attname)
+            attNames.push(getAttributeName(module, workingNcid, varid as number, i))
         }
     }
-    
+    const atts: Record<string, any> = {}
+    for (const attname of attNames) {
+        if (!attname) continue;
+        atts[attname] = getAttributeValues(module, workingNcid, varid as number, attname)
+    }
+
     // Chunking Info
-    let chunks: number[];
     const chunkResult = module.nc_inq_var_chunking(workingNcid, varid as number);
     const isChunked = chunkResult.chunking === NC_CONSTANTS.NC_CHUNKED
-    if (isChunked) {
-        chunks = chunkResult.chunkSizes as number[]
-    } else {
-        chunks = shape
-    }
+    const chunks: number[] = isChunked ? chunkResult.chunkSizes as number[] : shape
     const chunkElements = chunks.reduce((a: number, b: number) => a * b, 1)
-    
-    // Output 
-    info["name"] = result.name
-    info["dtype"] = CONSTANT_DTYPE_MAP[result.type as number]
-    info['nctype'] = result.type
-    info["shape"] = shape
-    info['dims'] = dims
-    info["dimensions"] = dimensions  // Add ordered dimension names array
-    info["size"] = size
-    info["totalSize"] = size * typeMultiplier
-    info["attributes"] = atts
-    info["chunked"] = isChunked
-    info["chunks"] = chunks
-    info["chunkSize"] = chunkElements * typeMultiplier
-    
+
+    // Output
+    info["name"]        = result.name
+    info["dtype"]       = enumCtx.isEnum ? `enum(${CONSTANT_DTYPE_MAP[actualType]})` : CONSTANT_DTYPE_MAP[actualType]
+    info["dtype_base"]  = CONSTANT_DTYPE_MAP[actualType]
+    info["nctype"]      = varType
+    info["nctype_base"] = actualType
+    info["shape"]       = shape
+    info["dims"]        = dims
+    info["dimensions"]  = dimensions
+    info["size"]        = size
+    info["totalSize"]   = size * typeMultiplier
+    info["attributes"]  = atts
+    info["chunked"]     = isChunked
+    info["chunks"]      = chunks
+    info["chunkSize"]   = chunkElements * typeMultiplier
+
+    if (enumCtx.isEnum) {
+        info["enum"]     = enumCtx.enumDict
+        info["enumType"] = { name: result.name, baseType: actualType }
+    }
+
     return info;
+}
+
+// Helper function to convert enum values to names
+function convertEnumValuesToNames(
+    data: any,
+    enumDict: Record<number, string>
+): string[] {
+    const enumNames: string[] = [];
+    for (let i = 0; i < data.length; i++) {
+        const value = data[i];
+        const numValue = typeof value === 'bigint' ? Number(value) : Number(value);
+        enumNames.push(enumDict[numValue] ?? `Unknown(${numValue})`);
+    }
+    return enumNames;
 }
 
 export function getVariableArray(
     module: NetCDF4Module,
     ncid: number,
     variable: number | string,
-    groupPath?: string
+    groupPath?: string,
+    options?: { convertEnumsToNames?: boolean }
 ): Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array | string[] {
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
-    
-    // Resolve variable id
+
     let varid: number;
     if (typeof variable === "number") {
         varid = variable;
@@ -348,47 +521,42 @@ export function getVariableArray(
         varid = result.varid as number;
     }
 
-    const info = getVariableInfo(module, workingNcid, varid);
-    const arrayType = info.nctype;
-    const arraySize = info.size;
-
-    if (arrayType === undefined || arrayType === null) {
-        throw new Error("Failed to determine variable type");
-    }
-
-    if (arraySize === undefined || arraySize === null) {
-        throw new Error("Failed to determine variable size");
-    }
+    
+    const { size: arraySize, enumCtx } = resolveVariableType(module, workingNcid, varid);
+    const arrayType = enumCtx.baseType;
 
     type VarArgs = [number, number, number];
     type VarResult = { result: number; data?: any };
 
-    // Arrow wrappers = safe binding
     const readers: Record<number, (...args: VarArgs) => VarResult> = {
-        [NC_CONSTANTS.NC_CHAR]:     (...args) => module.nc_get_var_text(...args),
-        [NC_CONSTANTS.NC_SHORT]:    (...args) => module.nc_get_var_short(...args),
-        [NC_CONSTANTS.NC_INT]:      (...args) => module.nc_get_var_int(...args),
-        [NC_CONSTANTS.NC_FLOAT]:    (...args) => module.nc_get_var_float(...args),
-        [NC_CONSTANTS.NC_DOUBLE]:   (...args) => module.nc_get_var_double(...args),
-        [NC_CONSTANTS.NC_LONGLONG]: (...args) => module.nc_get_var_longlong(...args),
-        [NC_CONSTANTS.NC_BYTE]:     (...args) => module.nc_get_var_schar(...args),
-        [NC_CONSTANTS.NC_UBYTE]:    (...args) => module.nc_get_var_uchar(...args),
-        [NC_CONSTANTS.NC_USHORT]:   (...args) => module.nc_get_var_ushort(...args),
-        [NC_CONSTANTS.NC_UINT]:     (...args) => module.nc_get_var_uint(...args),
-        [NC_CONSTANTS.NC_INT64]:    (...args) => module.nc_get_var_longlong(...args),
-        [NC_CONSTANTS.NC_UINT64]:   (...args) => module.nc_get_var_ulonglong(...args),
-        [NC_CONSTANTS.NC_STRING]:   (...args) => module.nc_get_var_string(...args),
+        [NC_CONSTANTS.NC_CHAR]:      (...args) => module.nc_get_var_text(...args),
+        [NC_CONSTANTS.NC_BYTE]:      (...args) => module.nc_get_var_schar(...args),
+        [NC_CONSTANTS.NC_UBYTE]:     (...args) => module.nc_get_var_uchar(...args),
+        [NC_CONSTANTS.NC_SHORT]:     (...args) => module.nc_get_var_short(...args),
+        [NC_CONSTANTS.NC_USHORT]:    (...args) => module.nc_get_var_ushort(...args),
+        [NC_CONSTANTS.NC_INT]:       (...args) => module.nc_get_var_int(...args),
+        [NC_CONSTANTS.NC_UINT]:      (...args) => module.nc_get_var_uint(...args),
+        [NC_CONSTANTS.NC_FLOAT]:     (...args) => module.nc_get_var_float(...args),
+        [NC_CONSTANTS.NC_DOUBLE]:    (...args) => module.nc_get_var_double(...args),
+        [NC_CONSTANTS.NC_INT64]:     (...args) => module.nc_get_var_longlong(...args),
+        [NC_CONSTANTS.NC_LONGLONG]:  (...args) => module.nc_get_var_longlong(...args),
+        [NC_CONSTANTS.NC_UINT64]:    (...args) => module.nc_get_var_ulonglong(...args),
+        [NC_CONSTANTS.NC_ULONGLONG]: (...args) => module.nc_get_var_ulonglong(...args),
+        [NC_CONSTANTS.NC_STRING]:    (...args) => module.nc_get_var_string(...args),
     };
-
-    const reader = readers[arrayType];
 
     let arrayData: VarResult;
 
-    if (!reader) {
-        console.warn(`Unknown NetCDF type ${arrayType}, falling back to double`);
-        arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+    if (enumCtx.isEnum) {
+        arrayData = module.nc_get_var_generic(workingNcid, varid, arraySize, arrayType);
     } else {
-        arrayData = reader(workingNcid, varid, arraySize);
+        const reader = readers[arrayType];
+        if (!reader) {
+            console.warn(`Unknown NetCDF type ${arrayType}, falling back to double`);
+            arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
+        } else {
+            arrayData = reader(workingNcid, varid, arraySize);
+        }
     }
 
     if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
@@ -396,8 +564,11 @@ export function getVariableArray(
     }
 
     if (!arrayData.data) {
-        console.error("nc_get_var result:", arrayData);
         throw new Error("nc_get_var returned no data");
+    }
+
+    if (enumCtx.isEnum && options?.convertEnumsToNames && enumCtx.enumDict) {
+        return convertEnumValuesToNames(arrayData.data, enumCtx.enumDict);
     }
 
     return arrayData.data;
@@ -409,12 +580,11 @@ export function getSlicedVariableArray(
     variable: number | string,
     start: number[],
     count: number[],
-    groupPath?: string
+    groupPath?: string,
+    options?: { convertEnumsToNames?: boolean }
 ): Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array | string[] {
-
     const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
 
-    // Resolve variable id
     let varid: number;
     if (typeof variable === "number") {
         varid = variable;
@@ -426,40 +596,38 @@ export function getSlicedVariableArray(
         varid = result.varid as number;
     }
 
-    const info = getVariableInfo(module, workingNcid, varid);
-    const arrayType = info.nctype;
-
-    if (arrayType === undefined || arrayType === null) {
-        throw new Error("Failed to determine variable type");
-    }
+    const { enumCtx } = resolveVariableType(module, workingNcid, varid);
+    const arrayType = enumCtx.baseType; 
 
     type VaraArgs = [number, number, number[], number[]];
     type VaraResult = { result: number; data?: any };
 
-    // Arrow wrappers keep module binding intact
     const readers: Record<number, (...args: VaraArgs) => VaraResult> = {
-        [NC_CONSTANTS.NC_SHORT]:  (...args) => module.nc_get_vara_short(...args),
-        [NC_CONSTANTS.NC_INT]:    (...args) => module.nc_get_vara_int(...args),
-        [NC_CONSTANTS.NC_FLOAT]:  (...args) => module.nc_get_vara_float(...args),
-        [NC_CONSTANTS.NC_DOUBLE]: (...args) => module.nc_get_vara_double(...args),
         [NC_CONSTANTS.NC_BYTE]:   (...args) => module.nc_get_vara_schar(...args),
         [NC_CONSTANTS.NC_UBYTE]:  (...args) => module.nc_get_vara_uchar(...args),
+        [NC_CONSTANTS.NC_SHORT]:  (...args) => module.nc_get_vara_short(...args),
         [NC_CONSTANTS.NC_USHORT]: (...args) => module.nc_get_vara_ushort(...args),
+        [NC_CONSTANTS.NC_INT]:    (...args) => module.nc_get_vara_int(...args),
         [NC_CONSTANTS.NC_UINT]:   (...args) => module.nc_get_vara_uint(...args),
+        [NC_CONSTANTS.NC_FLOAT]:  (...args) => module.nc_get_vara_float(...args),
+        [NC_CONSTANTS.NC_DOUBLE]: (...args) => module.nc_get_vara_double(...args),
         [NC_CONSTANTS.NC_INT64]:  (...args) => module.nc_get_vara_longlong(...args),
         [NC_CONSTANTS.NC_UINT64]: (...args) => module.nc_get_vara_ulonglong(...args),
         [NC_CONSTANTS.NC_STRING]: (...args) => module.nc_get_vara_string(...args),
     };
 
-    const reader = readers[arrayType];
-
     let arrayData: VaraResult;
 
-    if (!reader) {
-        console.warn(`Unknown NetCDF type ${arrayType}, falling back to double`);
-        arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+    if (enumCtx.isEnum) {
+        arrayData = module.nc_get_vara_generic(workingNcid, varid, start, count, arrayType);
     } else {
-        arrayData = reader(workingNcid, varid, start, count);
+        const reader = readers[arrayType];
+        if (!reader) {
+            console.warn(`Unknown NetCDF type ${arrayType}, falling back to double`);
+            arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+        } else {
+            arrayData = reader(workingNcid, varid, start, count);
+        }
     }
 
     if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
@@ -467,8 +635,11 @@ export function getSlicedVariableArray(
     }
 
     if (!arrayData.data) {
-        console.error("nc_get_vara result:", arrayData);
-        throw new Error("Failed to read array data - no data returned");
+        throw new Error("nc_get_vara returned no data");
+    }
+
+    if (enumCtx.isEnum && options?.convertEnumsToNames && enumCtx.enumDict) {
+        return convertEnumValuesToNames(arrayData.data, enumCtx.enumDict);
     }
 
     return arrayData.data;

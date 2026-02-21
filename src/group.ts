@@ -59,17 +59,14 @@ export class Group {
         if (this.dimensions[name]) {
             throw new Error(`Dimension '${name}' already exists`);
         }
-        
         // Check for invalid size values
-        if (size !== null && size < 0 && size !== NC_CONSTANTS.NC_UNLIMITED) {
+        if (size !== null && size < 0) {
             throw new Error(`Invalid dimension size: ${size}. Size must be non-negative or null for unlimited.`);
         }
-        
-        // Handle unlimited dimension (null or NC_UNLIMITED constant)
-        const isUnlimited = size === null || size === NC_CONSTANTS.NC_UNLIMITED;
+        // Handle unlimited dimension (null only — size=0 is a valid finite dimension)
+        const isUnlimited = size === null;
         const ncSize = isUnlimited ? 0 : size as number; // Use 0 for unlimited in the actual NetCDF API
         const dimid = await this.netcdf.defineDimension(this.groupId, name, ncSize);
-        
         const actualSize = isUnlimited ? NC_CONSTANTS.NC_UNLIMITED : size as number;
         const dimension = new Dimension(name, actualSize, isUnlimited);
         this.dimensions[name] = dimension;
