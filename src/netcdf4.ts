@@ -127,27 +127,19 @@ export class NetCDF4 extends Group {
         const baseName = `netcdf_lazy_${Date.now()}.nc`;
         const fullPath = `${mountPoint}/${baseName}`;
         
-        console.log('fromBlobLazy: Creating dataset with path:', fullPath);
-
         const dataset = new NetCDF4(fullPath, 'r', options);
         // Store the raw blob. The worker will mount it via WORKERFS
         dataset.workerSource = { blob, filename: fullPath }; 
         await dataset.initialize();
-
-        console.log('fromBlobLazy: Initialization complete, calling open()');
     
         // After worker is set up, open the file
         await dataset.open();
-
-        console.log('fromBlobLazy: Open complete, ncid:', dataset.ncid);
 
         return dataset;
     }
 
     private async open(): Promise<void> {
         if (this._isOpen) return;
-
-        console.log('open() called, filename:', this.filename, 'worker:', !!this.worker);
 
         if (!this.filename || this.filename.trim() === '') {
             throw new Error('No filename specified');
@@ -161,17 +153,12 @@ export class NetCDF4 extends Group {
 
         // Worker path
         if (this.worker) {
-            console.log('open(): Using worker path, waiting for workerReady');
             // Wait for worker to be ready first
             await this.workerReady;
             
-            console.log('open(): Worker ready, calling nc_open with path:', this.filename);
-
             const modeValue = this.mode === 'r' ? NC_CONSTANTS.NC_NOWRITE : NC_CONSTANTS.NC_WRITE;
             this.ncid = await this.callWorker('open', { path: this.filename, modeValue });
             
-            console.log('open(): Received ncid from worker:', this.ncid);
-
             (this as any).groupId = this.ncid;
             this._isOpen = true;
             

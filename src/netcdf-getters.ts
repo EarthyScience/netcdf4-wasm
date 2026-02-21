@@ -301,25 +301,19 @@ export function getTypeClass(
     ncid: number,
     xtype: number
 ): number {
-    console.log('[getTypeClass] xtype:', xtype);
     
     // Atomic types return themselves as the class
     if (xtype < 13) { // Below NC_VLEN
-        console.log('[getTypeClass] Atomic type, returning:', xtype);
         return xtype;
     }
     
     // For user-defined types, query the class
-    console.log('[getTypeClass] User-defined type, querying...');
     const { result, typeClass } = module.nc_inq_user_type(ncid, xtype);
-    console.log('[getTypeClass] nc_inq_user_type result:', result, 'typeClass:', typeClass);
     
     if (result === NC_CONSTANTS.NC_NOERR && typeClass !== undefined) {
-        console.log('[getTypeClass] Returning typeClass:', typeClass);
         return typeClass;
     }
     
-    console.log('[getTypeClass] Fallback, returning xtype:', xtype);
     return xtype;
 }
 
@@ -329,51 +323,28 @@ function buildEnumDict(
     enumTypeId: number,
     enumBaseType: number
 ): Record<number, string> {
-    console.log('[buildEnumDict] Starting...');
-    console.log('[buildEnumDict] ncid:', ncid);
-    console.log('[buildEnumDict] enumTypeId:', enumTypeId);
-    console.log('[buildEnumDict] enumBaseType:', enumBaseType);
-    console.log('[buildEnumDict] NC_CONSTANTS.NC_NOERR:', NC_CONSTANTS.NC_NOERR);
-    
-    const enumInqResult = module.nc_inq_enum(ncid, enumTypeId);
-    console.log('[buildEnumDict] nc_inq_enum raw result:', enumInqResult);
-    
+
+    const enumInqResult = module.nc_inq_enum(ncid, enumTypeId);    
     const { result: enumResult, numMembers } = enumInqResult;
-    console.log('[buildEnumDict] enumResult:', enumResult);
-    console.log('[buildEnumDict] numMembers:', numMembers);
-    console.log('[buildEnumDict] enumResult === NC_CONSTANTS.NC_NOERR:', enumResult === NC_CONSTANTS.NC_NOERR);
-    console.log('[buildEnumDict] numMembers === undefined:', numMembers === undefined);
-    
+
     if (enumResult !== NC_CONSTANTS.NC_NOERR || numMembers === undefined) {
-        console.error('[buildEnumDict] Failed! enumResult:', enumResult, 'numMembers:', numMembers);
         throw new Error(`Failed to get enum info (error: ${enumResult})`);
     }
-    
-    console.log('[buildEnumDict] Building dict with', numMembers, 'members...');
-    
+        
     const enumDict: Record<number, string> = {};
     for (let i = 0; i < numMembers; i++) {
-        console.log(`[buildEnumDict] Getting member ${i}...`);
         
-        const memberResult = module.nc_inq_enum_member(ncid, enumTypeId, i, enumBaseType);
-        console.log(`[buildEnumDict] Member ${i} raw result:`, memberResult);
-        
+        const memberResult = module.nc_inq_enum_member(ncid, enumTypeId, i, enumBaseType);        
         const { result: memberResultCode, name: memberName, value } = memberResult;
-        console.log(`[buildEnumDict] Member ${i}: result=${memberResultCode}, name=${memberName}, value=${value}`);
         
         if (memberResultCode === NC_CONSTANTS.NC_NOERR && memberName !== undefined && value !== undefined) {
             const numValue = typeof value === 'bigint' ? Number(value) : value;
-            console.log(`[buildEnumDict] Adding to dict: ${numValue} => ${memberName}`);
             enumDict[numValue] = memberName;
         } else {
             console.warn(`[buildEnumDict] Skipping member ${i}: result=${memberResultCode}, name=${memberName}, value=${value}`);
         }
     }
-    
-    console.log('[buildEnumDict] Final enumDict:', enumDict);
-    console.log('[buildEnumDict] Dict keys:', Object.keys(enumDict));
-    console.log('[buildEnumDict] Dict values:', Object.values(enumDict));
-    
+
     return enumDict;
 }
 

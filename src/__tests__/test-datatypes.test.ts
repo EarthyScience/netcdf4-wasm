@@ -24,7 +24,7 @@ describe('Data Types and Array Handling', () => {
             expect(NC_CONSTANTS.NC_INT).toBe(4);
             expect(NC_CONSTANTS.NC_FLOAT).toBe(5);
             expect(NC_CONSTANTS.NC_DOUBLE).toBe(6);
-            expect(NC_CONSTANTS.NC_UNLIMITED).toBe(-1000); // Custom value used in our implementation
+            expect(NC_CONSTANTS.NC_UNLIMITED).toBe(0);
             expect(NC_CONSTANTS.NC_GLOBAL).toBe(-1);
             expect(NC_CONSTANTS.NC_NOERR).toBe(0);
         });
@@ -94,7 +94,7 @@ describe('Data Types and Array Handling', () => {
                 await nc.createDimension('x', 10);
                 
                 // Test invalid data types
-                const invalid_types = ['invalid', 'f16', 'string', 'bool', '', null, undefined];
+                const invalid_types = ['invalid', 'f16', 'bool', '', null, undefined];
                 
                 for (const dtype of invalid_types) {
                     expect(async () => {

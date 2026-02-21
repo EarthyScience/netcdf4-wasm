@@ -74,8 +74,8 @@ describe('Dimension Tests', () => {
                 expect(time.size).toBe(NC_CONSTANTS.NC_UNLIMITED);
                 expect(time.isUnlimited).toBe(true);
                 
-                // Create unlimited dimension using NC_UNLIMITED constant
-                const record = await nc.createDimension('record', NC_CONSTANTS.NC_UNLIMITED);
+                // Create unlimited dimension using null
+                const record = await nc.createDimension('record', null);
                 
                 expect(record.isUnlimited).toBe(true);
                 expect(record.size).toBe(NC_CONSTANTS.NC_UNLIMITED);
