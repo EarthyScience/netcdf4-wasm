@@ -50,6 +50,12 @@ To start developing `netcdf4-wasm`:
    npm test
 ```
 
+and to build and synchronize with the **demo** do
+
+```bash
+   npm run build-and-sync
+```
+
 ### Project Structure
 
 Understanding the project structure will help you navigate the codebase:
@@ -118,6 +124,9 @@ npm install
 
 # Build the entire project (WASM + TypeScript)
 npm run build
+
+# Build and synchronize the demo
+npm run build-and-sync
 
 # Build only the WASM module
 npm run build:wasm
