@@ -35,9 +35,10 @@
 npm install @earthyscience/netcdf4-wasm
 ```
 
-### Reading Files
+## Quick Start
+
 ```typescript
-import { NetCDF4 } from '@earthyscience/netcdf4-wasm';
+import { NetCDF4, DataTree } from '@earthyscience/netcdf4-wasm';
 
 // Open existing file
 const ds = await NetCDF4.fromBlobLazy(file);
