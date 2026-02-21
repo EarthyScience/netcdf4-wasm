@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.1] - 2026-02-21
+
+- Added support for EnumTypes. [#46](https://github.com/EarthyScience/netcdf4-wasm/pull/46)
+
 ## [0.2.0] - 2026-02-15
 - Added support for NetCDF groups, enabling hierarchical data organization.
 - Introduced the DataTree class to explore the complete dataset structure.

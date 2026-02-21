@@ -37,45 +37,18 @@ npm install @earthyscience/netcdf4-wasm
 
 ## Quick Start
 
-### Reading Files
 ```typescript
-import { NetCDF4 } from '@earthyscience/netcdf4-wasm';
+import { NetCDF4, DataTree } from '@earthyscience/netcdf4-wasm';
 
 // Open existing file
 const ds = await NetCDF4.fromBlobLazy(file);
-
-// Access dimensions
-// TODO: Add example
-
-// Read variables
-// TODO: Add example
-
-// Close when done
-ds.close();
-```
-
-### Working with Groups
-```typescript
-// Access groups
-// TODO: Add example
-```
-
-### Writing Files
-```typescript
-import { NetCDF4 } from '@earthyscience/netcdf4-wasm';
-
-// Create a new NetCDF file
-// TODO: Add example
+const dt = new DataTree(ds);
+await dt.buildTree();
 ```
 
 ## API Reference
 
 The API closely follows [netcdf4-python](https://unidata.github.io/netcdf4-python) conventions, making it intuitive for scientists familiar with Python.
-
-**Core Classes:**
-- `NetCDF4` - Main file interface
-- 
-
 
 ## Advanced Usage
 
