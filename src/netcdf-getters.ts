@@ -408,6 +408,25 @@ function resolveEnumContext(
     return { isEnum: true, baseType, enumDict };
 }
 
+function resolveVariableType(
+    module: NetCDF4Module,
+    ncid: number,
+    varid: number
+): { nctype: number; size: number; enumCtx: EnumContext } {
+    const result = module.nc_inq_var(ncid, varid);
+    if (result.result !== NC_CONSTANTS.NC_NOERR) {
+        throw new Error(`Failed to get variable info (error: ${result.result})`);
+    }
+
+    const dimids: number[] = result.dimids ? Array.from(result.dimids) : [];
+    const size = dimids.reduce((acc, dimid) => acc * getDim(module, ncid, dimid).len, 1);
+
+    const nctype = result.type as number;
+    const enumCtx = resolveEnumContext(module, ncid, nctype);
+
+    return { nctype, size, enumCtx };
+}
+
 export function getVariableInfo(
     module: NetCDF4Module,
     ncid: number,
@@ -528,10 +547,9 @@ export function getVariableArray(
         varid = result.varid as number;
     }
 
-    const info = getVariableInfo(module, workingNcid, varid);
-    const enumCtx = resolveEnumContext(module, workingNcid, info.nctype);
+    
+    const { size: arraySize, enumCtx } = resolveVariableType(module, workingNcid, varid);
     const arrayType = enumCtx.baseType;
-    const arraySize = info.size;
 
     type VarArgs = [number, number, number];
     type VarResult = { result: number; data?: any };
@@ -604,9 +622,8 @@ export function getSlicedVariableArray(
         varid = result.varid as number;
     }
 
-    const info = getVariableInfo(module, workingNcid, varid);
-    const enumCtx = resolveEnumContext(module, workingNcid, info.nctype);
-    const arrayType = enumCtx.baseType;
+    const { enumCtx } = resolveVariableType(module, workingNcid, varid);
+    const arrayType = enumCtx.baseType; 
 
     type VaraArgs = [number, number, number[], number[]];
     type VaraResult = { result: number; data?: any };
