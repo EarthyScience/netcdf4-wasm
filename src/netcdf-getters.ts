@@ -338,6 +338,8 @@ function buildEnumDict(
         const { result: memberResultCode, name: memberName, value } = memberResult;
         
         if (memberResultCode === NC_CONSTANTS.NC_NOERR && memberName !== undefined && value !== undefined) {
+            // Note: bigint values exceeding Number.MAX_SAFE_INTEGER will lose precision.
+            // In practice enum values are small named constants so this is acceptable.
             const numValue = typeof value === 'bigint' ? Number(value) : value;
             enumDict[numValue] = memberName;
         } else {
