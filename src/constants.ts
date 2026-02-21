@@ -1,4 +1,6 @@
 // NetCDF4 constants (populated from NetCDF4 headers)
+// see: https://github.com/Unidata/netcdf-c/blob/main/include/netcdf.h
+// https://docs.unidata.ucar.edu/netcdf-c/current/nc-error-codes.html
 export const NC_CONSTANTS = {
     // Error codes
     NC_NOERR: 0,
@@ -35,7 +37,7 @@ export const NC_CONSTANTS = {
     NC_EDIMSIZE: -63,
     NC_ETRUNC: -64,
     NC_EAXISTYPE: -65,
-    
+
     // NetCDF-4 error codes
     NC_EDAP: -66,
     NC_ECURL: -67,
@@ -52,6 +54,8 @@ export const NC_CONSTANTS = {
     NC_EAUTH: -78,
     NC_ENOTFOUND: -90,
     NC_ECANTREMOVE: -91,
+    NC_EINTERNAL: -92,   // internal library error
+    NC_EPNETCDF: -93,    // PnetCDF error
     NC_EHDFERR: -101,
     NC_ECANTREAD: -102,
     NC_ECANTWRITE: -103,
@@ -83,14 +87,14 @@ export const NC_CONSTANTS = {
     NC_EDISKLESS: -129,
     NC_ECANTEXTEND: -130,
     NC_EMPI: -131,
-    
+
     // File modes
     NC_NOWRITE: 0x0000,
     NC_WRITE: 0x0001,
     NC_CLOBBER: 0x0000,
     NC_NOCLOBBER: 0x0004,
     NC_DISKLESS: 0x0008,
-    NC_MMAP: 0x0010,
+    NC_MMAP: 0x0010,       // deprecated
     NC_64BIT_DATA: 0x0020,
     NC_CDF5: 0x0020,
     NC_CLASSIC_MODEL: 0x0100,
@@ -98,7 +102,7 @@ export const NC_CONSTANTS = {
     NC_NETCDF4: 0x1000,
     NC_SHARE: 0x0800,
     NC_INMEMORY: 0x8000,
-    
+
     // Format versions
     NC_FORMAT_CLASSIC: 1,
     NC_FORMAT_64BIT_OFFSET: 2,
@@ -107,7 +111,7 @@ export const NC_CONSTANTS = {
     NC_FORMAT_NETCDF4_CLASSIC: 4,
     NC_FORMAT_64BIT_DATA: 5,
     NC_FORMAT_CDF5: 5,
-    
+
     // Data types (atomic types)
     NC_NAT: 0,         // Not A Type
     NC_BYTE: 1,        // signed 1-byte integer
@@ -123,38 +127,38 @@ export const NC_CONSTANTS = {
     NC_INT64: 10,      // signed 8-byte integer
     NC_UINT64: 11,     // unsigned 8-byte integer
     NC_STRING: 12,     // variable-length string
-    
+
     // Aliases for 64-bit integers
     NC_LONGLONG: 10,   // alias for NC_INT64
     NC_ULONGLONG: 11,  // alias for NC_UINT64
-    
+
     // User-defined types (NetCDF-4)
     NC_VLEN: 13,       // variable-length type
     NC_OPAQUE: 14,     // opaque type
     NC_ENUM: 15,       // enumeration type
     NC_COMPOUND: 16,   // compound type
-    
+
     // First user-defined type ID
     NC_FIRSTUSERTYPEID: 32,
-    
+
     // Fill modes
     NC_FILL: 0,
     NC_NOFILL: 0x100,
-    
+
     // Storage types
     NC_CHUNKED: 0,
     NC_CONTIGUOUS: 1,
     NC_COMPACT: 2,
     NC_VIRTUAL: 3,
-    
+
     // Endianness
     NC_ENDIAN_NATIVE: 0,
     NC_ENDIAN_LITTLE: 1,
     NC_ENDIAN_BIG: 2,
-    
+
     // Unlimited dimension
     NC_UNLIMITED: 0,
-    
+
     // Special values
     NC_GLOBAL: -1,     // Global attribute
     NC_MAX_DIMS: 1024,
@@ -162,11 +166,11 @@ export const NC_CONSTANTS = {
     NC_MAX_VARS: 8192,
     NC_MAX_NAME: 256,
     NC_MAX_VAR_DIMS: 1024,
-    
+
     // Compression
     NC_NOCHECKSUM: 0,
     NC_FLETCHER32: 1,
-    
+
     // Shuffle filter
     NC_NOSHUFFLE: 0,
     NC_SHUFFLE: 1,
@@ -186,7 +190,7 @@ export const DATA_TYPE_MAP: { [key: string]: number } = {
     'u2': NC_CONSTANTS.NC_USHORT,
     'u1': NC_CONSTANTS.NC_UBYTE,
     'S1': NC_CONSTANTS.NC_CHAR,
-    
+
     // Long names
     'double': NC_CONSTANTS.NC_DOUBLE,
     'float': NC_CONSTANTS.NC_FLOAT,
@@ -201,7 +205,7 @@ export const DATA_TYPE_MAP: { [key: string]: number } = {
     'char': NC_CONSTANTS.NC_CHAR,
     'string': NC_CONSTANTS.NC_STRING,
     'str': NC_CONSTANTS.NC_STRING,
-    
+
     // Aliases
     'longlong': NC_CONSTANTS.NC_LONGLONG,
     'ulonglong': NC_CONSTANTS.NC_ULONGLONG,
