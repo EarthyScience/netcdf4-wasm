@@ -119,6 +119,22 @@ export interface NetCDF4Module extends EmscriptenModule {
     nc_get_vara_ulonglong: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: BigUint64Array };
     nc_get_vara_string: (ncid: number, varid: number, startp: number[], countp: number[]) => { result: number; data?: string[] };
 
+
+    // Strided Variable Getters (nc_get_vars_*)
+    // stride[i] = step along dimension i (must be >= 1; negatives handled at higher level)
+    nc_get_vars_schar:     (ncid: number, varid: number, startp: number[], countp: number[], stridep: number[]) => { result: number; data?: Int8Array };
+    nc_get_vars_uchar:     (ncid: number, varid: number, startp: number[], countp: number[], stridep: number[]) => { result: number; data?: Uint8Array };
+    nc_get_vars_short:     (ncid: number, varid: number, startp: number[], countp: number[], stridep: number[]) => { result: number; data?: Int16Array };
+    nc_get_vars_ushort:    (ncid: number, varid: number, startp: number[], countp: number[], stridep: number[]) => { result: number; data?: Uint16Array };
+    nc_get_vars_int:       (ncid: number, varid: number, startp: number[], countp: number[], stridep: number[]) => { result: number; data?: Int32Array };
+    nc_get_vars_uint:      (ncid: number, varid: number, startp: number[], countp: number[], stridep: number[]) => { result: number; data?: Uint32Array };
+    nc_get_vars_float:     (ncid: number, varid: number, startp: number[], countp: number[], stridep: number[]) => { result: number; data?: Float32Array };
+    nc_get_vars_double:    (ncid: number, varid: number, startp: number[], countp: number[], stridep: number[]) => { result: number; data?: Float64Array };
+    nc_get_vars_longlong:  (ncid: number, varid: number, startp: number[], countp: number[], stridep: number[]) => { result: number; data?: BigInt64Array };
+    nc_get_vars_ulonglong: (ncid: number, varid: number, startp: number[], countp: number[], stridep: number[]) => { result: number; data?: BigUint64Array };
+    nc_get_vars_string:    (ncid: number, varid: number, startp: number[], countp: number[], stridep: number[]) => { result: number; data?: string[] };
+    nc_get_vars_generic:   (ncid: number, varid: number, startp: number[], countp: number[], stridep: number[], nctype: number) => { result: number; data?: Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | BigInt64Array | BigUint64Array };
+
     // group types and functions
     nc_inq_grps: (ncid: number) => { result: number; numgrps?: number; grpids?: Int32Array };
     nc_inq_grp_ncid: (ncid: number, grp_name: string) => { result: number; grp_ncid?: number };

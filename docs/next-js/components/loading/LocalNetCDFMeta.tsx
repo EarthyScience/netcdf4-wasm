@@ -30,6 +30,11 @@ import {
 } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
 import { NetCDF4, DataTree, GroupNode } from '@earthyscience/netcdf4-wasm';
+import SliceTesterSection, {
+  SliceSelectionState,
+  defaultSelection,
+  buildSelection,
+} from './SliceTester';
 
 const NETCDF_EXT_REGEX = /\.(nc|netcdf|nc3|nc4)$/i;
 
@@ -68,9 +73,62 @@ const LocalNetCDFMeta = () => {
   const [showVariableMenu, setShowVariableMenu] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['/']));
 
-  // ---------------------------------------------------------------------------
+  // ── Slice tester state ─────────────────────────────────────────────────────
+  const [expandedSliceTester, setExpandedSliceTester] = useState(false);
+  const [sliceSelections, setSliceSelections] = useState<SliceSelectionState[]>([]);
+  const [sliceResult, setSliceResult] = useState<any>(null);
+  const [sliceError, setSliceError] = useState<string | null>(null);
+  const [loadingSlice, setLoadingSlice] = useState(false);
+
+  // Reset slice tester when selected variable changes
+  useEffect(() => {
+    setSliceResult(null);
+    setSliceError(null);
+    setExpandedSliceTester(false);
+    if (selectedVariable && variables[selectedVariable]?.info?.shape) {
+      setSliceSelections(
+        (variables[selectedVariable].info.shape as any[]).map(() => defaultSelection())
+      );
+    } else {
+      setSliceSelections([]);
+    }
+  }, [selectedVariable]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Init slice selections when info first loads for the selected variable
+  useEffect(() => {
+    if (
+      selectedVariable &&
+      variables[selectedVariable]?.info?.shape &&
+      sliceSelections.length === 0
+    ) {
+      setSliceSelections(
+        (variables[selectedVariable].info.shape as any[]).map(() => defaultSelection())
+      );
+    }
+  }, [variables, selectedVariable]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const runSliceTest = useCallback(async () => {
+    if (!dataset || !selectedVariable) return;
+    setLoadingSlice(true);
+    setSliceError(null);
+    setSliceResult(null);
+    try {
+      const info = variables[selectedVariable].info;
+      const selection = buildSelection(sliceSelections, info.shape);
+      const data = await dataset.get(
+        selectedVariable,
+        selection,
+        currentGroupPath === '/' ? undefined : currentGroupPath
+      );
+      setSliceResult(data);
+    } catch (e: any) {
+      setSliceError(e?.message ?? String(e));
+    } finally {
+      setLoadingSlice(false);
+    }
+  }, [dataset, selectedVariable, variables, sliceSelections, currentGroupPath]);
+
   // Helpers wrapped in useCallback
-  // ---------------------------------------------------------------------------
   
   const refreshGroup = useCallback((path: string, dataTree: DataTree) => {
     setCurrentGroupPath(path);
@@ -139,7 +197,6 @@ const LocalNetCDFMeta = () => {
         // Create start and count arrays
         const start = new Array(shape.length).fill(0);
         const count = [...shape];
-        // Slice along the first dimension
         count[0] = Math.min(actualSize, shape[0]);
         const data = await dataset.getSlicedVariableArray(
           varName,
@@ -186,24 +243,18 @@ const LocalNetCDFMeta = () => {
       setError('Please enter a URL.');
       return false;
     }
-    
-    // Check for common protocols
     const validProtocols = ['http://', 'https://', 's3://', 'gs://', 'ftp://'];
     const hasValidProtocol = validProtocols.some(protocol => 
       urlString.toLowerCase().startsWith(protocol)
     );
-    
     if (!hasValidProtocol) {
       setError('URL must start with a valid protocol (http://, https://, s3://, gs://, or ftp://)');
       return false;
     }
-    
-    // Check if URL ends with NetCDF extension
     if (!NETCDF_EXT_REGEX.test(urlString)) {
       setError('URL should point to a NetCDF file (.nc, .netcdf, .nc3, .nc4)');
       return false;
     }
-    
     return true;
   };
 
@@ -211,24 +262,18 @@ const LocalNetCDFMeta = () => {
     setError(null);
     const files = event.target.files;
     if (!files || files.length === 0) return;
-
     const file = files[0];
-
     if (!NETCDF_EXT_REGEX.test(file.name)) {
       setError('Please select a valid NetCDF file.');
       return;
     }
-
     try {
       setIsLoading(true);
-
       const ds = await NetCDF4.fromBlobLazy(file);
       const dt = new DataTree(ds);
       await dt.buildTree();
-
       setDataset(ds);
       setTree(dt);
-
       refreshGroup('/', dt);
     } catch (err) {
       console.error(err);
@@ -240,22 +285,14 @@ const LocalNetCDFMeta = () => {
 
   const handleUrlFetch = async () => {
     setError(null);
-
-    if (!validateUrl(url)) {
-      return;
-    }
-
+    if (!validateUrl(url)) return;
     try {
       setIsLoading(true);
-      // const urlTry = await NetCDF4.Dataset("s3://its-live-data/test-space/sample-data/sst.mnmean.nc")
-      // console.log(urlTry)
       const ds = await NetCDF4.Dataset(url);
       const dt = new DataTree(ds);
       await dt.buildTree();
-
       setDataset(ds);
       setTree(dt);
-
       refreshGroup('/', dt);
     } catch (err) {
       console.error(err);
@@ -272,12 +309,9 @@ const LocalNetCDFMeta = () => {
   const selectGroup = (path: string) => {
     if (!tree) return;
     refreshGroup(path, tree);
-    // Open the group menu and close the variable menu
     setShowGroupMenu(true);
     setShowVariableMenu(false);
-    // Expand the selected group and all its parents
     const newExpanded = new Set(expandedGroups);
-    // Add all parent paths
     const parts = path.split('/').filter(Boolean);
     let currentPath = '/';
     newExpanded.add(currentPath);
@@ -299,8 +333,6 @@ const LocalNetCDFMeta = () => {
       setShowSearchResults(false);
       return;
     }
-
-    // Show partial matches while typing
     if (tree) {
       const results = tree.searchVariables(value);
       setSearchResults(results);
@@ -414,10 +446,7 @@ const LocalNetCDFMeta = () => {
                         size="sm" 
                         onClick={() => {
                           setShowVariableMenu(!showVariableMenu);
-                          // Close group menu when opening variable menu
-                          if (!showVariableMenu) {
-                            setShowGroupMenu(false);
-                          }
+                          if (!showVariableMenu) setShowGroupMenu(false);
                         }}
                         className="cursor-pointer flex-shrink-0"
                       >
@@ -435,8 +464,7 @@ const LocalNetCDFMeta = () => {
                       <p>Variables in current group</p>
                     </TooltipContent>
                   </Tooltip>
-                )
-                }
+                )}
 
                 {/* Search */}
                 <div className="flex gap-1 flex-1 min-w-[180px] sm:min-w-[200px] relative">
@@ -476,12 +504,8 @@ const LocalNetCDFMeta = () => {
                                 <div className="flex items-start gap-2">
                                   <FileText className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
                                   <div className="flex-1 min-w-0">
-                                    <div className="font-mono text-sm break-all">
-                                      {result.name}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground mt-0.5 break-all">
-                                      {result.groupPath}
-                                    </div>
+                                    <div className="font-mono text-sm break-all">{result.name}</div>
+                                    <div className="text-xs text-muted-foreground mt-0.5 break-all">{result.groupPath}</div>
                                   </div>
                                 </div>
                               </button>
@@ -496,58 +520,50 @@ const LocalNetCDFMeta = () => {
                     </>
                   )}
                 </div>
+
                 {/* Group Summary */}
                 <div className="flex flex-col gap-3">
-                {groupSummary && (
-                  <div className="flex gap-2 sm:gap-3 text-xs flex-wrap">
-                    <Badge variant="outline" className="flex-shrink-0">
-                      {groupSummary.variableCount} variables
-                    </Badge>
-                    <Badge variant="outline" className="flex-shrink-0">
-                      {groupSummary.dimensionCount} dimensions
-                    </Badge>
-                    <Badge variant="outline" className="flex-shrink-0">
-                      {groupSummary.attributeCount} attributes
-                    </Badge>
-                    {groupSummary.subgroupCount > 0 && (
-                      <Badge variant="outline" className="flex-shrink-0">
-                        {groupSummary.subgroupCount} subgroups
+                  {groupSummary && (
+                    <div className="flex gap-2 sm:gap-3 text-xs flex-wrap">
+                      <Badge variant="outline" className="flex-shrink-0">{groupSummary.variableCount} variables</Badge>
+                      <Badge variant="outline" className="flex-shrink-0">{groupSummary.dimensionCount} dimensions</Badge>
+                      <Badge variant="outline" className="flex-shrink-0">{groupSummary.attributeCount} attributes</Badge>
+                      {groupSummary.subgroupCount > 0 && (
+                        <Badge variant="outline" className="flex-shrink-0">{groupSummary.subgroupCount} subgroups</Badge>
+                      )}
+                    </div>
+                  )}
+                  {/* Breadcrumbs */}
+                  <div className="flex items-center gap-2 text-xs flex-wrap">
+                    <div className="flex items-center gap-1 text-muted-foreground flex-wrap">
+                      {breadcrumbs.map((crumb, idx) => (
+                        <React.Fragment key={crumb.path}>
+                          <button
+                            onClick={() => selectGroup(crumb.path)}
+                            className={`hover:text-foreground transition-colors cursor-pointer break-all ${
+                              crumb.path === currentGroupPath ? 'text-foreground font-semibold' : ''
+                            }`}
+                          >
+                            {crumb.name}
+                          </button>
+                          {idx < breadcrumbs.length - 1 && (
+                            <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                    {selectedVariable && (
+                      <Badge 
+                        className="text-xs h-5 max-w-full"
+                        style={{ backgroundColor: '#644FF0', color: 'white' }}
+                      >
+                        <FileText className="h-3 w-3 mr-1 flex-shrink-0" />
+                        <span className="truncate">{selectedVariable}</span>
                       </Badge>
                     )}
                   </div>
-                )}
-                {/* Breadcrumbs */}
-              <div className="flex items-center gap-2 text-xs flex-wrap">
-                <div className="flex items-center gap-1 text-muted-foreground flex-wrap">
-                  {breadcrumbs.map((crumb, idx) => (
-                    <React.Fragment key={crumb.path}>
-                      <button
-                        onClick={() => selectGroup(crumb.path)}
-                        className={`hover:text-foreground transition-colors cursor-pointer break-all ${
-                          crumb.path === currentGroupPath ? 'text-foreground font-semibold' : ''
-                        }`}
-                      >
-                        {crumb.name}
-                      </button>
-                      {idx < breadcrumbs.length - 1 && (
-                        <ChevronRight className="h-3 w-3 flex-shrink-0" />
-                      )}
-                    </React.Fragment>
-                  ))}
                 </div>
-                
-                {selectedVariable && (
-                  <Badge 
-                    className="text-xs h-5 max-w-full"
-                    style={{ backgroundColor: '#644FF0', color: 'white' }}
-                  >
-                    <FileText className="h-3 w-3 mr-1 flex-shrink-0" />
-                    <span className="truncate">{selectedVariable}</span>
-                  </Badge>
-                )}
               </div>
-              </div>
-            </div>
 
               {/* Group Menu (Expandable) */}
               {showGroupMenu && (
@@ -557,18 +573,13 @@ const LocalNetCDFMeta = () => {
                     
                     const toggleGroup = (path: string) => {
                       const newExpanded = new Set(expandedGroups);
-                      if (newExpanded.has(path)) {
-                        newExpanded.delete(path);
-                      } else {
-                        newExpanded.add(path);
-                      }
+                      if (newExpanded.has(path)) newExpanded.delete(path);
+                      else newExpanded.add(path);
                       setExpandedGroups(newExpanded);
                     };
 
                     const handleVariableClick = (varName: string, groupPath: string) => {
-                      if (currentGroupPath !== groupPath) {
-                        selectGroup(groupPath);
-                      }
+                      if (currentGroupPath !== groupPath) selectGroup(groupPath);
                       setPendingVariableLoad({ name: varName, groupPath });
                       setShowGroupMenu(false);
                     };
@@ -583,7 +594,6 @@ const LocalNetCDFMeta = () => {
                       return (
                         <div key={node.path}>
                           <div className="flex items-stretch gap-1" style={{ paddingLeft: `${level * 12}px` }}>
-                            {/* Group button - now just expands/collapses */}
                             <button
                               onClick={() => toggleGroup(node.path)}
                               className={`flex-1 text-left px-2 py-2 rounded text-sm flex items-center justify-between gap-2 hover:bg-accent/50 ${
@@ -591,40 +601,30 @@ const LocalNetCDFMeta = () => {
                               }`}
                             >
                               <div className="flex items-center gap-2 min-w-0 flex-1">
-                                {/* Chevron */}
                                 {(hasChildren || varNames.length > 0) ? (
-                                  isExpanded ? (
-                                    <ChevronDown className="h-3 w-3 flex-shrink-0" />
-                                  ) : (
-                                    <ChevronRight className="h-3 w-3 flex-shrink-0" />
-                                  )
+                                  isExpanded
+                                    ? <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                                    : <ChevronRight className="h-3 w-3 flex-shrink-0" />
                                 ) : (
                                   <div className="w-3 h-3 flex-shrink-0" />
                                 )}
-                                {/* Folder icon */}
-                                {hasChildren ? (
-                                  <FolderOpen className="h-4 w-4 flex-shrink-0" />
-                                ) : (
-                                  <Folder className="h-4 w-4 flex-shrink-0" />
-                                )}
+                                {hasChildren
+                                  ? <FolderOpen className="h-4 w-4 flex-shrink-0" />
+                                  : <Folder className="h-4 w-4 flex-shrink-0" />
+                                }
                                 <span className="truncate">{node.name}</span>
                               </div>
                               <div className="flex gap-1 flex-shrink-0">
                                 {node.variableCount > 0 && (
-                                  <Badge variant="secondary" className="text-xs h-5">
-                                    {node.variableCount}
-                                  </Badge>
+                                  <Badge variant="secondary" className="text-xs h-5">{node.variableCount}</Badge>
                                 )}
                                 {hasChildren && (
-                                  <Badge variant="outline" className="text-xs h-5">
-                                    {node.children.length}
-                                  </Badge>
+                                  <Badge variant="outline" className="text-xs h-5">{node.children.length}</Badge>
                                 )}
                               </div>
                             </button>
                           </div>
 
-                          {/* Variables for this group (when expanded) */}
                           {isExpanded && varNames.length > 0 && (
                             <div style={{ paddingLeft: `${(level + 1) * 12 + 20}px` }} className="space-y-0.5 py-1">
                               {varNames.map(name => (
@@ -640,21 +640,17 @@ const LocalNetCDFMeta = () => {
                             </div>
                           )}
 
-                          {/* Child groups (when expanded) */}
                           {isExpanded && hasChildren && (
-                            <div>
-                              {node.children.map(child => renderGroupItem(child, level + 1))}
-                            </div>
+                            <div>{node.children.map(child => renderGroupItem(child, level + 1))}</div>
                           )}
                         </div>
                       );
                     };
 
-                    // Root group handling
                     const rootVars = tree.getAllVariables('/');
                     const rootVarNames = Object.keys(rootVars);
                     const isRootExpanded = expandedGroups.has('/');
-                    const ROOT_VARS_KEY = '/__root_vars__'; // Special key for root variables
+                    const ROOT_VARS_KEY = '/__root_vars__';
                     const isRootVarsExpanded = expandedGroups.has(ROOT_VARS_KEY);
 
                     return (
@@ -667,13 +663,10 @@ const LocalNetCDFMeta = () => {
                             }`}
                           >
                             <div className="flex items-center gap-2 min-w-0 flex-1">
-                              {/* Chevron for root */}
                               {(groupTree.children.length > 0 || rootVarNames.length > 0) ? (
-                                isRootExpanded ? (
-                                  <ChevronDown className="h-3 w-3 flex-shrink-0" />
-                                ) : (
-                                  <ChevronRight className="h-3 w-3 flex-shrink-0" />
-                                )
+                                isRootExpanded
+                                  ? <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                                  : <ChevronRight className="h-3 w-3 flex-shrink-0" />
                               ) : (
                                 <div className="w-3 h-3 flex-shrink-0" />
                               )}
@@ -688,22 +681,18 @@ const LocalNetCDFMeta = () => {
                           </button>
                         </div>
 
-                        {/* Root variables section (when root is expanded) */}
                         {isRootExpanded && rootVarNames.length > 0 && (
                           <div style={{ paddingLeft: '12px' }}>
                             <button
                               onClick={() => toggleGroup(ROOT_VARS_KEY)}
                               className="w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
                             >
-                              {isRootVarsExpanded ? (
-                                <ChevronDown className="h-3 w-3 flex-shrink-0" />
-                              ) : (
-                                <ChevronRight className="h-3 w-3 flex-shrink-0" />
-                              )}
+                              {isRootVarsExpanded
+                                ? <ChevronDown className="h-3 w-3 flex-shrink-0" />
+                                : <ChevronRight className="h-3 w-3 flex-shrink-0" />
+                              }
                               <span className="truncate">Variables ({rootVarNames.length})</span>
                             </button>
-                            
-                            {/* Root variables list (when variables section is expanded) */}
                             {isRootVarsExpanded && (
                               <div style={{ paddingLeft: '20px' }} className="space-y-0.5 py-1">
                                 {rootVarNames.map(name => (
@@ -721,7 +710,6 @@ const LocalNetCDFMeta = () => {
                           </div>
                         )}
 
-                        {/* Root child groups (when expanded) */}
                         {isRootExpanded && groupTree.children.map(child => renderGroupItem(child, 0))}
                       </>
                     );
@@ -766,133 +754,66 @@ const LocalNetCDFMeta = () => {
                         className="w-full flex items-center justify-between p-3 hover:bg-accent/50 transition-colors cursor-pointer"
                       >
                         <span className="text-sm font-semibold">Variable Info</span>
-                        {expandedVariableInfo ? (
-                          <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                        )}
+                        {expandedVariableInfo
+                          ? <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                          : <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                        }
                       </button>
                       
                       {expandedVariableInfo && (
                         <div className="max-h-[300px] overflow-y-auto px-3 pb-3 space-y-2 sm:space-y-1 text-xs overflow-x-auto">
-                          {/* Name */}
-                          <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
-                            <span className="font-mono text-muted-foreground">name:</span>
-                            <span className="font-mono break-all pl-4 sm:pl-0">
-                              {variables[selectedVariable].info.name}
-                            </span>
-                          </div>
-
-                          {/* Data Type */}
-                          <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
-                            <span className="font-mono text-muted-foreground">dtype:</span>
-                            <span className="font-mono break-all pl-4 sm:pl-0">
-                              {variables[selectedVariable].info.dtype}
-                            </span>
-                          </div>
-
-                          {/* NC Type */}
-                          {variables[selectedVariable].info.nctype !== undefined && (
-                            <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
-                              <span className="font-mono text-muted-foreground">nctype:</span>
-                              <span className="font-mono break-all pl-4 sm:pl-0">
-                                {variables[selectedVariable].info.nctype}
-                              </span>
+                          {[
+                            { label: 'name',      value: variables[selectedVariable].info.name },
+                            { label: 'dtype',     value: variables[selectedVariable].info.dtype },
+                            ...(variables[selectedVariable].info.nctype !== undefined
+                              ? [{ label: 'nctype', value: variables[selectedVariable].info.nctype }]
+                              : []),
+                            { label: 'shape',      value: `[${variables[selectedVariable].info.shape.join(', ')}]` },
+                            { label: 'dimensions', value: `[${variables[selectedVariable].info.dimensions?.join(', ') || 'N/A'}]` },
+                            { label: 'size',       value: variables[selectedVariable].info.size.toLocaleString() },
+                            ...(variables[selectedVariable].info.totalSize !== undefined
+                              ? [{ label: 'totalSize', value: `${variables[selectedVariable].info.totalSize.toLocaleString()} bytes` }]
+                              : []),
+                            ...(variables[selectedVariable].info.chunked !== undefined
+                              ? [{ label: 'chunked', value: String(variables[selectedVariable].info.chunked) }]
+                              : []),
+                            ...(variables[selectedVariable].info.chunks
+                              ? [{ label: 'chunks', value: `[${variables[selectedVariable].info.chunks.join(', ')}]` }]
+                              : []),
+                            ...(variables[selectedVariable].info.chunkSize !== undefined
+                              ? [{ label: 'chunkSize', value: `${variables[selectedVariable].info.chunkSize.toLocaleString()} bytes` }]
+                              : []),
+                          ].map(({ label, value }) => (
+                            <div key={label} className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
+                              <span className="font-mono text-muted-foreground">{label}:</span>
+                              <span className="font-mono break-all pl-4 sm:pl-0">{value}</span>
                             </div>
-                          )}
-
-                          {/* Shape */}
-                          <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
-                            <span className="font-mono text-muted-foreground">shape:</span>
-                            <span className="font-mono break-all pl-4 sm:pl-0">
-                              [{variables[selectedVariable].info.shape.join(', ')}]
-                            </span>
-                          </div>
-
-                          {/* Dimensions */}
-                          <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
-                            <span className="font-mono text-muted-foreground">dimensions:</span>
-                            <span className="font-mono break-all pl-4 sm:pl-0">
-                              [{variables[selectedVariable].info.dimensions?.join(', ') || 'N/A'}]
-                            </span>
-                          </div>
-
-                          {/* Size */}
-                          <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
-                            <span className="font-mono text-muted-foreground">size:</span>
-                            <span className="font-mono break-all pl-4 sm:pl-0">
-                              {variables[selectedVariable].info.size.toLocaleString()}
-                            </span>
-                          </div>
-
-                          {/* Total Size */}
-                          {variables[selectedVariable].info.totalSize !== undefined && (
-                            <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
-                              <span className="font-mono text-muted-foreground">totalSize:</span>
-                              <span className="font-mono break-all pl-4 sm:pl-0">
-                                {variables[selectedVariable].info.totalSize.toLocaleString()} bytes
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Chunked */}
-                          {variables[selectedVariable].info.chunked !== undefined && (
-                            <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
-                              <span className="font-mono text-muted-foreground">chunked:</span>
-                              <span className="font-mono break-all pl-4 sm:pl-0">
-                                {String(variables[selectedVariable].info.chunked)}
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Chunks */}
-                          {variables[selectedVariable].info.chunks && (
-                            <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
-                              <span className="font-mono text-muted-foreground">chunks:</span>
-                              <span className="font-mono break-all pl-4 sm:pl-0">
-                                [{variables[selectedVariable].info.chunks.join(', ')}]
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Chunk Size */}
-                          {variables[selectedVariable].info.chunkSize !== undefined && (
-                            <div className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0">
-                              <span className="font-mono text-muted-foreground">chunkSize:</span>
-                              <span className="font-mono break-all pl-4 sm:pl-0">
-                                {variables[selectedVariable].info.chunkSize.toLocaleString()} bytes
-                              </span>
-                            </div>
-                          )}
+                          ))}
                         </div>
                       )}
                     </div>
 
                     {/* Collapsible Enum Dictionary */}
                     {variables[selectedVariable].info.enum && 
-                    Object.keys(variables[selectedVariable].info.enum).length > 0 && (
+                     Object.keys(variables[selectedVariable].info.enum).length > 0 && (
                       <div className="border-0 rounded-lg overflow-hidden">
                         <button
                           onClick={() => setExpandedEnumDict(!expandedEnumDict)}
                           className="w-full flex items-center justify-between p-3 hover:bg-accent/50 transition-colors cursor-pointer"
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold truncate">
-                              Values
-                            </span>
+                            <span className="text-sm font-semibold truncate">Values</span>
                             {variables[selectedVariable].info.enumType && (
                               <span className="text-xs text-muted-foreground font-mono">
                                 ({variables[selectedVariable].info.enumType.name})
                               </span>
                             )}
                           </div>
-                          {expandedEnumDict ? (
-                            <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                          )}
+                          {expandedEnumDict
+                            ? <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                            : <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                          }
                         </button>
-                        
                         {expandedEnumDict && (
                           <div className="max-h-[300px] overflow-y-auto px-3 pb-3 space-y-2 sm:space-y-1 text-xs overflow-x-auto">
                             <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
@@ -900,23 +821,18 @@ const LocalNetCDFMeta = () => {
                                 .sort(([a], [b]) => Number(a) - Number(b))
                                 .map(([value, label]) => (
                                   <React.Fragment key={value}>
-                                    <span className="font-mono text-muted-foreground text-right">
-                                      {value}:
-                                    </span>
-                                    <span className="font-mono break-all">
-                                      {String(label)}
-                                    </span>
+                                    <span className="font-mono text-muted-foreground text-right">{value}:</span>
+                                    <span className="font-mono break-all">{String(label)}</span>
                                   </React.Fragment>
                                 ))}
                             </div>
-                            
                             {variables[selectedVariable].info.enumType && (
                               <div className="mt-3 pt-3 border-t text-muted-foreground">
                                 <div className="flex items-center gap-2 text-xs">
                                   <span>Base Type:</span>
                                   <span className="font-mono">
                                     {variables[selectedVariable].info.dtype_base || 
-                                    `NC_TYPE_${variables[selectedVariable].info.enumType.baseType}`}
+                                     `NC_TYPE_${variables[selectedVariable].info.enumType.baseType}`}
                                   </span>
                                 </div>
                               </div>
@@ -937,24 +853,19 @@ const LocalNetCDFMeta = () => {
                           <span className="text-sm font-semibold truncate">
                             Variable Attributes ({Object.keys(variables[selectedVariable].info.attributes).length})
                           </span>
-                          {expandedVariableAttrs ? (
-                            <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                          )}
+                          {expandedVariableAttrs
+                            ? <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                            : <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                          }
                         </button>
-                        
                         {expandedVariableAttrs && (
                           <div className="max-h-[300px] overflow-y-auto px-3 pb-3 space-y-2 sm:space-y-1 text-xs overflow-x-auto">
-                          {/* <div className="max-h-[300px] overflow-y-auto space-y-1 text-xs overflow-x-auto"> */}
                             {Object.entries(variables[selectedVariable].info.attributes).map(([k, v]) => (
                               <div key={k} className="flex flex-col sm:grid sm:grid-cols-[minmax(100px,auto)_1fr] gap-0.5 sm:gap-2 min-w-0">
                                 <span className="font-mono text-muted-foreground">{k}:</span>
                                 <span className="font-mono break-all pl-4 sm:pl-0">
                                   {typeof v === 'object'
-                                    ? JSON.stringify(v, (_k, val) =>
-                                        typeof val === 'bigint' ? Number(val) : val
-                                      )
+                                    ? JSON.stringify(v, (_k, val) => typeof val === 'bigint' ? Number(val) : val)
                                     : String(v)}
                                 </span>
                               </div>
@@ -965,17 +876,12 @@ const LocalNetCDFMeta = () => {
                     )}
 
                     {/* Load data controls */}
-                    {/* variables[selectedVariable].info.dtype !== 'str' */}
                     {true && (
                       <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-end">
-                        {/* Slice controls - hide for S1 and char */}
-                        {/* !['S1', 'char'].includes(variables[selectedVariable].info.dtype) */}
                         {!['S1', 'char'].includes(variables[selectedVariable].info.dtype) && (
                           <>
                             <div className="w-full sm:w-32">
-                              <Label className="text-xs text-muted-foreground mb-1 block">
-                                Slice size
-                              </Label>
+                              <Label className="text-xs text-muted-foreground mb-1 block">Slice size</Label>
                               <Input
                                 type="number"
                                 min="1"
@@ -1020,7 +926,6 @@ const LocalNetCDFMeta = () => {
                             </div>
                           </>
                         )}
-                        {/* Show only Load All for S1 and char */}
                         {['S1', 'char'].includes(variables[selectedVariable].info.dtype) && (
                           <div className="flex gap-2 items-center">
                             <Button
@@ -1042,6 +947,19 @@ const LocalNetCDFMeta = () => {
                         )}
                       </div>
                     )}
+
+                    {/* ── Slice & Index Tester ── */}
+                    <SliceTesterSection
+                      info={variables[selectedVariable].info}
+                      sliceSelections={sliceSelections}
+                      setSliceSelections={setSliceSelections}
+                      expandedSliceTester={expandedSliceTester}
+                      setExpandedSliceTester={setExpandedSliceTester}
+                      sliceResult={sliceResult}
+                      sliceError={sliceError}
+                      loadingSlice={loadingSlice}
+                      onRun={runSliceTest}
+                    />
                   </div>
                 )}
 
@@ -1060,31 +978,25 @@ const LocalNetCDFMeta = () => {
           {/* Collapsible Dimensions */}
           {Object.keys(dimensions).length > 0 && (
             <Card className="border-0 py-0">
-              <button
-                onClick={() => setExpandedDimensions(!expandedDimensions)}
-                className="w-full"
-              >
+              <button onClick={() => setExpandedDimensions(!expandedDimensions)} className="w-full">
                 <CardHeader className="hover:bg-accent/50 transition-colors cursor-pointer p-2 sm:p-3">
                   <CardTitle className="text-base flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <Info className="h-4 w-4 flex-shrink-0" />
                       <span className="truncate">Dimensions ({Object.keys(dimensions).length})</span>
                     </div>
-                    {expandedDimensions ? (
-                      <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                    )}
+                    {expandedDimensions
+                      ? <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                      : <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                    }
                   </CardTitle>
                 </CardHeader>
               </button>
-              
               {expandedDimensions && (
                 <CardContent className="p-2 sm:p-3 pt-0">
                   <div className="space-y-1 text-xs overflow-x-auto">
                     {Object.entries(dimensions).map(([name, dim]: [string, any]) => (
                       <div key={name} className="flex flex-col sm:grid sm:grid-cols-[minmax(100px,auto)_1fr] gap-0.5 sm:gap-2 min-w-0">
-                        {/* <div key={k} className="flex flex-col sm:grid sm:grid-cols-[minmax(100px,auto)_1fr] gap-0.5 sm:gap-2 min-w-0"> */}
                         <span className="font-mono text-muted-foreground">{name}:</span>
                         <span className="font-mono break-all pl-4 sm:pl-0">
                           {dim.size || dim.len || dim.length || 'unlimited'}
@@ -1100,25 +1012,20 @@ const LocalNetCDFMeta = () => {
           {/* Collapsible Attributes */}
           {Object.keys(attributes).length > 0 && (
             <Card className="border-0 py-0">
-              <button
-                onClick={() => setExpandedAttributes(!expandedAttributes)}
-                className="w-full"
-              >
+              <button onClick={() => setExpandedAttributes(!expandedAttributes)} className="w-full">
                 <CardHeader className="hover:bg-accent/50 transition-colors cursor-pointer p-2 sm:p-3">
                   <CardTitle className="text-base flex items-center justify-between">
                     <div className="flex items-center gap-2 min-w-0">
                       <Info className="h-4 w-4 flex-shrink-0" />
                       <span className="truncate">Attributes ({Object.keys(attributes).length})</span>
                     </div>
-                    {expandedAttributes ? (
-                      <ChevronDown className="h-4 w-4 flex-shrink-0" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 flex-shrink-0" />
-                    )}
+                    {expandedAttributes
+                      ? <ChevronDown className="h-4 w-4 flex-shrink-0" />
+                      : <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                    }
                   </CardTitle>
                 </CardHeader>
               </button>
-              
               {expandedAttributes && (
                 <CardContent className="p-2 sm:p-3 pt-0">
                   <div className="max-h-[300px] overflow-y-auto space-y-1 text-xs overflow-x-auto">
@@ -1127,9 +1034,7 @@ const LocalNetCDFMeta = () => {
                         <span className="font-mono text-muted-foreground break-words">{k}:</span>
                         <span className="font-mono break-all pl-4 sm:pl-0">
                           {typeof v === 'object'
-                            ? JSON.stringify(v, (_k, val) =>
-                                typeof val === 'bigint' ? Number(val) : val
-                              )
+                            ? JSON.stringify(v, (_k, val) => typeof val === 'bigint' ? Number(val) : val)
                             : String(v)}
                         </span>
                       </div>

@@ -5,6 +5,7 @@ import { WasmModuleLoader } from './wasm-module.js';
 import { NC_CONSTANTS } from './constants.js';
 import type { NetCDF4Module, DatasetOptions, MemoryDatasetSource } from './types.js';
 import * as NCGet from './netcdf-getters.js'
+import { DimSelection } from './slice.js';
 
 export class NetCDF4 extends Group {
     private module: NetCDF4Module | null = null;
@@ -441,6 +442,62 @@ export class NetCDF4 extends Group {
         } else {
             // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
             return NCGet.getSlicedVariableArray(this.module as NetCDF4Module, this.ncid, variable, start, count, groupPath);
+        }
+    }
+
+    /**
+     * slicing and indexing convenience method.
+     *
+     * Each element of `selection` corresponds to one dimension of the variable:
+     *   - `null`                     → all elements of that dimension
+     *   - `number`                   → scalar index (dimension is collapsed)
+     *   - `slice(stop)`              → elements [0, stop)
+     *   - `slice(start, stop)`       → elements [start, stop)
+     *   - `slice(start, stop, step)` → strided subset; step may be negative
+     *
+     * Strided reads use nc_get_vars_* under the hood.
+     * Negative step reads forward then reverses the affected dimension.
+     * Returns a flat typed array; caller infers shape from non-collapsed dims.
+     *
+     * @example
+     * // Variable shape [time, lat, lon]
+     * // Read 10 time steps, all lats, first lon:
+     * const data = await arr.get("temperature", [slice(0, 10), null, 0]);
+     *
+     * @example
+     * // Every other element along time:
+     * const data = await arr.get("temperature", [slice(0, 100, 2), null, null]);
+     *
+     * @example
+     * // Reversed time axis:
+     * const data = await arr.get("temperature", [slice(null, null, -1), null, null]);
+     */
+    async get(
+        variable: number | string,
+        selection: DimSelection[],
+        groupPath?: string,
+        options?: { convertEnumsToNames?: boolean }
+    ): Promise<
+        Int8Array    | Uint8Array   |
+        Int16Array   | Uint16Array  |
+        Int32Array   | Uint32Array  |
+        Float32Array | Float64Array |
+        BigInt64Array | BigUint64Array |
+        string[]
+    > {
+        if (this.worker) {
+            return this.callWorker('getVariableArrayWithSelection', {
+                ncid: this.ncid, variable, selection, groupPath, options
+            });
+        } else {
+            return NCGet.getVariableArrayWithSelection(
+                this.module as NetCDF4Module,
+                this.ncid,
+                variable,
+                selection,
+                groupPath,
+                options
+            );
         }
     }
 

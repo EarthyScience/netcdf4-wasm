@@ -964,6 +964,91 @@ int nc_get_var_ulonglong_wrapper(int ncid, int varid, unsigned long long* value)
 }
 
 // =========================
+// Strided Data Access (nc_get_vars_*)
+// Add these alongside your existing nc_get_vara_*_wrapper functions
+// =========================
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_schar_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, signed char* value) {
+    return nc_get_vars_schar(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_uchar_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, unsigned char* value) {
+    return nc_get_vars_uchar(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_short_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, short* value) {
+    return nc_get_vars_short(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_ushort_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, unsigned short* value) {
+    return nc_get_vars_ushort(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_int_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, int* value) {
+    return nc_get_vars_int(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_uint_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, unsigned int* value) {
+    return nc_get_vars_uint(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_float_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, float* value) {
+    return nc_get_vars_float(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_double_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, double* value) {
+    return nc_get_vars_double(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_longlong_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, long long* value) {
+    return nc_get_vars_longlong(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_ulonglong_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, unsigned long long* value) {
+    return nc_get_vars_ulonglong(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_string_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, char** value) {
+    return nc_get_vars_string(ncid, varid, start, count, stride, value);
+}
+
+// Generic strided wrapper — mirrors your existing nc_get_vara_wrapper
+// Uses nc_get_vars which accepts void* output and nc_type for dispatch
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, void* value) {
+    // nc_get_vars_* requires knowing the type — use nc_get_vara with the generic
+    // approach by getting the variable type first and dispatching
+    nc_type xtype;
+    int stat = nc_inq_vartype(ncid, varid, &xtype);
+    if (stat != NC_NOERR) return stat;
+
+    switch (xtype) {
+        case NC_BYTE:     return nc_get_vars_schar(ncid, varid, start, count, stride, (signed char*)value);
+        case NC_UBYTE:    return nc_get_vars_uchar(ncid, varid, start, count, stride, (unsigned char*)value);
+        case NC_SHORT:    return nc_get_vars_short(ncid, varid, start, count, stride, (short*)value);
+        case NC_USHORT:   return nc_get_vars_ushort(ncid, varid, start, count, stride, (unsigned short*)value);
+        case NC_INT:      return nc_get_vars_int(ncid, varid, start, count, stride, (int*)value);
+        case NC_UINT:     return nc_get_vars_uint(ncid, varid, start, count, stride, (unsigned int*)value);
+        case NC_FLOAT:    return nc_get_vars_float(ncid, varid, start, count, stride, (float*)value);
+        case NC_DOUBLE:   return nc_get_vars_double(ncid, varid, start, count, stride, (double*)value);
+        case NC_INT64:    return nc_get_vars_longlong(ncid, varid, start, count, stride, (long long*)value);
+        case NC_UINT64:   return nc_get_vars_ulonglong(ncid, varid, start, count, stride, (unsigned long long*)value);
+        default:          return NC_EBADTYPE;
+    }
+}
+
+// =========================
 // Data Writing
 // =========================
 EMSCRIPTEN_KEEPALIVE
