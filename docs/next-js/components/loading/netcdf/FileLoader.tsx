@@ -41,6 +41,7 @@ export const FileLoader = ({
             placeholder="http://, https://, s3://, gs:// or ftp://"
             value={url}
             onChange={(e) => onUrlChange(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && onUrlFetch()}
             disabled={isLoading}
             className="min-w-0"
           />
@@ -48,7 +49,7 @@ export const FileLoader = ({
             variant="outline"
             onClick={onUrlFetch}
             disabled={isLoading}
-            className="flex-shrink-0"
+            className="flex-shrink-0 cursor-pointer"
           >
             Fetch
           </Button>

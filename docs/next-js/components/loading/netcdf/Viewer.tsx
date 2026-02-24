@@ -204,10 +204,10 @@ const Viewer = () => {
   };
 
   // Group navigation
-  const selectGroup = (path: string) => {
+  const selectGroup = (path: string, { openMenu = true } = {}) => {
     if (!tree) return;
     refreshGroup(path, tree);
-    setShowGroupMenu(true);
+    if (openMenu) setShowGroupMenu(true);
     setShowVariableMenu(false);
     const newExpanded = new Set(expandedGroups);
     const parts = path.split('/').filter(Boolean);
@@ -247,7 +247,7 @@ const Viewer = () => {
 
   const selectSearchResult = (result: { name: string; groupPath: string }) => {
     setPendingVariableLoad(result);
-    selectGroup(result.groupPath);
+    selectGroup(result.groupPath, { openMenu: false });
     setShowSearchResults(false);
     setSearchQuery('');
     setSearchResults([]);
