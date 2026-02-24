@@ -13,6 +13,7 @@ import {
   VariableMenuPanel,
   SearchBar,
   VariableDetails,
+  VariableDataLoader,
   DimensionsCard,
   AttributesCard,
   type VariableData,
@@ -54,6 +55,7 @@ const Viewer = () => {
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['/']));
 
   // Helpers
+
   const refreshGroup = useCallback((path: string, dataTree: DataTree) => {
     setCurrentGroupPath(path);
     setVariables(dataTree.getAllVariables(path));
@@ -141,6 +143,7 @@ const Viewer = () => {
   }, [currentGroupPath, variables, pendingVariableLoad, loadVariableInfo]);
 
   // URL validation
+
   const validateUrl = (urlString: string): boolean => {
     if (!urlString.trim()) {
       setError('Please enter a URL.');
@@ -159,6 +162,7 @@ const Viewer = () => {
   };
 
   // File / URL loading
+
   const handleFileSelect = async (event: ChangeEvent<HTMLInputElement>) => {
     setError(null);
     const files = event.target.files;
@@ -204,6 +208,7 @@ const Viewer = () => {
   };
 
   // Group navigation
+
   const selectGroup = (path: string, { openMenu = true } = {}) => {
     if (!tree) return;
     refreshGroup(path, tree);
@@ -231,6 +236,7 @@ const Viewer = () => {
   };
 
   // Search
+
   const handleSearchInputChange = (value: string) => {
     setSearchQuery(value);
     if (!value.trim()) {
@@ -254,6 +260,7 @@ const Viewer = () => {
   };
 
   // UI
+
   const breadcrumbs = tree ? tree.getBreadcrumbs(currentGroupPath) : [];
   const groupSummary = tree ? tree.getGroupSummary(currentGroupPath) : null;
   const datasetSummary = tree ? tree.getDatasetSummary() : null;
@@ -403,17 +410,24 @@ const Viewer = () => {
           {/* Variable Details */}
           {selectedVariable && variables[selectedVariable] && (
             <VariableDetails
+              variable={variables[selectedVariable]}
+              expandedVariableInfo={expandedVariableInfo}
+              expandedVariableAttrs={expandedVariableAttrs}
+              expandedEnumDict={expandedEnumDict}
+              onToggleVariableInfo={() => setExpandedVariableInfo(!expandedVariableInfo)}
+              onToggleVariableAttrs={() => setExpandedVariableAttrs(!expandedVariableAttrs)}
+              onToggleEnumDict={() => setExpandedEnumDict(!expandedEnumDict)}
+            />
+          )}
+
+          {/* Variable Data Loader */}
+          {selectedVariable && variables[selectedVariable]?.info && (
+            <VariableDataLoader
               variableName={selectedVariable}
               variable={variables[selectedVariable]}
               loadingVariable={loadingVariable}
               sliceSize={sliceSize}
-              expandedVariableInfo={expandedVariableInfo}
-              expandedVariableAttrs={expandedVariableAttrs}
-              expandedEnumDict={expandedEnumDict}
               onSliceSizeChange={setSliceSize}
-              onToggleVariableInfo={() => setExpandedVariableInfo(!expandedVariableInfo)}
-              onToggleVariableAttrs={() => setExpandedVariableAttrs(!expandedVariableAttrs)}
-              onToggleEnumDict={() => setExpandedEnumDict(!expandedEnumDict)}
               onLoadSlice={loadVariableSlice}
               onLoadAll={loadVariableData}
             />

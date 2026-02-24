@@ -4,6 +4,7 @@ export { GroupBrowserTrigger, GroupBrowserPanel, ROOT_VARS_KEY } from './GroupBr
 export { VariableMenuTrigger, VariableMenuPanel } from './VariableMenu';
 export { SearchBar } from './SearchBar';
 export { VariableDetails } from './VariableDetails';
+export { VariableDataLoader } from './VariableDataLoader';
 export { DimensionsCard } from './DimensionsCard';
 export { AttributesCard } from './AttributesCard';
 export type { VariableData } from './types';
