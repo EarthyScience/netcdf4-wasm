@@ -1,5 +1,5 @@
 import Image from "next/image";
-import LocalNetCDFMeta from "@/components/loading/LocalNetCDFMeta";
+import { NetCDFViewer } from '@/components/loading/netcdf'
 import TopNav from "@/components/loading/TopNav";
 
 export default function Home() {
@@ -20,7 +20,7 @@ export default function Home() {
             netcdf4 - <span className="text-[#644FF0]">wasm</span>
           </span>
         </div>
-        <LocalNetCDFMeta />
+        <NetCDFViewer />
       </main>
 
       <footer className="py-6 text-center text-sm bg-[color:var(--card)] text-[color:var(--muted-foreground)] dark:bg-[color:var(--card)] dark:text-[color:var(--muted-foreground)]">
