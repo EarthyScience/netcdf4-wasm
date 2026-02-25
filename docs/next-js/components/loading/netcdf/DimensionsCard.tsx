@@ -2,9 +2,10 @@
 import React from 'react';
 import { Info, ChevronRight, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dimension } from './types';
 
 interface DimensionsCardProps {
-  dimensions: Record<string, any>;
+  dimensions: Record<string, Dimension>;
   expanded: boolean;
   onToggle: () => void;
 }
@@ -33,7 +34,7 @@ export const DimensionsCard = ({ dimensions, expanded, onToggle }: DimensionsCar
       {expanded && (
         <CardContent className="p-2 sm:p-3 pt-0">
           <div className="space-y-1 text-xs overflow-x-auto">
-            {Object.entries(dimensions).map(([name, dim]: [string, any]) => (
+            {Object.entries(dimensions).map(([name, dim]) => (
               <div
                 key={name}
                 className="flex flex-col sm:grid sm:grid-cols-[minmax(100px,auto)_1fr] gap-0.5 sm:gap-2 min-w-0"

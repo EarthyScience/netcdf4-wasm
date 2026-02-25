@@ -1,20 +1,20 @@
 'use client';
 import { ChangeEvent, useState, useEffect, useCallback } from 'react';
 import { NetCDF4, DataTree } from '@earthyscience/netcdf4-wasm';
-import { VariableData } from './types';
+import { VariableData, VariableInfo, VariableArrayData, Dimension } from './types';
 
 const NETCDF_EXT_REGEX = /\.(nc|netcdf|nc3|nc4)$/i;
 
 export const useViewerState = () => {
   // Dataset
   const [tree, setTree] = useState<DataTree | null>(null);
-  const [dataset, setDataset] = useState<any>(null);
+  const [dataset, setDataset] = useState<NetCDF4 | null>(null);
 
   // Group / variable state
   const [currentGroupPath, setCurrentGroupPath] = useState<string>('/');
   const [variables, setVariables] = useState<Record<string, VariableData>>({});
   const [attributes, setAttributes] = useState<Record<string, unknown>>({});
-  const [dimensions, setDimensions] = useState<Record<string, any>>({});
+  const [dimensions, setDimensions] = useState<Record<string, Dimension>>({});
   const [selectedVariable, setSelectedVariable] = useState<string | null>(null);
   const [pendingVariableLoad, setPendingVariableLoad] = useState<{
     name: string;
@@ -65,7 +65,7 @@ export const useViewerState = () => {
         const info = await dataset.getVariableInfo(
           varName,
           currentGroupPath === '/' ? undefined : currentGroupPath
-        );
+        ) as VariableInfo;
         setVariables((prev) => ({ ...prev, [varName]: { ...prev[varName], info } }));
       } finally {
         setLoadingVariable(null);
@@ -82,7 +82,7 @@ export const useViewerState = () => {
         const data = await dataset.getVariableArray(
           varName,
           currentGroupPath === '/' ? undefined : currentGroupPath
-        );
+        ) as VariableArrayData;
         setVariables((prev) => ({ ...prev, [varName]: { ...prev[varName], data } }));
       } finally {
         setLoadingVariable(null);
@@ -103,7 +103,7 @@ export const useViewerState = () => {
           const data = await dataset.getVariableArray(
             varName,
             currentGroupPath === '/' ? undefined : currentGroupPath
-          );
+          ) as VariableArrayData;
           setVariables((prev) => ({ ...prev, [varName]: { ...prev[varName], data } }));
         } else {
           const start = new Array(shape.length).fill(0);
@@ -114,7 +114,7 @@ export const useViewerState = () => {
             start,
             count,
             currentGroupPath === '/' ? undefined : currentGroupPath
-          );
+          ) as VariableArrayData;
           setVariables((prev) => ({ ...prev, [varName]: { ...prev[varName], data } }));
         }
       } finally {

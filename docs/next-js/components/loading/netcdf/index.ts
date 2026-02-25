@@ -8,4 +8,4 @@ export { VariableDetails } from './VariableDetails';
 export { VariableDataLoader } from './VariableDataLoader';
 export { DimensionsCard } from './DimensionsCard';
 export { AttributesCard } from './AttributesCard';
-export type { VariableData } from './types';
+export type { VariableData, VariableInfo, VariableArrayData, Dimension, EnumType } from './types';

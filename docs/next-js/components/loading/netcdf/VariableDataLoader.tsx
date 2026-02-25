@@ -5,7 +5,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Card, CardContent } from '@/components/ui/card';
-import { VariableData } from './types';
+import { VariableData, VariableArrayData } from './types';
+
+type ArrayElement = number | bigint | string;
 
 interface VariableDataLoaderProps {
   variableName: string;
@@ -20,13 +22,13 @@ interface VariableDataLoaderProps {
 const isIntegerDtype = (dtype: string) =>
   /^(int|uint|i|u)\d+$|^(int8|int16|int32|int64|uint8|uint16|uint32|uint64|byte|ubyte|short|ushort)$/i.test(dtype);
 
-const formatValue = (v: any, integer: boolean) => {
+const formatValue = (v: ArrayElement, integer: boolean): string => {
   if (typeof v === 'number') return integer ? String(Math.trunc(v)) : v.toFixed(2);
   if (typeof v === 'bigint') return String(v);
   return String(v);
 };
 
-const formatDataPreview = (data: any, dtype: string, baseType?: string, maxItems = 20) => {
+const formatDataPreview = (data: VariableArrayData, dtype: string, baseType?: string, maxItems = 20): string => {
   if (!data) return 'No data';
   const effectiveDtype = baseType ?? dtype;
   const integer = isIntegerDtype(effectiveDtype);
@@ -34,7 +36,7 @@ const formatDataPreview = (data: any, dtype: string, baseType?: string, maxItems
   const count = Math.min(maxItems, len);
   const preview = [];
   for (let i = 0; i < count; i++) {
-    preview.push(formatValue(data[i], integer));
+    preview.push(formatValue(data[i] as ArrayElement, integer));
   }
   const suffix = len > maxItems ? `, ... (${len} total)` : '';
   return `[${preview.join(', ')}${suffix}]`;
