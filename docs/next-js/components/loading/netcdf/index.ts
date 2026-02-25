@@ -1,4 +1,5 @@
 export { default as NetCDFViewer } from './Viewer';
+export { useViewerState } from './useViewerState';
 export { FileLoader } from './FileLoader';
 export { GroupBrowserTrigger, GroupBrowserPanel, ROOT_VARS_KEY } from './GroupBrowser';
 export { VariableMenuTrigger, VariableMenuPanel } from './VariableMenu';
