@@ -1,4 +1,4 @@
-# netcdf4-wasm [![Demo](https://img.shields.io/badge/Demo-Online-654FF0)](https://earthyscience.github.io/netcdf4-wasm/next-js/)
+# netcdf4-wasm [![viewer](https://img.shields.io/badge/Viewer-Online-654FF0)](https://earthyscience.github.io/netcdf4-wasm/viewer/)
 
 
 [![npm version](https://img.shields.io/npm/v/@earthyscience/netcdf4-wasm.svg)](https://www.npmjs.com/package/@earthyscience/netcdf4-wasm)
