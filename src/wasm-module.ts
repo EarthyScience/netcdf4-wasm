@@ -7,6 +7,10 @@ const NC_MAX_NAME = 256;
 const NC_MAX_DIMS = 1024;  
 const NC_MAX_VARS = 8192;
 
+function stridedLength(count: number[], stride: number[]): number {
+    return count.reduce((acc, c, i) => acc * Math.ceil(c / stride[i]), 1);
+}
+
 export class WasmModuleLoader {
     static async loadModule(options: NetCDF4WasmOptions = {}): Promise<NetCDF4Module> {
         try {            
@@ -129,6 +133,21 @@ export class WasmModuleLoader {
         const nc_get_var_uint_wrapper = module.cwrap('nc_get_var_uint_wrapper', 'number', ['number', 'number', 'number']);
         const nc_get_var_ulonglong_wrapper = module.cwrap('nc_get_var_ulonglong_wrapper', 'number', ['number', 'number', 'number']);
         const nc_get_var_string_wrapper = module.cwrap('nc_get_var_string_wrapper', 'number', ['number', 'number', 'number']);
+
+        // Stride inquiry wrappers
+
+        const nc_get_vars_schar_wrapper     = module.cwrap('nc_get_vars_schar_wrapper',     'number', ['number','number','number','number','number','number']);
+        const nc_get_vars_uchar_wrapper     = module.cwrap('nc_get_vars_uchar_wrapper',     'number', ['number','number','number','number','number','number']);
+        const nc_get_vars_short_wrapper     = module.cwrap('nc_get_vars_short_wrapper',     'number', ['number','number','number','number','number','number']);
+        const nc_get_vars_ushort_wrapper    = module.cwrap('nc_get_vars_ushort_wrapper',    'number', ['number','number','number','number','number','number']);
+        const nc_get_vars_int_wrapper       = module.cwrap('nc_get_vars_int_wrapper',       'number', ['number','number','number','number','number','number']);
+        const nc_get_vars_uint_wrapper      = module.cwrap('nc_get_vars_uint_wrapper',      'number', ['number','number','number','number','number','number']);
+        const nc_get_vars_float_wrapper     = module.cwrap('nc_get_vars_float_wrapper',     'number', ['number','number','number','number','number','number']);
+        const nc_get_vars_double_wrapper    = module.cwrap('nc_get_vars_double_wrapper',    'number', ['number','number','number','number','number','number']);
+        const nc_get_vars_longlong_wrapper  = module.cwrap('nc_get_vars_longlong_wrapper',  'number', ['number','number','number','number','number','number']);
+        const nc_get_vars_ulonglong_wrapper = module.cwrap('nc_get_vars_ulonglong_wrapper', 'number', ['number','number','number','number','number','number']);
+        const nc_get_vars_string_wrapper    = module.cwrap('nc_get_vars_string_wrapper',    'number', ['number','number','number','number','number','number']);
+        const nc_get_vars_wrapper           = module.cwrap('nc_get_vars_wrapper',           'number', ['number','number','number','number','number','number']);
 
 
         // Group inquiry wrappers
@@ -1292,6 +1311,230 @@ export class WasmModuleLoader {
                 module._free(dataPtr);
                 module._free(startPtr);
                 module._free(countPtr);
+                return { result, data };
+            },
+
+            // start/count/stride → i64 / 8 bytes per element  (matching nc_get_vara_double etc.)
+
+            nc_get_vars_schar: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
+                const totalLength = stridedLength(count, stride);
+                const dataPtr   = module._malloc(totalLength * 1);
+                const startPtr  = module._malloc(start.length * 8);
+                const countPtr  = module._malloc(count.length * 8);
+                const stridePtr = module._malloc(stride.length * 8);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 8, v, 'i64'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 8, v, 'i64'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 8, v, 'i64'));
+                const result = nc_get_vars_schar_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new Int8Array(module.HEAP8.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                return { result, data };
+            },
+
+            nc_get_vars_uchar: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
+                const totalLength = stridedLength(count, stride);
+                const dataPtr   = module._malloc(totalLength * 1);
+                const startPtr  = module._malloc(start.length * 8);
+                const countPtr  = module._malloc(count.length * 8);
+                const stridePtr = module._malloc(stride.length * 8);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 8, v, 'i64'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 8, v, 'i64'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 8, v, 'i64'));
+                const result = nc_get_vars_uchar_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new Uint8Array(module.HEAPU8.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                return { result, data };
+            },
+
+            nc_get_vars_short: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
+                const totalLength = stridedLength(count, stride);
+                const dataPtr   = module._malloc(totalLength * 2);
+                const startPtr  = module._malloc(start.length * 8);
+                const countPtr  = module._malloc(count.length * 8);
+                const stridePtr = module._malloc(stride.length * 8);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 8, v, 'i64'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 8, v, 'i64'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 8, v, 'i64'));
+                const result = nc_get_vars_short_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new Int16Array(module.HEAP16.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                return { result, data };
+            },
+
+            nc_get_vars_ushort: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
+                const totalLength = stridedLength(count, stride);
+                const dataPtr   = module._malloc(totalLength * 2);
+                const startPtr  = module._malloc(start.length * 8);
+                const countPtr  = module._malloc(count.length * 8);
+                const stridePtr = module._malloc(stride.length * 8);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 8, v, 'i64'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 8, v, 'i64'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 8, v, 'i64'));
+                const result = nc_get_vars_ushort_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new Uint16Array(module.HEAPU16.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                return { result, data };
+            },
+
+            nc_get_vars_int: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
+                const totalLength = stridedLength(count, stride);
+                const dataPtr   = module._malloc(totalLength * 4);
+                const startPtr  = module._malloc(start.length * 8);
+                const countPtr  = module._malloc(count.length * 8);
+                const stridePtr = module._malloc(stride.length * 8);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 8, v, 'i64'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 8, v, 'i64'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 8, v, 'i64'));
+                const result = nc_get_vars_int_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new Int32Array(module.HEAP32.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                return { result, data };
+            },
+
+            nc_get_vars_uint: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
+                const totalLength = stridedLength(count, stride);
+                const dataPtr   = module._malloc(totalLength * 4);
+                const startPtr  = module._malloc(start.length * 8);
+                const countPtr  = module._malloc(count.length * 8);
+                const stridePtr = module._malloc(stride.length * 8);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 8, v, 'i64'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 8, v, 'i64'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 8, v, 'i64'));
+                const result = nc_get_vars_uint_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new Uint32Array(module.HEAPU32.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                return { result, data };
+            },
+
+            nc_get_vars_float: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
+                const totalLength = stridedLength(count, stride);
+                const dataPtr   = module._malloc(totalLength * 4);
+                const startPtr  = module._malloc(start.length * 8);
+                const countPtr  = module._malloc(count.length * 8);
+                const stridePtr = module._malloc(stride.length * 8);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 8, v, 'i64'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 8, v, 'i64'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 8, v, 'i64'));
+                const result = nc_get_vars_float_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new Float32Array(module.HEAPF32.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                return { result, data };
+            },
+
+            nc_get_vars_double: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
+                const totalLength = stridedLength(count, stride);
+                const dataPtr   = module._malloc(totalLength * 8);
+                const startPtr  = module._malloc(start.length * 8);
+                const countPtr  = module._malloc(count.length * 8);
+                const stridePtr = module._malloc(stride.length * 8);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 8, v, 'i64'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 8, v, 'i64'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 8, v, 'i64'));
+                const result = nc_get_vars_double_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new Float64Array(module.HEAPF64.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                return { result, data };
+            },
+
+            nc_get_vars_longlong: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
+                const totalLength = stridedLength(count, stride);
+                const dataPtr   = module._malloc(totalLength * 8);
+                const startPtr  = module._malloc(start.length * 8);
+                const countPtr  = module._malloc(count.length * 8);
+                const stridePtr = module._malloc(stride.length * 8);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 8, v, 'i64'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 8, v, 'i64'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 8, v, 'i64'));
+                const result = nc_get_vars_longlong_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new BigInt64Array(module.HEAP64.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                return { result, data };
+            },
+
+            nc_get_vars_ulonglong: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
+                const totalLength = stridedLength(count, stride);
+                const dataPtr   = module._malloc(totalLength * 8);
+                const startPtr  = module._malloc(start.length * 8);
+                const countPtr  = module._malloc(count.length * 8);
+                const stridePtr = module._malloc(stride.length * 8);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 8, v, 'i64'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 8, v, 'i64'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 8, v, 'i64'));
+                const result = nc_get_vars_ulonglong_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? new BigUint64Array(module.HEAPU64.buffer, dataPtr, totalLength).slice()
+                    : undefined;
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                return { result, data };
+            },
+
+            nc_get_vars_string: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
+                const totalLength = stridedLength(count, stride);
+                const dataPtr   = module._malloc(totalLength * 4); // char* pointers (4 bytes in wasm32)
+                const startPtr  = module._malloc(start.length * 8);
+                const countPtr  = module._malloc(count.length * 8);
+                const stridePtr = module._malloc(stride.length * 8);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 8, v, 'i64'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 8, v, 'i64'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 8, v, 'i64'));
+                const result = nc_get_vars_string_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                let data: string[] | undefined;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    data = [];
+                    for (let i = 0; i < totalLength; i++) {
+                        const strPtr = module.getValue(dataPtr + i * 4, '*');
+                        data.push(module.UTF8ToString(strPtr));
+                    }
+                }
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                return { result, data };
+            },
+
+            // Generic strided reader — mirrors nc_get_vara_generic but with stride.
+            // Uses i32 for start/count/stride to match nc_get_vara_generic's convention, should it be i64?
+            nc_get_vars_generic: (ncid: number, varid: number, start: number[], count: number[], stride: number[], nctype: number) => {
+                const elementSize = DATA_TYPE_SIZE[nctype];
+                const totalLength = stridedLength(count, stride);
+                const dataPtr   = module._malloc(totalLength * elementSize);
+                const startPtr  = module._malloc(start.length * 4);
+                const countPtr  = module._malloc(count.length * 4);
+                const stridePtr = module._malloc(stride.length * 4);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 4, v, 'i32'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 4, v, 'i32'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 4, v, 'i32'));
+                const result = nc_get_vars_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                let data;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    switch (nctype) {
+                        case NC_CONSTANTS.NC_BYTE:   data = new Int8Array(module.HEAP8.buffer,     dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_UBYTE:  data = new Uint8Array(module.HEAPU8.buffer,   dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_SHORT:  data = new Int16Array(module.HEAP16.buffer,   dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_USHORT: data = new Uint16Array(module.HEAPU16.buffer, dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_INT:    data = new Int32Array(module.HEAP32.buffer,   dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_UINT:   data = new Uint32Array(module.HEAPU32.buffer, dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_INT64:  data = new BigInt64Array(module.HEAP64.buffer,  dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_UINT64: data = new BigUint64Array(module.HEAPU64.buffer, dataPtr, totalLength).slice(); break;
+                    }
+                }
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
                 return { result, data };
             },
         };

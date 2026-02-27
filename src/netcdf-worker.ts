@@ -136,6 +136,17 @@ self.onmessage = async (e: MessageEvent) => {
                 result = NCGet.getAttributeValues(mod, data.ncid, data.varid, data.attname);
                 break;
 
+            case 'getVariableArrayWithSelection':
+                result = NCGet.getVariableArrayWithSelection(
+                    mod,
+                    data.ncid,
+                    data.variable,
+                    data.selection,
+                    data.groupPath,
+                    data.options
+                );
+                break;
+
             // ---- Arrays ----
             case 'getVariableArray':
                 result = NCGet.getVariableArray(mod, data.ncid, data.variable, data.groupPath);

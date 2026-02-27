@@ -1,5 +1,6 @@
 import { NC_CONSTANTS, DATA_TYPE_SIZE, CONSTANT_DTYPE_MAP } from './constants.js';
 import type { NetCDF4Module } from './types.js';
+import { DimSelection, ResolvedDim, resolveDim } from "./slice.js";
 
 export function getGroupVariables(
     module: NetCDF4Module,
@@ -643,6 +644,201 @@ export function getSlicedVariableArray(
     }
 
     return arrayData.data;
+}
+
+type AnyTypedArray =
+    | Int8Array    | Uint8Array
+    | Int16Array   | Uint16Array
+    | Int32Array   | Uint32Array
+    | Float32Array | Float64Array
+    | BigInt64Array | BigUint64Array
+    | string[];
+
+export function getVariableArrayWithSelection(
+    module: NetCDF4Module,
+    ncid: number,
+    variable: number | string,
+    selection: DimSelection[],
+    groupPath?: string,
+    options?: { convertEnumsToNames?: boolean }
+): AnyTypedArray {
+    const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
+
+    // Resolve varid
+    let varid: number;
+    if (typeof variable === "number") {
+        varid = variable;
+    } else {
+        const r = module.nc_inq_varid(workingNcid, variable);
+        if (r.result !== NC_CONSTANTS.NC_NOERR) {
+            throw new Error(`Failed to get variable id for '${variable}' (error: ${r.result})`);
+        }
+        varid = r.varid as number;
+    }
+
+    // Query variable dimensions — use workingNcid throughout
+    const varInfo = module.nc_inq_var(workingNcid, varid);
+    if (varInfo.result !== NC_CONSTANTS.NC_NOERR) {
+        throw new Error(`Failed to query variable info (error: ${varInfo.result})`);
+    }
+
+    const dimids: number[] = Array.from(varInfo.dimids ?? []);
+    const ndim = dimids.length;
+
+    if (selection.length !== ndim) {
+        throw new Error(
+            `Selection has ${selection.length} dimension(s) but variable has ${ndim}`
+        );
+    }
+
+    // Fetch each dimension's size — resolveDim handles BigInt safely
+    const dimSizes = dimids.map((dimid: number) => {
+        const r = module.nc_inq_dimlen(workingNcid, dimid);
+        if (r.result !== NC_CONSTANTS.NC_NOERR) {
+            throw new Error(`Failed to query dim length for dimid ${dimid} (error: ${r.result})`);
+        }
+        return r.len as number | bigint;
+    });
+
+    // Resolve each selection — resolveDim coerces BigInt internally
+    const resolved: ResolvedDim[] = selection.map((sel, i) =>
+        resolveDim(sel, dimSizes[i])
+    );
+
+    const start  = resolved.map(d => d.start);
+    const count  = resolved.map(d => d.count);
+    const stride = resolved.map(d => Math.abs(d.step));
+
+    const useStride       = stride.some(s => s !== 1);
+    const hasNegativeStep = resolved.some(d => d.step < 0);
+
+    // Resolve variable type — use workingNcid so enum lookup is in the right group
+    const { enumCtx } = resolveVariableType(module, workingNcid, varid);
+    const arrayType = enumCtx.baseType;
+
+    let arrayData: { result: number; data?: any };
+
+    // ── Read data ─────────────────────────────────────────────────────────────
+    // All reads go directly through workingNcid + varid — no group re-resolution.
+
+    if (enumCtx.isEnum) {
+        if (useStride) {
+            arrayData = module.nc_get_vars_generic(workingNcid, varid, start, count, stride, arrayType);
+        } else {
+            arrayData = module.nc_get_vara_generic(workingNcid, varid, start, count, arrayType);
+        }
+    } else if (useStride) {
+        type VarsArgs = [number, number, number[], number[], number[]];
+        type VarsResult = { result: number; data?: any };
+
+        const stridedReaders: Record<number, (...args: VarsArgs) => VarsResult> = {
+            [NC_CONSTANTS.NC_BYTE]:      (...args) => module.nc_get_vars_schar(...args),
+            [NC_CONSTANTS.NC_UBYTE]:     (...args) => module.nc_get_vars_uchar(...args),
+            [NC_CONSTANTS.NC_SHORT]:     (...args) => module.nc_get_vars_short(...args),
+            [NC_CONSTANTS.NC_USHORT]:    (...args) => module.nc_get_vars_ushort(...args),
+            [NC_CONSTANTS.NC_INT]:       (...args) => module.nc_get_vars_int(...args),
+            [NC_CONSTANTS.NC_UINT]:      (...args) => module.nc_get_vars_uint(...args),
+            [NC_CONSTANTS.NC_FLOAT]:     (...args) => module.nc_get_vars_float(...args),
+            [NC_CONSTANTS.NC_DOUBLE]:    (...args) => module.nc_get_vars_double(...args),
+            [NC_CONSTANTS.NC_INT64]:     (...args) => module.nc_get_vars_longlong(...args),
+            [NC_CONSTANTS.NC_LONGLONG]:  (...args) => module.nc_get_vars_longlong(...args),
+            [NC_CONSTANTS.NC_UINT64]:    (...args) => module.nc_get_vars_ulonglong(...args),
+            [NC_CONSTANTS.NC_ULONGLONG]: (...args) => module.nc_get_vars_ulonglong(...args),
+            [NC_CONSTANTS.NC_STRING]:    (...args) => module.nc_get_vars_string(...args),
+        };
+
+        const reader = stridedReaders[arrayType];
+        if (!reader) {
+            console.warn(`Unknown NetCDF type ${arrayType} for strided read, falling back to double`);
+            arrayData = module.nc_get_vars_double(workingNcid, varid, start, count, stride);
+        } else {
+            arrayData = reader(workingNcid, varid, start, count, stride);
+        }
+    } else {
+        type VaraArgs = [number, number, number[], number[]];
+        type VaraResult = { result: number; data?: any };
+
+        const readers: Record<number, (...args: VaraArgs) => VaraResult> = {
+            [NC_CONSTANTS.NC_BYTE]:      (...args) => module.nc_get_vara_schar(...args),
+            [NC_CONSTANTS.NC_UBYTE]:     (...args) => module.nc_get_vara_uchar(...args),
+            [NC_CONSTANTS.NC_SHORT]:     (...args) => module.nc_get_vara_short(...args),
+            [NC_CONSTANTS.NC_USHORT]:    (...args) => module.nc_get_vara_ushort(...args),
+            [NC_CONSTANTS.NC_INT]:       (...args) => module.nc_get_vara_int(...args),
+            [NC_CONSTANTS.NC_UINT]:      (...args) => module.nc_get_vara_uint(...args),
+            [NC_CONSTANTS.NC_FLOAT]:     (...args) => module.nc_get_vara_float(...args),
+            [NC_CONSTANTS.NC_DOUBLE]:    (...args) => module.nc_get_vara_double(...args),
+            [NC_CONSTANTS.NC_INT64]:     (...args) => module.nc_get_vara_longlong(...args),
+            [NC_CONSTANTS.NC_LONGLONG]:  (...args) => module.nc_get_vara_longlong(...args),
+            [NC_CONSTANTS.NC_UINT64]:    (...args) => module.nc_get_vara_ulonglong(...args),
+            [NC_CONSTANTS.NC_ULONGLONG]: (...args) => module.nc_get_vara_ulonglong(...args),
+            [NC_CONSTANTS.NC_STRING]:    (...args) => module.nc_get_vara_string(...args),
+        };
+
+        const reader = readers[arrayType];
+        if (!reader) {
+            console.warn(`Unknown NetCDF type ${arrayType}, falling back to double`);
+            arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+        } else {
+            arrayData = reader(workingNcid, varid, start, count);
+        }
+    }
+
+    if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
+        throw new Error(`Failed to read array data (error: ${arrayData.result})`);
+    }
+    if (!arrayData.data) {
+        throw new Error("nc_get_vara/vars returned no data");
+    }
+
+    let result: AnyTypedArray = arrayData.data;
+
+    if (enumCtx.isEnum && options?.convertEnumsToNames && enumCtx.enumDict) {
+        result = convertEnumValuesToNames(result, enumCtx.enumDict);
+    }
+
+    // Reverse dimensions that had a negative step — cheap, operates on already-small output
+    if (hasNegativeStep) {
+        result = applyNegativeStepReversal(result, resolved);
+    }
+
+    return result;
+}
+
+// applyNegativeStepReversal
+
+function applyNegativeStepReversal<T extends AnyTypedArray>(
+    data: T,
+    resolved: ResolvedDim[]
+): T {
+    const ndim = resolved.length;
+    const outCount = resolved.map(d =>
+        d.collapsed ? 1 : Math.ceil(d.count / Math.abs(d.step))
+    );
+    const totalOut = outCount.reduce((a, b) => a * b, 1);
+
+    const outStrides = new Array<number>(ndim);
+    outStrides[ndim - 1] = 1;
+    for (let i = ndim - 2; i >= 0; i--) {
+        outStrides[i] = outStrides[i + 1] * outCount[i + 1];
+    }
+
+    const out: AnyTypedArray = Array.isArray(data)
+        ? new Array<string>(totalOut)
+        : new (data.constructor as any)(totalOut);
+
+    for (let outIdx = 0; outIdx < totalOut; outIdx++) {
+        let rem    = outIdx;
+        let srcIdx = 0;
+        for (let d = 0; d < ndim; d++) {
+            const logI = Math.floor(rem / outStrides[d]);
+            rem -= logI * outStrides[d];
+            const srcI = resolved[d].step < 0 ? outCount[d] - 1 - logI : logI;
+            srcIdx += srcI * outStrides[d];
+        }
+        (out as any)[outIdx] = (data as any)[srcIdx];
+    }
+
+    return out as T;
 }
 
 //---- Group Functions ----//
