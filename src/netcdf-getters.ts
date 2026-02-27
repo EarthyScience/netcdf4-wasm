@@ -955,7 +955,7 @@ export function getVariables(
     // Get variables at current level
     const vars = getGroupVariables(module, ncid);
     for (const [name, varData] of Object.entries(vars)) {
-        const fullPath = path === '/' ? `/${name}` : `${path}/${name}`;
+        const fullPath = path === '/' ? name : `${path}/${name}`;
         allVars[fullPath] = { ...varData, path, ncid };
     }
     
@@ -965,7 +965,7 @@ export function getVariables(
         for (const grpid of groupsResult.grpids) {
             const nameResult = module.nc_inq_grpname(grpid);
             if (nameResult.result === NC_CONSTANTS.NC_NOERR && nameResult.name) {
-                const newPath = path === '/' ? `/${nameResult.name}` : `${path}/${nameResult.name}`;
+                const newPath = path === '/' ? nameResult.name : `${path}/${nameResult.name}`;
                 const subVars = getVariables(module, grpid, newPath);
                 Object.assign(allVars, subVars);
             }
