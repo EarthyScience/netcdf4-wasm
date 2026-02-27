@@ -509,12 +509,12 @@ export class WasmModuleLoader {
             //---- Variable Getters ----//
             nc_get_vara_short: (ncid: number, varid: number, start: number[], count: number[]) => {
                 const totalLength = count.reduce((a, b) => a * b, 1);
-                const dataPtr = module._malloc(totalLength * 4);
-                const startPtr = module._malloc(start.length * 8);
-                const countPtr = module._malloc(count.length * 8);
+                const dataPtr = module._malloc(totalLength * 2);
+                const startPtr = module._malloc(start.length * 4);
+                const countPtr = module._malloc(count.length * 4);
                 
-                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
-                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                start.forEach((val, i) => module.setValue(startPtr + i * 4, val, 'i32'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 4, val, 'i32'));
                 
                 const result = nc_get_vara_short_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
                 const data = result === NC_CONSTANTS.NC_NOERR
@@ -529,12 +529,12 @@ export class WasmModuleLoader {
 
             nc_get_vara_int: (ncid: number, varid: number, start: number[], count: number[]) => {
                 const totalLength = count.reduce((a, b) => a * b, 1);
-                const dataPtr = module._malloc(totalLength * 8);
-                const startPtr = module._malloc(start.length * 8);
-                const countPtr = module._malloc(count.length * 8);
+                const dataPtr = module._malloc(totalLength * 4);
+                const startPtr = module._malloc(start.length * 4);
+                const countPtr = module._malloc(count.length * 4);
                 
-                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
-                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                start.forEach((val, i) => module.setValue(startPtr + i * 4, val, 'i32'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 4, val, 'i32'));
                 
                 const result = nc_get_vara_int_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
                 const data = result === NC_CONSTANTS.NC_NOERR
@@ -568,11 +568,11 @@ export class WasmModuleLoader {
             nc_get_vara_double: (ncid: number, varid: number, start: number[], count: number[]) => {
                 const totalLength = count.reduce((a, b) => a * b, 1);
                 const dataPtr = module._malloc(totalLength * 8);
-                const startPtr = module._malloc(start.length * 8);
-                const countPtr = module._malloc(count.length * 8);
+                const startPtr = module._malloc(start.length * 4);
+                const countPtr = module._malloc(count.length * 4);
                 
-                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
-                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                start.forEach((val, i) => module.setValue(startPtr + i * 4, val, 'i32'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 4, val, 'i32'));
                 
                 const result = nc_get_vara_double_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
                 const data = result === NC_CONSTANTS.NC_NOERR
@@ -588,11 +588,11 @@ export class WasmModuleLoader {
             nc_get_vara_longlong: (ncid: number, varid: number, start: number[], count: number[]) => {
                 const totalLength = count.reduce((a, b) => a * b, 1);
                 const dataPtr = module._malloc(totalLength * 8);
-                const startPtr = module._malloc(start.length * 8);
-                const countPtr = module._malloc(count.length * 8);
+                const startPtr = module._malloc(start.length * 4);
+                const countPtr = module._malloc(count.length * 4);
                 
-                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
-                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                start.forEach((val, i) => module.setValue(startPtr + i * 4, val, 'i32'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 4, val, 'i32'));
                 
                 const result = nc_get_vara_longlong_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
                 const data = result === NC_CONSTANTS.NC_NOERR
@@ -607,11 +607,11 @@ export class WasmModuleLoader {
             nc_get_vara_schar: (ncid: number, varid: number, start: number[], count: number[]) => {
                 const totalLength = count.reduce((a, b) => a * b, 1);
                 const dataPtr = module._malloc(totalLength * 1);
-                const startPtr = module._malloc(start.length * 8);
-                const countPtr = module._malloc(count.length * 8);
+                const startPtr = module._malloc(start.length * 4);
+                const countPtr = module._malloc(count.length * 4);
                 
-                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
-                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                start.forEach((val, i) => module.setValue(startPtr + i * 4, val, 'i32'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 4, val, 'i32'));
                 
                 const result = nc_get_vara_schar_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
                 const data = result === NC_CONSTANTS.NC_NOERR
@@ -627,11 +627,11 @@ export class WasmModuleLoader {
             nc_get_vara_uchar: (ncid: number, varid: number, start: number[], count: number[]) => {
                 const totalLength = count.reduce((a, b) => a * b, 1);
                 const dataPtr = module._malloc(totalLength * 1);
-                const startPtr = module._malloc(start.length * 8);
-                const countPtr = module._malloc(count.length * 8);
+                const startPtr = module._malloc(start.length * 4);
+                const countPtr = module._malloc(count.length * 4);
                 
-                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
-                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                start.forEach((val, i) => module.setValue(startPtr + i * 4, val, 'i32'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 4, val, 'i32'));
                 
                 const result = nc_get_vara_uchar_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
                 const data = result === NC_CONSTANTS.NC_NOERR
@@ -647,11 +647,11 @@ export class WasmModuleLoader {
             nc_get_vara_ushort: (ncid: number, varid: number, start: number[], count: number[]) => {
                 const totalLength = count.reduce((a, b) => a * b, 1);
                 const dataPtr = module._malloc(totalLength * 2);
-                const startPtr = module._malloc(start.length * 8);
-                const countPtr = module._malloc(count.length * 8);
+                const startPtr = module._malloc(start.length * 4);
+                const countPtr = module._malloc(count.length * 4);
                 
-                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
-                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                start.forEach((val, i) => module.setValue(startPtr + i * 4, val, 'i32'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 4, val, 'i32'));
                 
                 const result = nc_get_vara_ushort_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
                 const data = result === NC_CONSTANTS.NC_NOERR
@@ -667,11 +667,11 @@ export class WasmModuleLoader {
             nc_get_vara_uint: (ncid: number, varid: number, start: number[], count: number[]) => {
                 const totalLength = count.reduce((a, b) => a * b, 1);
                 const dataPtr = module._malloc(totalLength * 4);
-                const startPtr = module._malloc(start.length * 8);
-                const countPtr = module._malloc(count.length * 8);
+                const startPtr = module._malloc(start.length * 4);
+                const countPtr = module._malloc(count.length * 4);
                 
-                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
-                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                start.forEach((val, i) => module.setValue(startPtr + i * 4, val, 'i32'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 4, val, 'i32'));
                 
                 const result = nc_get_vara_uint_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
                 const data = result === NC_CONSTANTS.NC_NOERR
@@ -687,11 +687,11 @@ export class WasmModuleLoader {
             nc_get_vara_ulonglong: (ncid: number, varid: number, start: number[], count: number[]) => {
                 const totalLength = count.reduce((a, b) => a * b, 1);
                 const dataPtr = module._malloc(totalLength * 8);
-                const startPtr = module._malloc(start.length * 8);
-                const countPtr = module._malloc(count.length * 8);
+                const startPtr = module._malloc(start.length * 4);
+                const countPtr = module._malloc(count.length * 4);
                 
-                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
-                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                start.forEach((val, i) => module.setValue(startPtr + i * 4, val, 'i32'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 4, val, 'i32'));
                 
                 const result = nc_get_vara_ulonglong_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
                 const data = result === NC_CONSTANTS.NC_NOERR
@@ -707,11 +707,11 @@ export class WasmModuleLoader {
             nc_get_vara_string: (ncid: number, varid: number, start: number[], count: number[]) => {
                 const totalLength = count.reduce((a, b) => a * b, 1);
                 const dataPtr = module._malloc(totalLength * 4);
-                const startPtr = module._malloc(start.length * 8);
-                const countPtr = module._malloc(count.length * 8);
+                const startPtr = module._malloc(start.length * 4);
+                const countPtr = module._malloc(count.length * 4);
                 
-                start.forEach((val, i) => module.setValue(startPtr + i * 8, val, 'i64'));
-                count.forEach((val, i) => module.setValue(countPtr + i * 8, val, 'i64'));
+                start.forEach((val, i) => module.setValue(startPtr + i * 4, val, 'i32'));
+                count.forEach((val, i) => module.setValue(countPtr + i * 4, val, 'i32'));
                 
                 const result = nc_get_vara_string_wrapper(ncid, varid, startPtr, countPtr, dataPtr);
                 let data: string[] | undefined;
