@@ -1,6 +1,6 @@
 {
   "name": "@earthyscience/netcdf4-wasm",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Partial compilation of NetCDF4 library to WebAssembly with TypeScript bindings",
   "type": "module",
   "main": "./dist/index.js",
