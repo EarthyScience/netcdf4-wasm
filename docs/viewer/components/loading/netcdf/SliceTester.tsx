@@ -6,6 +6,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Terminal, ChevronRight, ChevronDown } from 'lucide-react';
 import { slice as ncSlice } from '@earthyscience/netcdf4-wasm';
+import { VariableInfo, VariableArrayData } from './types';
 
 // Types
 export type SelectionMode = 'all' | 'scalar' | 'slice';
@@ -23,37 +24,25 @@ export function defaultSelection(): SliceSelectionState {
 }
 
 // buildSelection — converts UI state → DimSelection[] for dataset.get()
-
 export function buildSelection(
   sels: SliceSelectionState[],
   shape: Array<number | bigint>
 ): Array<null | number | ReturnType<typeof ncSlice>> {
-
   return sels.map((s, i) => {
     const dimSize = Number(shape[i]);
 
-    // ALL
-    if (s.mode === 'all') {
-      return ncSlice(0, dimSize, 1);
-    }
+    if (s.mode === 'all') return ncSlice(0, dimSize, 1);
 
-    // SCALAR
     if (s.mode === 'scalar') {
       let idx = parseInt(s.scalar);
-
       if (Number.isNaN(idx)) idx = 0;
-
-      // normalize negative indices
       if (idx < 0) idx = dimSize + idx;
-
       if (idx < 0 || idx >= dimSize) {
         throw new Error(`index ${idx} out of bounds for dim ${i} size ${dimSize}`);
       }
-
       return idx;
     }
 
-    // SLICE
     let start = s.start !== '' ? parseInt(s.start) : 0;
     let stop  = s.stop  !== '' ? parseInt(s.stop)  : dimSize;
     let step  = s.step  !== '' ? parseInt(s.step)  : 1;
@@ -62,7 +51,6 @@ export function buildSelection(
     if (Number.isNaN(stop))  stop  = dimSize;
     if (Number.isNaN(step))  step  = 1;
 
-    // normalize negatives
     if (start < 0) start = dimSize + start;
     if (stop  < 0) stop  = dimSize + stop;
 
@@ -70,21 +58,19 @@ export function buildSelection(
   });
 }
 
-// SliceTesterSection component
-
 interface SliceTesterSectionProps {
-  info:                    any;
-  sliceSelections:         SliceSelectionState[];
-  setSliceSelections:      React.Dispatch<React.SetStateAction<SliceSelectionState[]>>;
-  expandedSliceTester:     boolean;
-  setExpandedSliceTester:  (v: boolean) => void;
-  sliceResult:             any;
-  sliceError:              string | null;
-  loadingSlice:            boolean;
-  onRun:                   () => void;
+  info:                   VariableInfo;
+  sliceSelections:        SliceSelectionState[];
+  setSliceSelections:     React.Dispatch<React.SetStateAction<SliceSelectionState[]>>;
+  expandedSliceTester:    boolean;
+  setExpandedSliceTester: (v: boolean) => void;
+  sliceResult:            VariableArrayData | null;
+  sliceError:             string | null;
+  loadingSlice:           boolean;
+  onRun:                  () => void;
 }
 
-const SliceTesterSection: React.FC<SliceTesterSectionProps> = ({
+const SliceTester: React.FC<SliceTesterSectionProps> = ({
   info,
   sliceSelections,
   setSliceSelections,
@@ -97,25 +83,29 @@ const SliceTesterSection: React.FC<SliceTesterSectionProps> = ({
 }) => {
   if (!info?.shape || info.shape.length === 0) return null;
 
-  // Coerce shape to plain numbers — nc_inq_dimlen uses i64 so values may be BigInt
-  const shape: number[] = (info.shape as any[]).map(Number);
+  const shape: number[] = info.shape.map(Number);
 
   const updateSel = (i: number, patch: Partial<SliceSelectionState>) =>
     setSliceSelections(prev => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s));
 
   const resultPreview = sliceResult
     ? (() => {
-        const arr = Array.isArray(sliceResult) ? sliceResult : Array.from(sliceResult as any);
-        const items = (arr as any[]).slice(0, 30).map((v: any) =>
-          typeof v === 'number' ? v.toFixed(4) : String(v)
-        );
-        const suffix = arr.length > 30 ? `, … (${arr.length} total)` : '';
+        const len = sliceResult.length ?? 0;
+        const count = Math.min(30, len);
+        const items: string[] = [];
+        for (let i = 0; i < count; i++) {
+          const v = sliceResult[i] as number | bigint | string;
+          items.push(typeof v === 'number' ? v.toFixed(4) : String(v));
+        }
+        const suffix = len > 30 ? `, … (${len} total)` : '';
         return `[${items.join(', ')}${suffix}]`;
       })()
     : null;
 
+  const elementCount = sliceResult ? sliceResult.length ?? 0 : 0;
+
   const selectionPreview = sliceSelections.map((s, i) => {
-    if (s.mode === 'all') return 'null';
+    if (s.mode === 'all')    return 'null';
     if (s.mode === 'scalar') return s.scalar || '0';
     const parts: string[] = [s.start || '0', s.stop || String(shape[i])];
     if (s.step && s.step !== '1') parts.push(s.step);
@@ -146,7 +136,7 @@ const SliceTesterSection: React.FC<SliceTesterSectionProps> = ({
 
           {/* Dimension rows */}
           <div className="space-y-2">
-            {shape.map((dimSize: number, i: number) => {
+            {shape.map((dimSize, i) => {
               const dimName = info.dimensions?.[i] ?? `dim_${i}`;
               const sel = sliceSelections[i] ?? defaultSelection();
 
@@ -198,9 +188,9 @@ const SliceTesterSection: React.FC<SliceTesterSectionProps> = ({
                   {sel.mode === 'slice' && (
                     <div className="flex items-center gap-2 flex-wrap">
                       {[
-                        { label: 'start', key: 'start' as const, placeholder: '0' },
+                        { label: 'start', key: 'start' as const, placeholder: '0'            },
                         { label: 'stop',  key: 'stop'  as const, placeholder: String(dimSize) },
-                        { label: 'step',  key: 'step'  as const, placeholder: '1' },
+                        { label: 'step',  key: 'step'  as const, placeholder: '1'             },
                       ].map(({ label, key, placeholder }) => (
                         <div key={key} className="flex items-center gap-1">
                           <span className="text-xs text-muted-foreground w-8">{label}</span>
@@ -222,7 +212,7 @@ const SliceTesterSection: React.FC<SliceTesterSectionProps> = ({
 
           {/* Selection preview */}
           <div className="text-xs font-mono text-muted-foreground bg-muted/50 rounded px-2 py-1.5 break-all">
-            get("{info.name}", [{selectionPreview}])
+            {`dataset.get("${info.name}", [${selectionPreview}])`}
           </div>
 
           {/* Run + result count */}
@@ -234,16 +224,14 @@ const SliceTesterSection: React.FC<SliceTesterSectionProps> = ({
               style={{ backgroundColor: '#644FF0', color: 'white' }}
               className="flex-shrink-0"
             >
-              {loadingSlice ? (
-                <><Spinner className="h-3 w-3 mr-2" />Running…</>
-              ) : 'Run'}
+              {loadingSlice
+                ? <><Spinner className="h-3 w-3 mr-2" />Running…</>
+                : 'Run'
+              }
             </Button>
             {sliceResult && (
               <span className="text-xs text-muted-foreground">
-                {(() => {
-                  const arr = Array.isArray(sliceResult) ? sliceResult : Array.from(sliceResult as any);
-                  return `${arr.length} elements`;
-                })()}
+                {elementCount} elements
               </span>
             )}
           </div>
@@ -268,4 +256,5 @@ const SliceTesterSection: React.FC<SliceTesterSectionProps> = ({
   );
 };
 
-export default SliceTesterSection;
+export { SliceTester };
+export default SliceTester;

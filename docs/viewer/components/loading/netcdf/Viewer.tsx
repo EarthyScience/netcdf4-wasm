@@ -13,11 +13,11 @@ import {
   SearchBar,
   VariableDetails,
   VariableDataLoader,
+  SliceTester,
   DimensionsCard,
   AttributesCard,
 } from '@/components/loading/netcdf';
-
-import { useViewerState } from '@/components/loading/netcdf';
+import { useViewerState } from '@/components/loading/netcdf/useViewerState';
 
 const Viewer = () => {
   const {
@@ -72,6 +72,14 @@ const Viewer = () => {
     handleToggleGroupExpand,
     handleSearchInputChange,
     selectSearchResult,
+    sliceSelections,
+    setSliceSelections,
+    expandedSliceTester,
+    setExpandedSliceTester,
+    sliceResult,
+    sliceError,
+    loadingSlice,
+    handleRunSlice,
     // Derived
     breadcrumbs,
     groupSummary,
@@ -243,6 +251,21 @@ const Viewer = () => {
               onSliceSizeChange={setSliceSize}
               onLoadSlice={loadVariableSlice}
               onLoadAll={loadVariableData}
+            />
+          )}
+
+          {/* Slice Tester */}
+          {selectedVariable && variables[selectedVariable]?.info && (
+            <SliceTester
+              info={variables[selectedVariable].info!}
+              sliceSelections={sliceSelections}
+              setSliceSelections={setSliceSelections}
+              expandedSliceTester={expandedSliceTester}
+              setExpandedSliceTester={setExpandedSliceTester}
+              sliceResult={sliceResult}
+              sliceError={sliceError}
+              loadingSlice={loadingSlice}
+              onRun={handleRunSlice}
             />
           )}
 
