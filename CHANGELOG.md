@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.3] - 2026-02-21
+- Removed leading slash if not root to match how zarrita handles groups [#55](https://github.com/EarthyScience/netcdf4-wasm/pull/55)
+
+## [0.2.2] - 2026-02-27
+- Fixed pointer sizes for memory allocation [#53](https://github.com/EarthyScience/netcdf4-wasm/pull/53)
+
 ## [0.2.1] - 2026-02-21
 
 - Added support for EnumTypes. [#46](https://github.com/EarthyScience/netcdf4-wasm/pull/46)
