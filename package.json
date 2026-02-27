@@ -1,6 +1,6 @@
 {
   "name": "@earthyscience/netcdf4-wasm",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Partial compilation of NetCDF4 library to WebAssembly with TypeScript bindings",
   "type": "module",
   "main": "./dist/index.js",
@@ -24,9 +24,9 @@
     "prepublishOnly": "npm run clean && npm run install-emscripten && npm run build && npm run test",
     "install-emscripten": "bash scripts/install-emscripten.sh",
     "check-deps": "bash scripts/check-dependencies.sh",
-    "clean:docs": "rimraf docs/next-js/node_modules/@earthyscience/netcdf4-wasm/dist docs/next-js/public/netcdf4-wasm.wasm",
-    "copy:docs-dist": "cpx \"dist/**/*\" docs/next-js/node_modules/@earthyscience/netcdf4-wasm/dist",
-    "copy:docs-wasm": "cpx \"dist/*.wasm\" docs/next-js/public",
+    "clean:docs": "rimraf docs/viewer/node_modules/@earthyscience/netcdf4-wasm/dist docs/viewer/public/netcdf4-wasm.wasm",
+    "copy:docs-dist": "cpx \"dist/**/*\" docs/viewer/node_modules/@earthyscience/netcdf4-wasm/dist",
+    "copy:docs-wasm": "cpx \"dist/*.wasm\" docs/viewer/public",
     "sync-docs": "npm run clean:docs && npm run copy:docs-dist && npm run copy:docs-wasm",
     "build-and-sync": "npm run build && npm run sync-docs"
   },
