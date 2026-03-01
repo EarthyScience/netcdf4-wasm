@@ -31,7 +31,7 @@ export function buildSelection(
   return sels.map((s, i) => {
     const dimSize = Number(shape[i]);
 
-    if (s.mode === 'all') return ncSlice(0, dimSize, 1);
+    if (s.mode === 'all') return null;
 
     if (s.mode === 'scalar') {
       let idx = parseInt(s.scalar);

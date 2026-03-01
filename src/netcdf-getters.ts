@@ -720,6 +720,7 @@ export function getVariableArrayWithSelection(
 
     // ── Read data ─────────────────────────────────────────────────────────────
     // All reads go directly through workingNcid + varid — no group re-resolution.
+    console.log('stride read', { start, count, stride, arrayType });
 
     if (enumCtx.isEnum) {
         if (useStride) {
@@ -811,9 +812,7 @@ function applyNegativeStepReversal<T extends AnyTypedArray>(
     resolved: ResolvedDim[]
 ): T {
     const ndim = resolved.length;
-    const outCount = resolved.map(d =>
-        d.collapsed ? 1 : Math.ceil(d.count / Math.abs(d.step))
-    );
+    const outCount = resolved.map(d => d.collapsed ? 1 : d.count);
     const totalOut = outCount.reduce((a, b) => a * b, 1);
 
     const outStrides = new Array<number>(ndim);

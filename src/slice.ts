@@ -80,15 +80,16 @@ export function resolveDim(sel: DimSelection, dimSizeRaw: number | bigint): Reso
         const rawStop  = sel.stop  ?? dimSize;
         const start    = Math.max(0, Math.min(rawStart < 0 ? dimSize + rawStart : rawStart, dimSize));
         const stop     = Math.max(0, Math.min(rawStop  < 0 ? dimSize + rawStop  : rawStop,  dimSize));
-        const count    = Math.max(0, stop - start);
+        const span     = Math.max(0, stop - start);
+        const count    = Math.ceil(span / step);        // ← actual element count
         return { start, count, step, collapsed: false };
     } else {
-        // Negative step: read [stop+1 .. start] forward from NetCDF, reverse client-side
         const rawStart = sel.start ?? dimSize - 1;
         const rawStop  = sel.stop  ?? -1;
         const start    = Math.max(0,  Math.min(rawStart < 0 ? dimSize + rawStart : rawStart, dimSize - 1));
         const stop     = Math.max(-1, Math.min(rawStop  < 0 ? dimSize + rawStop  : rawStop,  dimSize - 1));
-        const count    = Math.max(0, start - stop);
+        const span     = Math.max(0, start - stop);
+        const count    = Math.ceil(span / Math.abs(step)); // ← actual element count
         return { start: stop + 1, count, step, collapsed: false };
     }
 }
