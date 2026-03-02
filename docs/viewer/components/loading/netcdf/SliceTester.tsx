@@ -117,14 +117,15 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
         className="w-full flex items-center justify-between p-3 hover:bg-accent/50 transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">Slice &amp; Index Tester</span>
+          {/* use variable name in header instead of fixed title */}
+          <span className="text-sm font-semibold truncate">{info.name}</span>
           <span className="text-xs text-muted-foreground font-mono">
-            shape: [{shape.join(', ')}]
+            [{shape.join(', ')}] Data viewer
           </span>
         </div>
         {expandedSliceTester
-          ? <ChevronDown  className="h-4 w-4 flex-shrink-0" />
-          : <ChevronRight className="h-4 w-4 flex-shrink-0" />
+          ? <ChevronDown  className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
+          : <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground" />
         }
       </button>
 
@@ -197,6 +198,7 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                             onChange={e => updateSel(i, { [key]: e.target.value })}
                             className="h-7 text-xs w-20 font-mono"
                             placeholder={placeholder}
+                            {...(label === 'step' ? { min: 1, max: dimSize } : {})}
                           />
                         </div>
                       ))}
