@@ -7,7 +7,7 @@ import { PlusIcon, MinusIcon } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Terminal, ChevronRight, ChevronDown } from 'lucide-react';
-import { slice as ncSlice } from '@earthyscience/netcdf4-wasm';
+import { slice as ncSlice, all } from '@earthyscience/netcdf4-wasm';
 import { VariableInfo, VariableArrayData } from './types';
 import ArrayDisplay from './ArrayDisplay';
 
@@ -38,13 +38,14 @@ const MODE_BADGE: Record<SelectionMode, string> = {
   slice:  'text-[#644FF0]',
 };
 
+// Build canonical DimSelection array
 export function buildSelection(
   sels: SliceSelectionState[],
   shape: Array<number | bigint>
-): Array<null | number | ReturnType<typeof ncSlice>> {
+) {
   return sels.map((s, i) => {
     const dimSize = Number(shape[i]);
-    if (s.mode === 'all') return null;
+    if (s.mode === 'all') return all();
     if (s.mode === 'scalar') {
       let idx = parseInt(s.scalar);
       if (Number.isNaN(idx)) idx = 0;
@@ -64,41 +65,28 @@ export function buildSelection(
   });
 }
 
+// Compute output shape
 export function resultShape(
   sels: SliceSelectionState[],
   shape: Array<number | bigint>
 ): number[] {
-  const out: number[] = [];
-  sels.forEach((s, i) => {
+  return sels.map((s, i) => {
     const dimSize = Number(shape[i]);
-    if (s.mode === 'scalar') return;
-    if (s.mode === 'all') { out.push(dimSize); return; }
+    if (s.mode === 'scalar') return 0; // collapsed
+    if (s.mode === 'all') return dimSize;
     const start = s.start !== '' ? parseInt(s.start) : 0;
     const stop  = s.stop  !== '' ? parseInt(s.stop)  : dimSize;
     const step  = s.step  !== '' ? parseInt(s.step)  : 1;
     const normStart = start < 0 ? Math.max(0, dimSize + start) : Math.min(start, dimSize);
-    const normStop  = stop  < 0 ? Math.max(0, dimSize + stop)  : Math.min(stop,  dimSize);
-    if (step === 0) { out.push(0); return; }
-    out.push(Math.max(0, Math.ceil((normStop - normStart) / Math.abs(step))));
+    const normStop  = stop  < 0 ? Math.max(0, dimSize + stop)  : Math.min(stop, dimSize);
+    return step === 0 ? 0 : Math.max(0, Math.ceil((normStop - normStart) / Math.abs(step)));
   });
-  return out;
 }
 
-function dimElementCount(s: SliceSelectionState, dimSize: number): number | null {
-  if (s.mode === 'scalar') return null;
-  if (s.mode === 'all') return dimSize;
-  const start = s.start !== '' ? parseInt(s.start) : 0;
-  const stop  = s.stop  !== '' ? parseInt(s.stop)  : dimSize;
-  const step  = s.step  !== '' ? parseInt(s.step)  : 1;
-  if (Number.isNaN(start) || Number.isNaN(stop) || Number.isNaN(step) || step === 0) return null;
-  const normStart = start < 0 ? Math.max(0, dimSize + start) : Math.min(start, dimSize);
-  const normStop  = stop  < 0 ? Math.max(0, dimSize + stop)  : Math.min(stop,  dimSize);
-  return Math.max(0, Math.ceil((normStop - normStart) / Math.abs(step)));
-}
-
+// Badge text for UI
 function dimBadge(s: SliceSelectionState, dimSize: number): string | null {
-  if (s.mode === 'scalar') return s.scalar || '0';  // was 'collapsed'
-  if (s.mode === 'all') return String(dimSize);
+  if (s.mode === 'scalar') return s.scalar || '0';
+  if (s.mode === 'all') return 'all';
   const start = s.start !== '' ? s.start : '0';
   const stop  = s.stop  !== '' ? s.stop  : String(dimSize);
   const step  = s.step  !== '' ? s.step  : '1';
@@ -290,7 +278,7 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
             <div className="text-xs font-mono text-muted-foreground break-all">
               {`dataset.get("${info.name}", [${
                 sliceSelections.map((s, i) => {
-                  if (s.mode === 'all') return 'null';
+                  if (s.mode === 'all') return 'all';
                   if (s.mode === 'scalar') return s.scalar || '0';
                   const dimSize = shape[i];
                   const parts: string[] = [s.start || '0', s.stop || String(dimSize)];

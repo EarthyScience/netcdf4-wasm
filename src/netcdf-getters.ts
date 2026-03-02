@@ -709,10 +709,10 @@ export function getVariableArrayWithSelection(
     const count  = resolved.map(d => d.count);
     const stride = resolved.map(d => Math.abs(d.step));
 
-    const useStride       = stride.some(s => s !== 1);
     const hasNegativeStep = resolved.some(d => d.step < 0);
 
-    // Validate stride parameters against dimension sizes
+
+    // Validate parameters against dimension sizes
     for (let i = 0; i < start.length; i++) {
         const dimSize = Number(dimSizes[i]);
         if (start[i] < 0 || start[i] >= dimSize) {
@@ -740,21 +740,19 @@ export function getVariableArrayWithSelection(
 
     let arrayData: { result: number; data?: any };
 
-    // ── Read data ─────────────────────────────────────────────────────────────
-    // All reads go directly through workingNcid + varid — no group re-resolution.
-    console.log('stride read', { start, count, stride, dimSizes: dimSizes.map(Number), arrayType, hasNegativeStep });
+    // Read data
+    // Always use nc_get_vars_* (strided) — nc_get_vara has marshalling issues
+    // with null/all selections. When stride is all-1s the netCDF-C library takes
+    // the same fast contiguous path internally, so there is no performance cost.
+    console.log('vars read', { start, count, stride, dimSizes: dimSizes.map(Number), arrayType, hasNegativeStep });
 
     if (enumCtx.isEnum) {
-        if (useStride) {
-            arrayData = module.nc_get_vars_generic(workingNcid, varid, start, count, stride, arrayType);
-        } else {
-            arrayData = module.nc_get_vara_generic(workingNcid, varid, start, count, arrayType);
-        }
-    } else if (useStride) {
+        arrayData = module.nc_get_vars_generic(workingNcid, varid, start, count, stride, arrayType);
+    } else {
         type VarsArgs = [number, number, number[], number[], number[]];
         type VarsResult = { result: number; data?: any };
 
-        const stridedReaders: Record<number, (...args: VarsArgs) => VarsResult> = {
+        const readers: Record<number, (...args: VarsArgs) => VarsResult> = {
             [NC_CONSTANTS.NC_BYTE]:      (...args) => module.nc_get_vars_schar(...args),
             [NC_CONSTANTS.NC_UBYTE]:     (...args) => module.nc_get_vars_uchar(...args),
             [NC_CONSTANTS.NC_SHORT]:     (...args) => module.nc_get_vars_short(...args),
@@ -770,39 +768,12 @@ export function getVariableArrayWithSelection(
             [NC_CONSTANTS.NC_STRING]:    (...args) => module.nc_get_vars_string(...args),
         };
 
-        const reader = stridedReaders[arrayType];
-        if (!reader) {
-            console.warn(`Unknown NetCDF type ${arrayType} for strided read, falling back to double`);
-            arrayData = module.nc_get_vars_double(workingNcid, varid, start, count, stride);
-        } else {
-            arrayData = reader(workingNcid, varid, start, count, stride);
-        }
-    } else {
-        type VaraArgs = [number, number, number[], number[]];
-        type VaraResult = { result: number; data?: any };
-
-        const readers: Record<number, (...args: VaraArgs) => VaraResult> = {
-            [NC_CONSTANTS.NC_BYTE]:      (...args) => module.nc_get_vara_schar(...args),
-            [NC_CONSTANTS.NC_UBYTE]:     (...args) => module.nc_get_vara_uchar(...args),
-            [NC_CONSTANTS.NC_SHORT]:     (...args) => module.nc_get_vara_short(...args),
-            [NC_CONSTANTS.NC_USHORT]:    (...args) => module.nc_get_vara_ushort(...args),
-            [NC_CONSTANTS.NC_INT]:       (...args) => module.nc_get_vara_int(...args),
-            [NC_CONSTANTS.NC_UINT]:      (...args) => module.nc_get_vara_uint(...args),
-            [NC_CONSTANTS.NC_FLOAT]:     (...args) => module.nc_get_vara_float(...args),
-            [NC_CONSTANTS.NC_DOUBLE]:    (...args) => module.nc_get_vara_double(...args),
-            [NC_CONSTANTS.NC_INT64]:     (...args) => module.nc_get_vara_longlong(...args),
-            [NC_CONSTANTS.NC_LONGLONG]:  (...args) => module.nc_get_vara_longlong(...args),
-            [NC_CONSTANTS.NC_UINT64]:    (...args) => module.nc_get_vara_ulonglong(...args),
-            [NC_CONSTANTS.NC_ULONGLONG]: (...args) => module.nc_get_vara_ulonglong(...args),
-            [NC_CONSTANTS.NC_STRING]:    (...args) => module.nc_get_vara_string(...args),
-        };
-
         const reader = readers[arrayType];
         if (!reader) {
             console.warn(`Unknown NetCDF type ${arrayType}, falling back to double`);
-            arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+            arrayData = module.nc_get_vars_double(workingNcid, varid, start, count, stride);
         } else {
-            arrayData = reader(workingNcid, varid, start, count);
+            arrayData = reader(workingNcid, varid, start, count, stride);
         }
     }
 
@@ -810,7 +781,7 @@ export function getVariableArrayWithSelection(
         throw new Error(`Failed to read array data (error: ${arrayData.result})`);
     }
     if (!arrayData.data) {
-        throw new Error("nc_get_vara/vars returned no data");
+        throw new Error("nc_get_vars returned no data");
     }
 
     let result: AnyTypedArray = arrayData.data;
