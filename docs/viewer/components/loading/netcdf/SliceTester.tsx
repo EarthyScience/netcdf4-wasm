@@ -2,6 +2,8 @@
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { ButtonGroup } from '@/components/ui/button-group';
+import { PlusIcon, MinusIcon } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Terminal, ChevronRight, ChevronDown } from 'lucide-react';
@@ -106,6 +108,22 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
   const updateSel = (i: number, patch: Partial<SliceSelectionState>) =>
     setSliceSelections(prev => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s));
 
+  const changeBy = (i: number, key: keyof Omit<SliceSelectionState,'mode'>, delta: number) => {
+    setSliceSelections(prev => prev.map((s, idx) => {
+      if (idx !== i) return s;
+      let val = parseInt(s[key] || '0');
+      if (Number.isNaN(val)) val = 0;
+      val += delta;
+      // enforce bounds for step
+      if (key === 'step') {
+        if (val < 1) val = 1;
+        const dimSize = Number(shape[i]);
+        if (val > dimSize) val = dimSize;
+      }
+      return { ...s, [key]: String(val) } as SliceSelectionState;
+    }));
+  };
+
   const rShape = resultShape(sliceSelections, info.shape);
   const rDims  = info.dimensions?.filter((_, i) => sliceSelections[i]?.mode !== 'scalar');
 
@@ -167,15 +185,23 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                   {sel.mode === 'scalar' && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground w-10">index</span>
-                      <Input
-                        type="number"
-                        min={-dimSize}
-                        max={dimSize - 1}
-                        value={sel.scalar}
-                        onChange={e => updateSel(i, { scalar: e.target.value })}
-                        className="h-7 text-xs w-28 font-mono"
-                        placeholder="0"
-                      />
+                      <ButtonGroup orientation="horizontal" className="h-7">
+                        <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0" onClick={() => changeBy(i, 'scalar', -1)}>
+                          <MinusIcon className="h-4 w-4" />
+                        </Button>
+                        <Input
+                          type="number"
+                          min={-dimSize}
+                          max={dimSize - 1}
+                          value={sel.scalar}
+                          onChange={e => updateSel(i, { scalar: e.target.value })}
+                          className="h-7 text-xs w-20 font-mono text-center appearance-none"
+                          placeholder="0"
+                        />
+                        <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0" onClick={() => changeBy(i, 'scalar', +1)}>
+                          <PlusIcon className="h-4 w-4" />
+                        </Button>
+                      </ButtonGroup>
                       <span className="text-xs text-muted-foreground">
                         (0 … {dimSize - 1}, or negative)
                       </span>
@@ -192,14 +218,22 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                       ].map(({ label, key, placeholder }) => (
                         <div key={key} className="flex items-center gap-1">
                           <span className="text-xs text-muted-foreground w-8">{label}</span>
-                          <Input
-                            type="number"
-                            value={sel[key]}
-                            onChange={e => updateSel(i, { [key]: e.target.value })}
-                            className="h-7 text-xs w-20 font-mono"
-                            placeholder={placeholder}
-                            {...(label === 'step' ? { min: 1, max: dimSize } : {})}
-                          />
+                          <ButtonGroup orientation="horizontal" className="h-7">
+                            <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0" onClick={() => changeBy(i, key, -1)}>
+                              <MinusIcon className="h-4 w-4" />
+                            </Button>
+                            <Input
+                              type="number"
+                              value={sel[key]}
+                              onChange={e => updateSel(i, { [key]: e.target.value })}
+                              className="h-7 text-xs w-20 font-mono text-center appearance-none"
+                              placeholder={placeholder}
+                              {...(label === 'step' ? { min: 1, max: dimSize } : {})}
+                            />
+                            <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0" onClick={() => changeBy(i, key, +1)}>
+                              <PlusIcon className="h-4 w-4" />
+                            </Button>
+                          </ButtonGroup>
                         </div>
                       ))}
                     </div>
