@@ -28,14 +28,14 @@ export function defaultSelection(): SliceSelectionState {
 
 const MODE_ACCENT: Record<SelectionMode, string> = {
   all:    'border-l-muted-foreground/30',
-  scalar: 'border-l-blue-500',
-  slice:  'border-l-violet-500',
+  scalar: 'border-l-teal-700',
+  slice:  'border-l-[#644FF0]',
 };
 
 const MODE_BADGE: Record<SelectionMode, string> = {
   all:    'text-muted-foreground/50',
-  scalar: 'text-blue-500',
-  slice:  'text-violet-500',
+  scalar: 'text-teal-700',
+  slice:  'text-[#644FF0]',
 };
 
 export function buildSelection(
@@ -96,11 +96,9 @@ function dimElementCount(s: SliceSelectionState, dimSize: number): number | null
   return Math.max(0, Math.ceil((normStop - normStart) / Math.abs(step)));
 }
 
-/** Format the dim badge: for slice → "start:step:stop", for all → count, for scalar → "collapsed" */
 function dimBadge(s: SliceSelectionState, dimSize: number): string | null {
-  if (s.mode === 'scalar') return 'collapsed';
+  if (s.mode === 'scalar') return s.scalar || '0';  // was 'collapsed'
   if (s.mode === 'all') return String(dimSize);
-  // slice: show start:step:stop
   const start = s.start !== '' ? s.start : '0';
   const stop  = s.stop  !== '' ? s.stop  : String(dimSize);
   const step  = s.step  !== '' ? s.step  : '1';
@@ -227,10 +225,9 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
 
                   {/* Scalar input */}
                   {sel.mode === 'scalar' && (
-                    <div className="flex items-center justify-center gap-2">
-                      <span className="text-xs text-muted-foreground w-10">index</span>
-                      <ButtonGroup orientation="horizontal" className="h-7">
-                        <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0 cursor-pointer" onClick={() => changeBy(i, 'scalar', -1)}>
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <ButtonGroup orientation="horizontal" className="h-7 w-fit">
+                        <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0 cursor-pointer shrink-0" onClick={() => changeBy(i, 'scalar', -1)}>
                           <MinusIcon className="h-4 w-4" />
                         </Button>
                         <Input
@@ -239,22 +236,22 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                           max={dimSize - 1}
                           value={sel.scalar}
                           onChange={e => updateSel(i, { scalar: e.target.value })}
-                          className="h-7 text-xs w-20 font-mono text-center appearance-none"
+                          className="h-7 text-xs w-16 font-mono text-center appearance-none"
                           placeholder="0"
                         />
-                        <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0 cursor-pointer" onClick={() => changeBy(i, 'scalar', +1)}>
+                        <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0 cursor-pointer shrink-0" onClick={() => changeBy(i, 'scalar', +1)}>
                           <PlusIcon className="h-4 w-4" />
                         </Button>
                       </ButtonGroup>
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-muted-foreground shrink-0">
                         ({-dimSize} to {dimSize - 1})
                       </span>
                     </div>
                   )}
 
-                  {/* Slice inputs — all 3 in one responsive row, equal width */}
+                  {/* Slice inputs */}
                   {sel.mode === 'slice' && (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="flex flex-wrap justify-center gap-2">
                       {[
                         { label: 'start', key: 'start' as const, placeholder: '0',             min: -dimSize, max: dimSize - 1 },
                         { label: 'step',  key: 'step'  as const, placeholder: '1',             min: -dimSize, max: dimSize     },
@@ -262,7 +259,7 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                       ].map(({ label, key, placeholder, min, max }) => (
                         <div key={key} className="flex flex-col items-center gap-1">
                           <span className="text-xs text-muted-foreground">{label}</span>
-                          <ButtonGroup orientation="horizontal" className="h-7 w-full">
+                          <ButtonGroup orientation="horizontal" className="h-7 w-fit">
                             <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0 cursor-pointer shrink-0" onClick={() => changeBy(i, key, -1)}>
                               <MinusIcon className="h-4 w-4" />
                             </Button>
@@ -272,7 +269,7 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                               max={max}
                               value={sel[key]}
                               onChange={e => updateSel(i, { [key]: e.target.value })}
-                              className="h-7 text-xs min-w-0 flex-1 font-mono text-center appearance-none"
+                              className="h-7 text-xs w-16 font-mono text-center appearance-none"
                               placeholder={placeholder}
                             />
                             <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0 cursor-pointer shrink-0" onClick={() => changeBy(i, key, +1)}>
@@ -288,7 +285,7 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
             })}
           </div>
 
-          {/* Selection preview + Run — two separate lines so Run never overflows */}
+          {/* Selection preview + Run */}
           <div className="bg-muted/50 rounded px-2 py-1.5 space-y-1.5">
             <div className="text-xs font-mono text-muted-foreground break-all">
               {`dataset.get("${info.name}", [${
@@ -302,7 +299,7 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                 }).join(', ')
               }])`}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
                 onClick={onRun}
@@ -316,7 +313,7 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                 }
               </Button>
               {sliceResult && (
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground ml-auto">
                   {sliceResult.length ?? 0} elements
                 </span>
               )}
