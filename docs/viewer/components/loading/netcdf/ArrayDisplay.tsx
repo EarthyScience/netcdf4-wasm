@@ -5,13 +5,15 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ArrayDisplayProps {
-  data:      ArrayLike<number | bigint | string>;
-  shape:     number[];
-  dimNames?: string[];
-  varName?:  string;
-  dtype?:    string;
-  maxRows?:  number;
-  maxCols?:  number;
+  data:        ArrayLike<number | bigint | string>;
+  shape:       number[];
+  dimNames?:   string[];
+  varName?:    string;
+  dtype?:      string;
+  /** Original full shape before slicing, for the footer comparison */
+  totalShape?: number[];
+  maxRows?:    number;
+  maxCols?:    number;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -288,6 +290,75 @@ const NDDisplay: React.FC<NDProps> = ({ data, shape, dimNames, dtype, maxRows, m
   );
 };
 
+
+
+// ─── Byte helpers ─────────────────────────────────────────────────────────────
+
+export function formatBytes(bytes: number): string {
+  const units = ['bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
+  let value = bytes;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex++;
+  }
+  return `${value.toFixed(2)} ${units[unitIndex]}`;
+}
+
+function dtypeBytes(dtype?: string): number {
+  if (!dtype) return 4;
+  if (dtype === 'S1') return 1;   // NC_CHAR
+  if (dtype === 'str') return 0;  // NC_STRING (variable length)
+  if (dtype === 'NAT') return 0;
+  // NetCDF shorthand: i1/u1 → 1, i2/u2 → 2, i4/u4/f4 → 4, i8/u8/f8 → 8
+  const shorthand = dtype.match(/^[iufc](\d+)$/);
+  if (shorthand) return parseInt(shorthand[1]);
+  // Named: float64/int16/uint8 etc
+  if (dtype.includes('64')) return 8;
+  if (dtype.includes('32')) return 4;
+  if (dtype.includes('16')) return 2;
+  if (dtype.includes('8'))  return 1;
+  return 4;
+}
+
+// ─── Footer ───────────────────────────────────────────────────────────────────
+
+interface FooterProps {
+  varName?:    string;
+  shape:       number[];
+  totalShape?: number[];
+  dtype?:      string;
+}
+const Footer: React.FC<FooterProps> = ({ varName, shape, totalShape, dtype }) => {
+  const bpp         = dtypeBytes(dtype);
+  const sliceTotal  = shape.reduce((a, b) => a * b, 1);
+  const sliceBytes  = sliceTotal * bpp;
+  const hasTotal    = totalShape && totalShape.length > 0;
+  const totalTotal  = hasTotal ? totalShape!.reduce((a, b) => a * b, 1) : null;
+  const totalBytes  = totalTotal !== null ? totalTotal * bpp : null;
+
+  return (
+    <div className="font-mono text-xs text-muted-foreground mt-2 flex items-baseline gap-2 flex-wrap">
+      {varName && (
+        <span style={{ color: '#a78bfa' }}>{varName}</span>
+      )}
+      <span>
+        [{shape.join(', ')}]
+        <span className="opacity-60 ml-1">{formatBytes(sliceBytes)}</span>
+      </span>
+      {hasTotal && totalBytes !== null && (
+        <>
+          <span className="opacity-40">/</span>
+          <span className="opacity-60">
+            [{totalShape!.join(', ')}]
+            <span className="ml-1">{formatBytes(totalBytes)}</span>
+          </span>
+        </>
+      )}
+    </div>
+  );
+};
+
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export const ArrayDisplay: React.FC<ArrayDisplayProps> = ({
@@ -296,6 +367,7 @@ export const ArrayDisplay: React.FC<ArrayDisplayProps> = ({
   dimNames = [],
   varName,
   dtype,
+  totalShape,
   maxRows = 24,
   maxCols = 16,
 }) => {
@@ -303,29 +375,49 @@ export const ArrayDisplay: React.FC<ArrayDisplayProps> = ({
   const total = shape.reduce((a, b) => a * b, 1);
   const names = shape.map((_, i) => dimNames[i] ?? `dim_${i}`);
 
+  const footer = (
+    <Footer varName={varName} shape={shape} totalShape={totalShape} dtype={dtype} />
+  );
+
   if (ndim === 0 || total === 1) {
-    return <ScalarDisplay value={fmtVal(data[0] as never, dtype)} dtype={dtype} />;
+    return (
+      <div>
+        <ScalarDisplay value={fmtVal(data[0] as never, dtype)} dtype={dtype} />
+        {footer}
+      </div>
+    );
   }
 
   if (ndim === 1) {
-    return <VectorDisplay data={data} len={shape[0]} dimName={names[0]} dtype={dtype} maxRows={maxRows} />;
+    return (
+      <div>
+        <VectorDisplay data={data} len={shape[0]} dimName={names[0]} dtype={dtype} maxRows={maxRows} />
+        {footer}
+      </div>
+    );
   }
 
   if (ndim === 2) {
     return (
-      <MatrixDisplay
-        data={data} rows={shape[0]} cols={shape[1]}
-        rowDim={names[0]} colDim={names[1]}
-        dtype={dtype} maxRows={maxRows} maxCols={maxCols}
-      />
+      <div>
+        <MatrixDisplay
+          data={data} rows={shape[0]} cols={shape[1]}
+          rowDim={names[0]} colDim={names[1]}
+          dtype={dtype} maxRows={maxRows} maxCols={maxCols}
+        />
+        {footer}
+      </div>
     );
   }
 
   return (
-    <NDDisplay
-      data={data} shape={shape} dimNames={names}
-      dtype={dtype} maxRows={maxRows} maxCols={maxCols}
-    />
+    <div>
+      <NDDisplay
+        data={data} shape={shape} dimNames={names}
+        dtype={dtype} maxRows={maxRows} maxCols={maxCols}
+      />
+      {footer}
+    </div>
   );
 };
 

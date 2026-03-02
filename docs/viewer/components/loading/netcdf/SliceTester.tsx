@@ -258,6 +258,7 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
               dimNames={rDims}
               varName={info.name}
               dtype={info.dtype}
+              totalShape={info.shape.map(Number)}
             />
           )}
 
