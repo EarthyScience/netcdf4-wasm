@@ -712,6 +712,28 @@ export function getVariableArrayWithSelection(
     const useStride       = stride.some(s => s !== 1);
     const hasNegativeStep = resolved.some(d => d.step < 0);
 
+    // Validate stride parameters against dimension sizes
+    for (let i = 0; i < start.length; i++) {
+        const dimSize = Number(dimSizes[i]);
+        if (start[i] < 0 || start[i] >= dimSize) {
+            throw new Error(
+                `Invalid start[${i}] = ${start[i]} for dimension size ${dimSize}`
+            );
+        }
+        if (count[i] <= 0) {
+            throw new Error(
+                `Invalid count[${i}] = ${count[i]} (must be > 0)`
+            );
+        }
+        const lastIdx = start[i] + (count[i] - 1) * stride[i];
+        if (lastIdx >= dimSize) {
+            throw new Error(
+                `Stride read would exceed dimension bounds: start[${i}]=${start[i]}, ` +
+                `count[${i}]=${count[i]}, stride[${i}]=${stride[i]}, last_idx=${lastIdx}, dimSize=${dimSize}`
+            );
+        }
+    }
+
     // Resolve variable type — use workingNcid so enum lookup is in the right group
     const { enumCtx } = resolveVariableType(module, workingNcid, varid);
     const arrayType = enumCtx.baseType;
@@ -720,7 +742,7 @@ export function getVariableArrayWithSelection(
 
     // ── Read data ─────────────────────────────────────────────────────────────
     // All reads go directly through workingNcid + varid — no group re-resolution.
-    console.log('stride read', { start, count, stride, arrayType });
+    console.log('stride read', { start, count, stride, dimSizes: dimSizes.map(Number), arrayType, hasNegativeStep });
 
     if (enumCtx.isEnum) {
         if (useStride) {
