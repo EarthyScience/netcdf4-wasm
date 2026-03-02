@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Terminal, ChevronRight, ChevronDown } from 'lucide-react';
 import { slice as ncSlice } from '@earthyscience/netcdf4-wasm';
 import { VariableInfo, VariableArrayData } from './types';
+import ArrayDisplay from './ArrayDisplay';
 
 // Types
 export type SelectionMode = 'all' | 'scalar' | 'slice';
@@ -58,6 +59,23 @@ export function buildSelection(
   });
 }
 
+export function resultShape(
+  sels: SliceSelectionState[],
+  shape: Array<number | bigint>
+): number[] {
+  const out: number[] = [];
+  sels.forEach((s, i) => {
+    const dimSize = Number(shape[i]);
+    if (s.mode === 'scalar') return;
+    if (s.mode === 'all') { out.push(dimSize); return; }
+    const start = s.start !== '' ? parseInt(s.start) : 0;
+    const stop  = s.stop  !== '' ? parseInt(s.stop)  : dimSize;
+    const step  = s.step  !== '' ? parseInt(s.step)  : 1;
+    out.push(Math.max(0, Math.ceil((stop - start) / step)));
+  });
+  return out;
+}
+
 interface SliceTesterSectionProps {
   info:                   VariableInfo;
   sliceSelections:        SliceSelectionState[];
@@ -88,29 +106,8 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
   const updateSel = (i: number, patch: Partial<SliceSelectionState>) =>
     setSliceSelections(prev => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s));
 
-  const resultPreview = sliceResult
-    ? (() => {
-        const len = sliceResult.length ?? 0;
-        const count = Math.min(30, len);
-        const items: string[] = [];
-        for (let i = 0; i < count; i++) {
-          const v = sliceResult[i] as number | bigint | string;
-          items.push(typeof v === 'number' ? v.toFixed(4) : String(v));
-        }
-        const suffix = len > 30 ? `, … (${len} total)` : '';
-        return `[${items.join(', ')}${suffix}]`;
-      })()
-    : null;
-
-  const elementCount = sliceResult ? sliceResult.length ?? 0 : 0;
-
-  const selectionPreview = sliceSelections.map((s, i) => {
-    if (s.mode === 'all')    return 'null';
-    if (s.mode === 'scalar') return s.scalar || '0';
-    const parts: string[] = [s.start || '0', s.stop || String(shape[i])];
-    if (s.step && s.step !== '1') parts.push(s.step);
-    return `slice(${parts.join(', ')})`;
-  }).join(', ');
+  const rShape = resultShape(sliceSelections, info.shape);
+  const rDims  = info.dimensions?.filter((_, i) => sliceSelections[i]?.mode !== 'scalar');
 
   return (
     <div className="border-[0.1px] rounded-lg overflow-hidden mt-2">
@@ -212,7 +209,16 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
 
           {/* Selection preview */}
           <div className="text-xs font-mono text-muted-foreground bg-muted/50 rounded px-2 py-1.5 break-all">
-            {`dataset.get("${info.name}", [${selectionPreview}])`}
+            {`dataset.get("${info.name}", [${
+              sliceSelections.map((s, i) => {
+                if (s.mode === 'all') return 'null';
+                if (s.mode === 'scalar') return s.scalar || '0';
+                const dimSize = shape[i];
+                const parts: string[] = [s.start || '0', s.stop || String(dimSize)];
+                if (s.step && s.step !== '1') parts.push(s.step);
+                return `slice(${parts.join(', ')})`;
+              }).join(', ')
+            }])`}
           </div>
 
           {/* Run + result count */}
@@ -231,7 +237,7 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
             </Button>
             {sliceResult && (
               <span className="text-xs text-muted-foreground">
-                {elementCount} elements
+                {sliceResult.length ?? 0} elements
               </span>
             )}
           </div>
@@ -244,12 +250,17 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
             </Alert>
           )}
 
-          {/* Result preview */}
-          {resultPreview && (
-            <pre className="bg-muted p-2 rounded font-mono text-xs overflow-x-auto whitespace-pre-wrap break-all">
-              {resultPreview}
-            </pre>
+          {/* Result display */}
+          {sliceResult && (
+            <ArrayDisplay
+              data={sliceResult}
+              shape={rShape}
+              dimNames={rDims}
+              varName={info.name}
+              dtype={info.dtype}
+            />
           )}
+
         </div>
       )}
     </div>
