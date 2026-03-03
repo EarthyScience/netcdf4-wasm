@@ -102,6 +102,11 @@ function dimBadge(s: SliceSelectionState, dimSize: number): string | null {
 
 // Resolved badge — shows absolute indices after negative resolution, only when they differ
 function resolvedBadge(s: SliceSelectionState, dimSize: number): string | null {
+  if (s.mode === 'scalar') {
+    const raw = parseInt(s.scalar);
+    if (Number.isNaN(raw) || raw >= 0) return null;
+    return String(dimSize + raw);
+  }
   if (s.mode !== 'slice') return null;
   const rawStart = s.start !== '' ? parseInt(s.start) : 0;
   const rawStop  = s.stop  !== '' ? parseInt(s.stop)  : dimSize;
