@@ -26,7 +26,7 @@ function fmtVal(v: number | bigint | string, dtype?: string): string {
   const abs = Math.abs(v);
   if (abs === 0) return '0';
   if (abs >= 1e5 || (abs < 1e-3 && abs > 0)) return v.toExponential(3);
-  return v.toPrecision(6).replace(/\.?0+$/, '');
+  return v.toPrecision(8).replace(/\.?0+$/, '');
 }
 
 function lpad(s: string, w: number) {
