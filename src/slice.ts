@@ -118,7 +118,13 @@ export function resolveDim(sel: DimSelection, dimSizeRaw: number | bigint): Reso
     } else {
 
         const rawStart = sel.start ?? dimSize - 1;
-        const rawStop  = sel.stop  ?? -1;
+        // For negative step, Python's default stop is -1 (exclusive, "before index 0"),
+        // but only when stop is omitted. If the user explicitly passes -1, it should
+        // be treated as an index (-1 -> dimSize-1), which may yield an empty slice.
+        const rawStopProvided = sel.stop;
+        const rawStop = rawStopProvided === undefined
+            ? -1
+            : (rawStopProvided < 0 ? dimSize + rawStopProvided : rawStopProvided);
 
         const start = Math.max(
             0,
@@ -127,7 +133,7 @@ export function resolveDim(sel: DimSelection, dimSizeRaw: number | bigint): Reso
 
         const stop = Math.max(
             -1,
-            Math.min(rawStop < 0 ? dimSize + rawStop : rawStop, dimSize - 1)
+            Math.min(rawStop, dimSize - 1)
         );
 
         const span  = Math.max(0, start - stop);

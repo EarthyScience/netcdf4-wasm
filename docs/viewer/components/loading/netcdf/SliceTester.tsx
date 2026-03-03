@@ -72,16 +72,18 @@ export function resultShape(
   sels: SliceSelectionState[],
   shape: Array<number | bigint>
 ): number[] {
-  return sels.map((s, i) => {
+  // Only include non-collapsed dimensions; scalar indices remove that dimension.
+  return sels.flatMap((s, i) => {
     const dimSize = Number(shape[i]);
-    if (s.mode === 'scalar') return 0; // collapsed
-    if (s.mode === 'all') return dimSize;
+    if (s.mode === 'scalar') return [];
+    if (s.mode === 'all') return [dimSize];
     const start = s.start !== '' ? parseInt(s.start) : 0;
     const stop  = s.stop  !== '' ? parseInt(s.stop)  : dimSize;
     const step  = s.step  !== '' ? parseInt(s.step)  : 1;
     const normStart = start < 0 ? Math.max(0, dimSize + start) : Math.min(start, dimSize);
     const normStop  = stop  < 0 ? Math.max(0, dimSize + stop)  : Math.min(stop, dimSize);
-    return step === 0 ? 0 : Math.max(0, Math.ceil((normStop - normStart) / Math.abs(step)));
+    const n = step === 0 ? 0 : Math.max(0, Math.ceil((normStop - normStart) / Math.abs(step)));
+    return [n];
   });
 }
 
