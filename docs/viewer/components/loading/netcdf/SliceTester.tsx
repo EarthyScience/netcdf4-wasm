@@ -7,7 +7,7 @@ import { PlusIcon, MinusIcon } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Terminal, ChevronRight, ChevronDown } from 'lucide-react';
-import { slice as ncSlice, all } from '@earthyscience/netcdf4-wasm';
+import { slice as ncSlice } from '@earthyscience/netcdf4-wasm';
 import { VariableInfo, VariableArrayData } from './types';
 import ArrayDisplay from './ArrayDisplay';
 
@@ -45,7 +45,9 @@ export function buildSelection(
 ) {
   return sels.map((s, i) => {
     const dimSize = Number(shape[i]);
-    if (s.mode === 'all') return all();
+    // Avoid relying on `all()` runtime shape across package versions;
+    // canonicalize "all" to an explicit full slice.
+    if (s.mode === 'all') return ncSlice(0, dimSize, 1);
     if (s.mode === 'scalar') {
       let idx = parseInt(s.scalar);
       if (Number.isNaN(idx)) idx = 0;

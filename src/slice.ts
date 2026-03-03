@@ -48,10 +48,12 @@ export function slice(
 /**
  * A single dimension selection:
  *  - all()  → full dimension
+ *  - "all"  → full dimension (compat)
+ *  - null   → full dimension (compat; matches older docs/examples)
  *  - number → scalar index
  *  - Slice  → range selection
  */
-export type DimSelection = All | number | Slice;
+export type DimSelection = All | "all" | null | number | Slice;
 
 /**
  * Resolved, concrete read parameters for one dimension after applying a
@@ -78,9 +80,8 @@ export interface ResolvedDim {
 export function resolveDim(sel: DimSelection, dimSizeRaw: number | bigint): ResolvedDim {
 
     const dimSize = Number(dimSizeRaw);
-
     // full dimension
-    if (isAll(sel)) {
+    if (sel === null || sel === "all" || isAll(sel)) {
         return { start: 0, count: dimSize, step: 1, collapsed: false };
     }
 
@@ -112,7 +113,6 @@ export function resolveDim(sel: DimSelection, dimSizeRaw: number | bigint): Reso
 
         const span  = Math.max(0, stop - start);
         const count = span === 0 ? 0 : Math.ceil(span / step);
-
         return { start, count, step, collapsed: false };
 
     } else {
@@ -132,8 +132,8 @@ export function resolveDim(sel: DimSelection, dimSizeRaw: number | bigint): Reso
 
         const span  = Math.max(0, start - stop);
         const count = span === 0 ? 0 : Math.ceil(span / Math.abs(step));
-
+        const result = { start: stop + 1, count, step, collapsed: false };
         // For negative step: read forward then reverse later
-        return { start: stop + 1, count, step, collapsed: false };
+        return result;
     }
 }

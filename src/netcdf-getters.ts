@@ -690,10 +690,18 @@ export function getVariableArrayWithSelection(
             `Selection has ${selection.length} dimension(s) but variable has ${ndim}`
         );
     }
+    console.log('[varInfo]', {
+        dimids: Array.from(varInfo.dimids ?? []),
+        varid,
+        workingNcid,
+        varInfoRaw: JSON.stringify(varInfo)
+    });
 
     // Fetch each dimension's size — resolveDim handles BigInt safely
     const dimSizes = dimids.map((dimid: number) => {
+        console.log('[nc_inq_dimlen] calling with', { workingNcid, dimid });
         const r = module.nc_inq_dimlen(workingNcid, dimid);
+        console.log('[nc_inq_dimlen raw]', r);
         if (r.result !== NC_CONSTANTS.NC_NOERR) {
             throw new Error(`Failed to query dim length for dimid ${dimid} (error: ${r.result})`);
         }
@@ -715,6 +723,7 @@ export function getVariableArrayWithSelection(
     // Validate parameters against dimension sizes
     for (let i = 0; i < start.length; i++) {
         const dimSize = Number(dimSizes[i]);
+        console.log(`[validate dim ${i}]`, { start: start[i], count: count[i], stride: stride[i], dimSize, lastIdx: start[i] + (count[i] - 1) * stride[i] });
         if (start[i] < 0 || start[i] >= dimSize) {
             throw new Error(
                 `Invalid start[${i}] = ${start[i]} for dimension size ${dimSize}`

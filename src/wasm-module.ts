@@ -231,12 +231,14 @@ export class WasmModuleLoader {
 
             nc_inq_dim: (ncid: number, dimid: number) => {
                 const namePtr = module._malloc(NC_MAX_NAME + 1);
-                const lenPtr = module._malloc(8); // size_t (use 8 bytes for safety in wasm64)
+                // In Emscripten wasm32 builds, size_t is 32-bit.
+                // (If we ever build wasm64, this will need revisiting.)
+                const lenPtr = module._malloc(4);
                 const result = nc_inq_dim_wrapper(ncid, dimid, namePtr, lenPtr);
                 let name, len;
                 if (result === NC_CONSTANTS.NC_NOERR) {
                     name = module.UTF8ToString(namePtr);
-                    len = module.getValue(lenPtr, 'i32'); // or 'i32' if your build uses 32-bit size_t
+                    len = module.getValue(lenPtr, 'i32') >>> 0;
                 }
                 module._free(namePtr);
                 module._free(lenPtr);
@@ -252,9 +254,14 @@ export class WasmModuleLoader {
             },
 
             nc_inq_dimlen: (ncid: number, dimid: number) => {
-                const lenPtr = module._malloc(8);
+                // In Emscripten wasm32 builds, size_t is 32-bit.
+                // Allocate 4 bytes and read as unsigned i32 to avoid garbage high bits.
+                const lenPtr = module._malloc(4);
                 const result = nc_inq_dimlen_wrapper(ncid, dimid, lenPtr);
-                const len = result === NC_CONSTANTS.NC_NOERR ? module.getValue(lenPtr, 'i64') : undefined;
+                let len: number | undefined;
+                if (result === NC_CONSTANTS.NC_NOERR) {
+                    len = module.getValue(lenPtr, 'i32') >>> 0;
+                }
                 module._free(lenPtr);
                 return { result, len };
             },
