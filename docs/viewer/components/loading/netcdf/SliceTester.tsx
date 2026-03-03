@@ -45,8 +45,6 @@ export function buildSelection(
 ) {
   return sels.map((s, i) => {
     const dimSize = Number(shape[i]);
-    // Avoid relying on `all()` runtime shape across package versions;
-    // canonicalize "all" to an explicit full slice.
     if (s.mode === 'all') return ncSlice(0, dimSize, 1);
     if (s.mode === 'scalar') {
       let idx = parseInt(s.scalar);
@@ -63,6 +61,9 @@ export function buildSelection(
     if (Number.isNaN(stop))  stop  = dimSize;
     if (Number.isNaN(step))  step  = 1;
     if (step === 0)          step  = 1;
+    // Resolve negative indices to absolute positions — ncSlice does not handle them
+    if (start < 0) start = Math.max(0, dimSize + start);
+    if (stop  < 0) stop  = Math.max(0, dimSize + stop);
     return ncSlice(start, stop, step);
   });
 }
@@ -72,7 +73,6 @@ export function resultShape(
   sels: SliceSelectionState[],
   shape: Array<number | bigint>
 ): number[] {
-  // Only include non-collapsed dimensions; scalar indices remove that dimension.
   return sels.flatMap((s, i) => {
     const dimSize = Number(shape[i]);
     if (s.mode === 'scalar') return [];
@@ -81,13 +81,14 @@ export function resultShape(
     const stop  = s.stop  !== '' ? parseInt(s.stop)  : dimSize;
     const step  = s.step  !== '' ? parseInt(s.step)  : 1;
     const normStart = start < 0 ? Math.max(0, dimSize + start) : Math.min(start, dimSize);
-    const normStop  = stop  < 0 ? Math.max(0, dimSize + stop)  : Math.min(stop, dimSize);
-    const n = step === 0 ? 0 : Math.max(0, Math.ceil((normStop - normStart) / Math.abs(step)));
+    const normStop  = stop  < 0 ? Math.max(0, dimSize + stop)  : Math.min(stop,  dimSize);
+    const absStep   = Math.abs(step === 0 ? 1 : step);
+    const n = Math.max(0, Math.ceil(Math.abs(normStop - normStart) / absStep));
     return [n];
   });
 }
 
-// Badge text for UI
+// Badge text for UI — shows raw user input
 function dimBadge(s: SliceSelectionState, dimSize: number): string | null {
   if (s.mode === 'scalar') return s.scalar || '0';
   if (s.mode === 'all') return 'all';
@@ -95,6 +96,29 @@ function dimBadge(s: SliceSelectionState, dimSize: number): string | null {
   const stop  = s.stop  !== '' ? s.stop  : String(dimSize);
   const step  = s.step  !== '' ? s.step  : '1';
   return `${start}:${step}:${stop}`;
+}
+
+// Resolved badge — shows absolute indices after negative resolution, only when they differ
+function resolvedBadge(s: SliceSelectionState, dimSize: number): string | null {
+  if (s.mode !== 'slice') return null;
+  const rawStart = s.start !== '' ? parseInt(s.start) : 0;
+  const rawStop  = s.stop  !== '' ? parseInt(s.stop)  : dimSize;
+  const step     = s.step  !== '' ? s.step             : '1';
+  if (Number.isNaN(rawStart) || Number.isNaN(rawStop)) return null;
+  const absStart = rawStart < 0 ? Math.max(0, dimSize + rawStart) : rawStart;
+  const absStop  = rawStop  < 0 ? Math.max(0, dimSize + rawStop)  : rawStop;
+  if (absStart === rawStart && absStop === rawStop) return null;
+  return `${absStart}:${step}:${absStop}`;
+}
+
+// Step is always positive — negative indices resolve to absolute positions,
+// so traversal is always forward.
+function clampStep(sel: SliceSelectionState, dimSize: number): SliceSelectionState {
+  if (sel.mode !== 'slice') return sel;
+  let step = sel.step !== '' ? parseInt(sel.step) : 1;
+  if (Number.isNaN(step) || step <= 0) step = 1;
+  const clamped = Math.min(dimSize, step);
+  return sel.step === String(clamped) ? sel : { ...sel, step: String(clamped) };
 }
 
 interface SliceTesterSectionProps {
@@ -124,25 +148,42 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
 
   const shape: number[] = info.shape.map(Number);
 
+  const parseOr = (v: string, fallback: number) => {
+    const n = parseInt(v);
+    return Number.isNaN(n) ? fallback : n;
+  };
+
+  // Apply a partial patch to dimension i, then normalize step direction on the result
   const updateSel = (i: number, patch: Partial<SliceSelectionState>) =>
-    setSliceSelections(prev => prev.map((s, idx) => idx === i ? { ...s, ...patch } : s));
+    setSliceSelections(prev => prev.map((s, idx) => {
+      if (idx !== i) return s;
+      const next = { ...s, ...patch };
+      // Normalize AFTER applying the full patch so direction is evaluated correctly
+      return clampStep(next, Number(shape[i]));
+    }));
 
   const changeBy = (i: number, key: keyof Omit<SliceSelectionState, 'mode'>, delta: number) => {
     setSliceSelections(prev => prev.map((s, idx) => {
       if (idx !== i) return s;
       const dimSize = Number(shape[i]);
-      let val = parseInt(s[key] || '0');
-      if (Number.isNaN(val)) val = 0;
-      val += delta;
+
       if (key === 'step') {
-        if (val === 0) val = delta > 0 ? 1 : -1;
-        val = Math.max(-dimSize, Math.min(dimSize, val));
+        let step = s.step !== '' ? parseOr(s.step, 1) : 1;
+        if (step <= 0) step = 1;
+        const nextStep = Math.max(1, Math.min(dimSize, step + delta));
+        const next = { ...s, step: String(nextStep) };
+        return clampStep(next, dimSize);
       } else {
+        let val = parseInt(s[key] || '0');
+        if (Number.isNaN(val)) val = 0;
+        val += delta;
         const lo = -dimSize;
         const hi = key === 'stop' ? dimSize : dimSize - 1;
         val = Math.max(lo, Math.min(hi, val));
+        // Apply then normalize — this is what fixes the direction-flip on start/stop changes
+        const next = { ...s, [key]: String(val) } as SliceSelectionState;
+        return clampStep(next, dimSize);
       }
-      return { ...s, [key]: String(val) } as SliceSelectionState;
     }));
   };
 
@@ -177,7 +218,7 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
               const dimName = info.dimensions?.[i] ?? `dim_${i}`;
               const sel     = sliceSelections[i] ?? defaultSelection();
               const badge   = dimBadge(sel, dimSize);
-
+              const resBadge = resolvedBadge(sel, dimSize);
               return (
                 <div
                   key={i}
@@ -193,6 +234,11 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                       {badge !== null && (
                         <span className={`text-xs font-mono shrink-0 ${MODE_BADGE[sel.mode]}`}>
                           → {badge}
+                        </span>
+                      )}
+                      {resBadge !== null && (
+                        <span className="text-xs font-mono shrink-0" style={{ color: 'tomato' }}>
+                          [{resBadge}]
                         </span>
                       )}
                     </div>
@@ -246,8 +292,8 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                     <div className="flex flex-wrap justify-center gap-2">
                       {[
                         { label: 'start', key: 'start' as const, placeholder: '0',             min: -dimSize, max: dimSize - 1 },
-                        { label: 'step',  key: 'step'  as const, placeholder: '1',             min: -dimSize, max: dimSize     },
                         { label: 'stop',  key: 'stop'  as const, placeholder: String(dimSize), min: -dimSize, max: dimSize     },
+                        { label: 'step', key: 'step' as const, placeholder: '1', min: 1, max: dimSize },
                       ].map(({ label, key, placeholder, min, max }) => (
                         <div key={key} className="flex flex-col items-center gap-1">
                           <span className="text-xs text-muted-foreground">{label}</span>
