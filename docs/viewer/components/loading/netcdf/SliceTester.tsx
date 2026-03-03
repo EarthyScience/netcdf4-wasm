@@ -64,6 +64,8 @@ export function buildSelection(
     // Resolve negative indices to absolute positions — ncSlice does not handle them
     if (start < 0) start = Math.max(0, dimSize + start);
     if (stop  < 0) stop  = Math.max(0, dimSize + stop);
+    // Ensure start <= stop since step is always positive
+    if (start > stop) { const tmp = start; start = stop; stop = tmp; }
     return ncSlice(start, stop, step);
   });
 }
@@ -107,8 +109,9 @@ function resolvedBadge(s: SliceSelectionState, dimSize: number): string | null {
   if (Number.isNaN(rawStart) || Number.isNaN(rawStop)) return null;
   const absStart = rawStart < 0 ? Math.max(0, dimSize + rawStart) : rawStart;
   const absStop  = rawStop  < 0 ? Math.max(0, dimSize + rawStop)  : rawStop;
-  if (absStart === rawStart && absStop === rawStop) return null;
-  return `${absStart}:${step}:${absStop}`;
+  const [resolvedStart, resolvedStop] = absStart > absStop ? [absStop, absStart] : [absStart, absStop];
+  if (resolvedStart === rawStart && resolvedStop === rawStop) return null;
+  return `${resolvedStart}:${step}:${resolvedStop}`;
 }
 
 // Step is always positive — negative indices resolve to absolute positions,
