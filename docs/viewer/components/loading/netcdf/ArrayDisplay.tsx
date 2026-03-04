@@ -1,31 +1,20 @@
-import React, { useState, useRef, useCallback, useMemo, useEffect, type RefObject } from "react";
+import React, {
+  useState, useRef, useCallback, useMemo, useEffect,
+  type RefObject,
+} from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// ─── Theme / Config ───────────────────────────────────────────────────────────
-
-const THEME = {
-  colors: {
-    value:   "#e2e8f0",
-    muted:   "#64748b",
-    accent:  "#94a3b8",
-    varName: "#a78bfa",
-    dims:    ["#a78bfa", "#f87171", "#fb923c", "#facc15"] as const,
-  },
-  font: {
-    family: "monospace",
-    size:   12,
-    sizeXs: 11,
-  },
-} as const;
+// ─── Config ───────────────────────────────────────────────────────────────────
+// Layout numbers only — no colors, no font names (those come from globals.css).
 
 const CONFIG = {
-  fadePx:      48,
+  fadePx:      36,
   cellH:       18,
   chW:         8,
   overscan:    3,
   maxViewH:    220,
   minViewW:    80,
-  scrollSlop:  1,   // px threshold to show edge fade
+  scrollSlop:  1,   // px threshold before showing an edge fade
   rhPadRight:  12,
   colCellPad:  8,
   colHeadPad:  4,
@@ -33,9 +22,68 @@ const CONFIG = {
   rhPadPx:     12,
 } as const;
 
+// Dim-index accent colors are component-specific, not in globals.
+const DIM_COLORS = ["#a78bfa", "#f87171", "#fb923c", "#facc15"] as const;
+
+// ─── Shared styles ────────────────────────────────────────────────────────────
+// Font family and all text colors come from CSS variables set in globals.css.
+// Nothing here is hardcoded — the component adapts to light/dark automatically.
+
+const STYLES = {
+  mono: {
+    fontFamily: "var(--font-mono)",
+    fontSize:   12,
+    lineHeight: `${CONFIG.cellH}px`,
+    whiteSpace: "nowrap",
+  } satisfies React.CSSProperties,
+
+  monoXs: {
+    fontFamily: "var(--font-mono)",
+    fontSize:   12,
+    lineHeight: "16px"
+  } satisfies React.CSSProperties,
+
+  // Cell values: primary readable text
+  value: { color: "var(--foreground)"         } satisfies React.CSSProperties,
+  // Dim labels, index headers, footer: secondary text
+  muted: { color: "var(--muted-foreground)"   } satisfies React.CSSProperties,
+  // Slice navigator: same secondary level
+  accent:{ color: "var(--muted-foreground)"   } satisfies React.CSSProperties,
+} as const;
+
+// ─── Glass-edge CSS ───────────────────────────────────────────────────────────
+// Injected once at runtime. Uses --background so the frosted tint matches
+// the app's current theme automatically.
+
+const GLASS_CSS = `
+.ad-glass-edge {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  background: color-mix(in srgb, var(--background) 40%, transparent);
+}
+.ad-glass-edge-L { top: 0; left:   0; height: 100%; width:  ${CONFIG.fadePx}px; }
+.ad-glass-edge-R { top: 0; right:  0; height: 100%; width:  ${CONFIG.fadePx}px; }
+.ad-glass-edge-T { top: 0; left:   0; width:  100%; height: ${CONFIG.fadePx}px; }
+.ad-glass-edge-B { bottom: 0; left: 0; width:  100%; height: ${CONFIG.fadePx}px; }
+`;
+
+let glassCSSInjected = false;
+function ensureGlassCSS(): void {
+  if (glassCSSInjected) return;
+  const el = document.createElement("style");
+  el.textContent = GLASS_CSS;
+  document.head.appendChild(el);
+  glassCSSInjected = true;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Dtype = string | undefined;
+
+type DataArray = ArrayLike<number | bigint | string>;
 
 type ScrollEdges = {
   scrollLeft: number;
@@ -47,7 +95,7 @@ type ScrollEdges = {
 };
 
 interface FrozenMatrixProps {
-  data:           ArrayLike<number | bigint | string>;
+  data:           DataArray;
   offset:         number;
   rows:           number;
   cols:           number;
@@ -61,7 +109,7 @@ interface FrozenMatrixProps {
 }
 
 interface MatrixDisplayProps {
-  data:           ArrayLike<number | bigint | string>;
+  data:           DataArray;
   rows:           number;
   cols:           number;
   rowDim:         string;
@@ -73,7 +121,7 @@ interface MatrixDisplayProps {
 }
 
 interface VectorDisplayProps {
-  data:           ArrayLike<number | bigint | string>;
+  data:           DataArray;
   len:            number;
   dimName:        string;
   dtype:          Dtype;
@@ -81,7 +129,7 @@ interface VectorDisplayProps {
 }
 
 interface NDDisplayProps {
-  data:           ArrayLike<number | bigint | string>;
+  data:           DataArray;
   shape:          number[];
   dimNames:       string[];
   dtype:          Dtype;
@@ -96,7 +144,7 @@ interface FooterProps {
 }
 
 export interface ArrayDisplayProps {
-  data:        ArrayLike<number | bigint | string>;
+  data:        DataArray;
   shape:       number[];
   dimNames?:   string[];
   varName?:    string;
@@ -199,31 +247,20 @@ function useScrollState(ref: RefObject<HTMLElement>): ScrollEdges {
 
 type EdgeDir = "L" | "R" | "T" | "B";
 
+const GRAD_DIR: Record<EdgeDir, string> = {
+  L: "to right", R: "to left", T: "to bottom", B: "to top",
+};
+
 function GlassEdge({ dir }: { dir: EdgeDir }): React.ReactElement {
-  const isH     = dir === "L" || dir === "R";
-  const size    = `${CONFIG.fadePx}px`;
-  const pos: React.CSSProperties = {
-    L: { top: 0, left:   0 },
-    R: { top: 0, right:  0 },
-    T: { top: 0, left:   0 },
-    B: { bottom: 0, left: 0 },
-  }[dir];
-  const gradDir = { L: "to right", R: "to left", T: "to bottom", B: "to top" }[dir];
-  const mask = `linear-gradient(${gradDir}, rgba(0,0,0,0.9) 0%, transparent 100%)`;
+  useEffect(ensureGlassCSS, []);
+
+  const mask = `linear-gradient(${GRAD_DIR[dir]}, black 0%, transparent 100%)`;
 
   return (
-    <div style={{
-      position:             "absolute",
-      ...pos,
-      width:                isH ? size : "100%",
-      height:               isH ? "100%" : size,
-      backdropFilter:       "blur(6px)",
-      WebkitBackdropFilter: "blur(6px)",
-      WebkitMaskImage:      mask,
-      maskImage:            mask,
-      pointerEvents:        "none",
-      zIndex:               2,
-    }} />
+    <div
+      className={`ad-glass-edge ad-glass-edge-${dir}`}
+      style={{ WebkitMaskImage: mask, maskImage: mask }}
+    />
   );
 }
 
@@ -304,34 +341,23 @@ function FrozenMatrix({
   const paddingLeft   = colOffsets[colStart];
   const paddingRight  = totalGridW - colOffsets[colEnd];
 
-  const S = {
-    mono:  {
-      fontFamily: THEME.font.family,
-      fontSize:   THEME.font.size,
-      lineHeight: `${CONFIG.cellH}px`,
-      whiteSpace: "nowrap" as const,
-    },
-    muted: { color: THEME.colors.muted  },
-    value: { color: THEME.colors.value  },
-  };
-
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
 
       {/* dim label row */}
-      <div style={{ display: "flex", ...S.mono, marginBottom: 2 }}>
-        <div style={{ width: rhW, flexShrink: 0, ...S.muted, textAlign: "right", paddingRight: CONFIG.rhPadRight }}>
+      <div style={{ display: "flex", ...STYLES.mono, marginBottom: 2 }}>
+        <div style={{ width: rhW, flexShrink: 0, ...STYLES.muted, textAlign: "right", paddingRight: CONFIG.rhPadRight }}>
           ↓ {rowDim}
         </div>
         <div style={{ width: viewW, overflow: "hidden", flexShrink: 0 }}>
-          <div style={{ ...S.muted, paddingLeft: 4 }}>
+          <div style={{ ...STYLES.muted, paddingLeft: 4 }}>
             → {colDim}{showHeader && dtype ? `  ${dtype}` : ""}
           </div>
         </div>
       </div>
 
       {/* col-index header (mirrors scrollLeft, windowed) */}
-      <div style={{ display: "flex", ...S.mono, marginBottom: 2 }}>
+      <div style={{ display: "flex", ...STYLES.mono, marginBottom: 2 }}>
         <div style={{ width: rhW, flexShrink: 0 }} />
         <div ref={colHeadRef} style={{ width: viewW, overflow: "hidden", flexShrink: 0 }}>
           <div style={{ width: totalGridW, display: "flex" }}>
@@ -341,7 +367,7 @@ function FrozenMatrix({
               return (
                 <div
                   key={ci}
-                  style={{ width: cw[ci] * CONFIG.chW + CONFIG.colCellPad, flexShrink: 0, textAlign: "right", ...S.muted, paddingRight: CONFIG.colHeadPad }}
+                  style={{ width: cw[ci] * CONFIG.chW + CONFIG.colCellPad, flexShrink: 0, textAlign: "right", ...STYLES.muted, paddingRight: CONFIG.colHeadPad }}
                 >
                   {colHeaders[ci]}
                 </div>
@@ -362,7 +388,7 @@ function FrozenMatrix({
             {Array.from({ length: rowEnd - rowStart }, (_, i) => {
               const ri = rowStart + i;
               return (
-                <div key={ri} style={{ height: CONFIG.cellH, textAlign: "right", paddingRight: CONFIG.rhPadRight, ...S.mono, ...S.muted }}>
+                <div key={ri} style={{ height: CONFIG.cellH, textAlign: "right", paddingRight: CONFIG.rhPadRight, ...STYLES.mono, ...STYLES.muted }}>
                   {rowHeaders[ri]}
                 </div>
               );
@@ -398,9 +424,9 @@ function FrozenMatrix({
                       return (
                         <div
                           key={ci}
-                          style={{ width: cw[ci] * CONFIG.chW + CONFIG.colCellPad, flexShrink: 0, textAlign: "right", paddingRight: CONFIG.colHeadPad, ...S.mono, ...S.value }}
+                          style={{ width: cw[ci] * CONFIG.chW + CONFIG.colCellPad, flexShrink: 0, textAlign: "right", paddingRight: CONFIG.colHeadPad, ...STYLES.mono, ...STYLES.value }}
                         >
-                          {lpad(v, cw[ci])}
+                          {v}
                         </div>
                       );
                     })}
@@ -457,10 +483,15 @@ function VectorDisplay({ data, len, dimName, dtype, containerWidth }: VectorDisp
 
 // ─── NDDisplay ────────────────────────────────────────────────────────────────
 
+const BTN_STYLE: React.CSSProperties = {
+  background: "none", border: "none", cursor: "pointer",
+  color: "inherit", padding: 0, display: "flex", alignItems: "center",
+};
+
 function NDDisplay({ data, shape, dimNames, dtype, containerWidth }: NDDisplayProps): React.ReactElement {
-  const ndim  = shape.length;
-  const rows  = shape[ndim - 2];
-  const cols  = shape[ndim - 1];
+  const ndim   = shape.length;
+  const rows   = shape[ndim - 2];
+  const cols   = shape[ndim - 1];
   const rowDim = dimNames[ndim - 2] ?? `dim_${ndim - 2}`;
   const colDim = dimNames[ndim - 1] ?? `dim_${ndim - 1}`;
 
@@ -486,33 +517,29 @@ function NDDisplay({ data, shape, dimNames, dtype, containerWidth }: NDDisplayPr
 
   return (
     <div>
-      <div style={{
-        display: "flex", alignItems: "center", gap: 6,
-        fontFamily: THEME.font.family, fontSize: THEME.font.sizeXs,
-        color: THEME.colors.accent, marginBottom: 6, flexWrap: "wrap",
-      }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, ...STYLES.monoXs, ...STYLES.accent, marginBottom: 6, flexWrap: "wrap" }}>
         <button
           onClick={() => setSliceIdx(i => Math.max(0, i - 1))}
           disabled={sliceIdx === 0}
-          style={{ opacity: sliceIdx === 0 ? 0.3 : 1, background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 0, display: "flex", alignItems: "center" }}
+          style={{ ...BTN_STYLE, opacity: sliceIdx === 0 ? 0.3 : 1 }}
         >
-          <ChevronLeft style={{ width: 12, height: 12 }} />
+          <ChevronLeft size={20}/>
         </button>
 
         <span>
           {"["}
           {outerIdx.map((idx, i) => (
             <span key={`outer-${i}`}>
-              {i > 0 && <span style={{ color: THEME.colors.muted }}>, </span>}
-              <span style={{ color: THEME.colors.dims[i % THEME.colors.dims.length] }}>{idx}</span>
+              {i > 0 && <span style={STYLES.muted}>, </span>}
+              <span style={{ color: DIM_COLORS[i % DIM_COLORS.length] }}>{idx}</span>
             </span>
           ))}
-          <span style={{ color: THEME.colors.muted }}>{outerIdx.length > 0 ? ", " : ""}:, :</span>
+          <span style={STYLES.muted}>{outerIdx.length > 0 ? ", " : ""}:, :</span>
           {"]"}
         </span>
 
         {outerDims.map((d, i) => (
-          <span key={`dim-${i}`} style={{ color: THEME.colors.dims[i % THEME.colors.dims.length] }}>
+          <span key={`dim-${i}`} style={{ color: DIM_COLORS[i % DIM_COLORS.length] }}>
             {d}={outerIdx[i]}
           </span>
         ))}
@@ -520,9 +547,9 @@ function NDDisplay({ data, shape, dimNames, dtype, containerWidth }: NDDisplayPr
         <button
           onClick={() => setSliceIdx(i => Math.min(numSlices - 1, i + 1))}
           disabled={sliceIdx === numSlices - 1}
-          style={{ opacity: sliceIdx === numSlices - 1 ? 0.3 : 1, background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 0, display: "flex", alignItems: "center" }}
+          style={{ ...BTN_STYLE, opacity: sliceIdx === numSlices - 1 ? 0.3 : 1 }}
         >
-          <ChevronRight style={{ width: 12, height: 12 }} />
+          <ChevronRight size={20}/>
         </button>
 
         <span style={{ marginLeft: "auto" }}>{sliceIdx + 1}/{numSlices}</span>
@@ -547,11 +574,8 @@ function Footer({ varName, shape, totalShape, dtype }: FooterProps): React.React
   const tb  = has && totalShape ? totalShape.reduce((a, b) => a * b, 1) * bpp : null;
 
   return (
-    <div style={{
-      fontFamily: THEME.font.family, fontSize: THEME.font.sizeXs,
-      color: THEME.colors.muted, marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap",
-    }}>
-      {varName && <span style={{ color: THEME.colors.varName }}>{varName}</span>}
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10, ...STYLES.monoXs, ...STYLES.muted }}>
+      {varName && <span style={{ color: DIM_COLORS[0] }}>{varName}</span>}
       <span>
         [{shape.join(", ")}]
         <span style={{ opacity: 0.6, marginLeft: 4 }}>{formatBytes(sb)}</span>
@@ -581,11 +605,7 @@ export function ArrayDisplay({
 
   let body: React.ReactElement;
   if (ndim === 0 || total === 1) {
-    body = (
-      <div style={{ fontFamily: THEME.font.family, fontSize: THEME.font.size, color: THEME.colors.value }}>
-        {fmtVal(data[0], dtype)}
-      </div>
-    );
+    body = <div style={{ ...STYLES.mono, ...STYLES.value }}>{fmtVal(data[0], dtype)}</div>;
   } else if (ndim === 1) {
     body = <VectorDisplay data={data} len={shape[0]} dimName={names[0]} dtype={dtype} containerWidth={containerWidth} />;
   } else if (ndim === 2) {
