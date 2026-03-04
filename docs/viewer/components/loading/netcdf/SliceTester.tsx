@@ -26,6 +26,8 @@ export function defaultSelection(): SliceSelectionState {
   return { mode: 'all', scalar: '0', start: '0', stop: '', step: '1' };
 }
 
+const MAX_ELEMENTS = 10_000_000;
+
 const MODE_ACCENT: Record<SelectionMode, string> = {
   all:    'border-l-muted-foreground/30',
   scalar: 'border-l-teal-700',
@@ -61,10 +63,8 @@ export function buildSelection(
     if (Number.isNaN(stop))  stop  = dimSize;
     if (Number.isNaN(step))  step  = 1;
     if (step === 0)          step  = 1;
-    // Resolve negative indices to absolute positions — ncSlice does not handle them
     if (start < 0) start = Math.max(0, dimSize + start);
     if (stop  < 0) stop  = Math.max(0, dimSize + stop);
-    // Ensure start <= stop since step is always positive
     if (start > stop) { const tmp = start; start = stop; stop = tmp; }
     return ncSlice(start, stop, step);
   });
@@ -90,7 +90,6 @@ export function resultShape(
   });
 }
 
-// Badge text for UI — shows raw user input
 function dimBadge(s: SliceSelectionState, dimSize: number): string | null {
   if (s.mode === 'scalar') return s.scalar || '0';
   if (s.mode === 'all') return 'all';
@@ -100,7 +99,6 @@ function dimBadge(s: SliceSelectionState, dimSize: number): string | null {
   return `${start}:${step}:${stop}`;
 }
 
-// Resolved badge — shows absolute indices after negative resolution, only when they differ
 function resolvedBadge(s: SliceSelectionState, dimSize: number): string | null {
   if (s.mode === 'scalar') {
     const raw = parseInt(s.scalar);
@@ -119,14 +117,18 @@ function resolvedBadge(s: SliceSelectionState, dimSize: number): string | null {
   return `${resolvedStart}:${step}:${resolvedStop}`;
 }
 
-// Step is always positive — negative indices resolve to absolute positions,
-// so traversal is always forward.
 function clampStep(sel: SliceSelectionState, dimSize: number): SliceSelectionState {
   if (sel.mode !== 'slice') return sel;
   let step = sel.step !== '' ? parseInt(sel.step) : 1;
   if (Number.isNaN(step) || step <= 0) step = 1;
   const clamped = Math.min(dimSize, step);
   return sel.step === String(clamped) ? sel : { ...sel, step: String(clamped) };
+}
+
+function fmtCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M`;
+  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)} K`;
+  return String(n);
 }
 
 interface SliceTesterSectionProps {
@@ -161,12 +163,10 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
     return Number.isNaN(n) ? fallback : n;
   };
 
-  // Apply a partial patch to dimension i, then normalize step direction on the result
   const updateSel = (i: number, patch: Partial<SliceSelectionState>) =>
     setSliceSelections(prev => prev.map((s, idx) => {
       if (idx !== i) return s;
       const next = { ...s, ...patch };
-      // Normalize AFTER applying the full patch so direction is evaluated correctly
       return clampStep(next, Number(shape[i]));
     }));
 
@@ -174,7 +174,6 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
     setSliceSelections(prev => prev.map((s, idx) => {
       if (idx !== i) return s;
       const dimSize = Number(shape[i]);
-
       if (key === 'step') {
         let step = s.step !== '' ? parseOr(s.step, 1) : 1;
         if (step <= 0) step = 1;
@@ -188,15 +187,16 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
         const lo = -dimSize;
         const hi = key === 'stop' ? dimSize : dimSize - 1;
         val = Math.max(lo, Math.min(hi, val));
-        // Apply then normalize — this is what fixes the direction-flip on start/stop changes
         const next = { ...s, [key]: String(val) } as SliceSelectionState;
         return clampStep(next, dimSize);
       }
     }));
   };
 
-  const rShape = resultShape(sliceSelections, info.shape);
-  const rDims  = info.dimensions?.filter((_, i) => sliceSelections[i]?.mode !== 'scalar');
+  const rShape    = resultShape(sliceSelections, info.shape);
+  const rDims     = info.dimensions?.filter((_, i) => sliceSelections[i]?.mode !== 'scalar');
+  const nElements = rShape.reduce((a, b) => a * b, 1);
+  const tooMany   = nElements > MAX_ELEMENTS;
 
   return (
     <div className="border-[0.1px] rounded-lg overflow-hidden mt-2">
@@ -223,9 +223,9 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
           {/* Dimension rows */}
           <div className="space-y-1.5">
             {shape.map((dimSize, i) => {
-              const dimName = info.dimensions?.[i] ?? `dim_${i}`;
-              const sel     = sliceSelections[i] ?? defaultSelection();
-              const badge   = dimBadge(sel, dimSize);
+              const dimName  = info.dimensions?.[i] ?? `dim_${i}`;
+              const sel      = sliceSelections[i] ?? defaultSelection();
+              const badge    = dimBadge(sel, dimSize);
               const resBadge = resolvedBadge(sel, dimSize);
               return (
                 <div
@@ -251,7 +251,7 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                       )}
                     </div>
 
-                    {/* Mode tabs — right-aligned */}
+                    {/* Mode tabs */}
                     <div className="flex rounded-md border overflow-hidden text-xs shrink-0">
                       {(['all', 'scalar', 'slice'] as SelectionMode[]).map(m => (
                         <button
@@ -301,7 +301,7 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                       {[
                         { label: 'start', key: 'start' as const, placeholder: '0',             min: -dimSize, max: dimSize - 1 },
                         { label: 'stop',  key: 'stop'  as const, placeholder: String(dimSize), min: -dimSize, max: dimSize     },
-                        { label: 'step', key: 'step' as const, placeholder: '1', min: 1, max: dimSize },
+                        { label: 'step',  key: 'step'  as const, placeholder: '1',             min: 1,        max: dimSize     },
                       ].map(({ label, key, placeholder, min, max }) => (
                         <div key={key} className="flex flex-col items-center gap-1">
                           <span className="text-xs text-muted-foreground">{label}</span>
@@ -349,18 +349,27 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
               <Button
                 size="sm"
                 onClick={onRun}
-                disabled={loadingSlice}
-                style={{ backgroundColor: '#644FF0', color: 'white' }}
+                disabled={loadingSlice || tooMany}
+                style={{ backgroundColor: tooMany ? undefined : '#644FF0', color: 'white' }}
                 className="h-7 text-xs px-3 cursor-pointer"
               >
                 {loadingSlice
-                  ? <><Spinner className="h-3 w-3 mr-1.5" />Running...</>
-                  : 'Run'
+                  ? <><Spinner className="h-3 w-3 mr-1.5" />Loading...</>
+                  : 'Load'
                 }
               </Button>
-              {sliceResult && (
+              {tooMany ? (
+                <span className="text-xs font-mono" style={{ color: 'tomato', justifyContent: 'right' }}>
+                  {fmtCount(nElements)} elements — too many to display at once. Narrow your selection, try {'<'}10 M.
+                </span>
+              ) : (
+                <span className="text-xs font-mono text-muted-foreground">
+                  {fmtCount(nElements)} elements
+                </span>
+              )}
+              {sliceResult && !tooMany && (
                 <span className="text-xs text-muted-foreground ml-auto">
-                  {sliceResult.length ?? 0} elements
+                  {sliceResult.length ?? 0} loaded
                 </span>
               )}
             </div>
