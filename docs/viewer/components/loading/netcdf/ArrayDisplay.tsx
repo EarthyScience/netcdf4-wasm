@@ -1,424 +1,605 @@
-'use client';
-import React, { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useRef, useCallback, useMemo, useEffect, type RefObject } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+
+// ─── Theme / Config ───────────────────────────────────────────────────────────
+
+const THEME = {
+  colors: {
+    value:   "#e2e8f0",
+    muted:   "#64748b",
+    accent:  "#94a3b8",
+    varName: "#a78bfa",
+    dims:    ["#a78bfa", "#f87171", "#fb923c", "#facc15"] as const,
+  },
+  font: {
+    family: "monospace",
+    size:   12,
+    sizeXs: 11,
+  },
+} as const;
+
+const CONFIG = {
+  fadePx:      48,
+  cellH:       18,
+  chW:         8,
+  overscan:    3,
+  maxViewH:    220,
+  minViewW:    80,
+  scrollSlop:  1,   // px threshold to show edge fade
+  rhPadRight:  12,
+  colCellPad:  8,
+  colHeadPad:  4,
+  rhExtraChar: 2,
+  rhPadPx:     12,
+} as const;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface ArrayDisplayProps {
-  data:        ArrayLike<number | bigint | string>;
-  shape:       number[];
-  dimNames?:   string[];
-  varName?:    string;
-  dtype?:      string;
-  /** Original full shape before slicing, for the footer comparison */
-  totalShape?: number[];
-  maxRows?:    number;
-  maxCols?:    number;
-}
+type Dtype = string | undefined;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function fmtVal(v: number | bigint | string, dtype?: string): string {
-  if (typeof v === 'bigint') return String(v);
-  if (typeof v === 'string') return v;
-  if (!Number.isFinite(v))   return String(v);
-  if (dtype?.startsWith('int') || dtype?.startsWith('uint')) return String(Math.trunc(v));
-  const abs = Math.abs(v);
-  if (abs === 0) return '0';
-  if (abs >= 1e5 || (abs < 1e-3 && abs > 0)) return v.toExponential(3);
-  return v.toPrecision(8).replace(/\.?0+$/, '');
-}
-
-function lpad(s: string, w: number) {
-  return ' '.repeat(Math.max(0, w - s.length)) + s;
-}
-
-// ─── Dim colors (cycles per outer dim index) ─────────────────────────────────
-
-const DIM_COLORS = [
-  '#a78bfa', // purple
-  '#f87171', // tomato
-  '#fb923c', // orange
-  '#facc15', // amber
-];
-
-// ─── Scalar ───────────────────────────────────────────────────────────────────
-
-const ScalarDisplay: React.FC<{ value: string; dtype?: string }> = ({ value, dtype }) => (
-  <div className="font-mono text-xs space-y-0.5">
-    {dtype && <div className="text-muted-foreground">{dtype}</div>}
-    <div>{value}</div>
-  </div>
-);
-
-// ─── Vector ───────────────────────────────────────────────────────────────────
-
-interface VectorProps {
-  data:    ArrayLike<number | bigint | string>;
-  len:     number;
-  dimName: string;
-  dtype?:  string;
-  maxRows: number;
-}
-const VectorDisplay: React.FC<VectorProps> = ({ data, len, dimName, dtype, maxRows }) => {
-  const vals = useMemo(() => {
-    const out: string[] = [];
-    for (let i = 0; i < len; i++) out.push(fmtVal(data[i] as never, dtype));
-    return out;
-  }, [data, len, dtype]);
-
-  const valW  = Math.max(...vals.map(s => s.length));
-  const idxW  = String(len - 1).length;
-  const shown = Math.min(len, maxRows);
-
-  return (
-    <div className="font-mono text-xs">
-      <div className="text-muted-foreground mb-2 flex gap-3">
-        <span>↓ {dimName}</span>
-        {dtype && <span>{dtype}</span>}
-      </div>
-      <div className="overflow-x-auto">
-        <table className="border-separate border-spacing-0">
-          <tbody>
-            {Array.from({ length: shown }, (_, i) => (
-              <tr key={i}>
-                <td className="pr-3 text-muted-foreground select-none text-right" style={{ minWidth: `${idxW + 1}ch` }}>{i}</td>
-                <td className="text-right" style={{ minWidth: `${valW + 1}ch` }}>{vals[i]}</td>
-              </tr>
-            ))}
-            {len > maxRows && (
-              <tr><td colSpan={2} className="text-muted-foreground pt-1">⋮  ({len - maxRows} more)</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+type ScrollEdges = {
+  scrollLeft: number;
+  scrollTop:  number;
+  L: boolean;
+  R: boolean;
+  T: boolean;
+  B: boolean;
 };
 
-// ─── Matrix ───────────────────────────────────────────────────────────────────
-
-interface MatrixProps {
-  data:        ArrayLike<number | bigint | string>;
-  rows:        number;
-  cols:        number;
-  rowDim:      string;
-  colDim:      string;
-  dtype?:      string;
-  maxRows:     number;
-  maxCols:     number;
-  offset?:     number;
-  showHeader?: boolean;
-}
-const MatrixDisplay: React.FC<MatrixProps> = ({
-  data, rows, cols, rowDim, colDim, dtype, maxRows, maxCols, offset = 0, showHeader = true,
-}) => {
-  const shownRows = Math.min(rows, maxRows);
-  const shownCols = Math.min(cols, maxCols);
-  const truncR    = rows > maxRows;
-  const truncC    = cols > maxCols;
-
-  const grid = useMemo(() => {
-    const g: string[][] = [];
-    for (let r = 0; r < shownRows; r++) {
-      const row: string[] = [];
-      for (let c = 0; c < shownCols; c++) {
-        row.push(fmtVal((data as never)[offset + r * cols + c], dtype));
-      }
-      g.push(row);
-    }
-    return g;
-  }, [data, shownRows, shownCols, cols, dtype, offset]);
-
-  const colHeaders = Array.from({ length: shownCols }, (_, i) => String(i));
-  const rowHeaders = Array.from({ length: shownRows }, (_, i) => String(i));
-  const cw = Array.from({ length: shownCols }, (_, ci) =>
-    Math.max(colHeaders[ci].length, ...grid.map(row => row[ci]?.length ?? 0))
-  );
-  const rhW = Math.max(rowDim.length + 2, ...rowHeaders.map(s => s.length));
-
-  return (
-    <div className="font-mono text-xs">
-      <div className="overflow-x-auto">
-        <table className="border-separate border-spacing-0">
-          <thead>
-            <tr>
-              <th className="text-right pr-3 text-muted-foreground font-normal" style={{ minWidth: `${rhW}ch` }}>
-                ↓ {rowDim}
-              </th>
-              <th colSpan={shownCols + (truncC ? 1 : 0)} className="text-muted-foreground font-normal pb-0.5 text-left pl-2">
-                → {colDim}
-              </th>
-              {showHeader && dtype && (
-                <th className="text-muted-foreground font-normal pl-4 text-left">{dtype}</th>
-              )}
-            </tr>
-            <tr>
-              <th className="text-right pr-3 text-muted-foreground font-normal" />
-              {colHeaders.map((h, ci) => (
-                <th key={ci} className="pl-2 text-right text-muted-foreground font-normal" style={{ minWidth: `${cw[ci] + 1}ch` }}>
-                  {lpad(h, cw[ci])}
-                </th>
-              ))}
-              {truncC && <th className="pl-2 text-muted-foreground">…</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {grid.map((row, ri) => (
-              <tr key={ri}>
-                <td className="text-right pr-3 text-muted-foreground">{lpad(rowHeaders[ri], rhW)}</td>
-                {row.map((v, ci) => (
-                  <td key={ci} className="pl-2 text-right" style={{ minWidth: `${cw[ci] + 1}ch` }}>
-                    {lpad(v, cw[ci])}
-                  </td>
-                ))}
-                {truncC && <td className="pl-2 text-muted-foreground">…</td>}
-              </tr>
-            ))}
-            {truncR && (
-              <tr>
-                <td className="text-muted-foreground">⋮</td>
-                <td colSpan={shownCols + (truncC ? 1 : 0)} className="text-muted-foreground pl-2">
-                  ({rows - maxRows} more rows)
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-};
-
-// ─── ND (3D+) ─────────────────────────────────────────────────────────────────
-
-interface NDProps {
-  data:     ArrayLike<number | bigint | string>;
-  shape:    number[];
-  dimNames: string[];
-  dtype?:   string;
-  maxRows:  number;
-  maxCols:  number;
-}
-const NDDisplay: React.FC<NDProps> = ({ data, shape, dimNames, dtype, maxRows, maxCols }) => {
-  const ndim       = shape.length;
-  const rows       = shape[ndim - 2];
-  const cols       = shape[ndim - 1];
-  const rowDim     = dimNames[ndim - 2] ?? `dim_${ndim - 2}`;
-  const colDim     = dimNames[ndim - 1] ?? `dim_${ndim - 1}`;
-  const outerShape = shape.slice(0, ndim - 2);
-  const outerDims  = dimNames.slice(0, ndim - 2);
-  const numSlices  = outerShape.reduce((a, b) => a * b, 1);
-
-  const [sliceIdx, setSliceIdx] = useState(0);
-
-  const outerIdxForSlice = (si: number): number[] => {
-    const idx: number[] = [];
-    let rem = si;
-    for (let d = outerShape.length - 1; d >= 0; d--) {
-      idx[d] = rem % outerShape[d];
-      rem = Math.floor(rem / outerShape[d]);
-    }
-    return idx;
-  };
-
-  const outerIdx = outerIdxForSlice(sliceIdx);
-  const offset   = sliceIdx * rows * cols;
-
-  const sliceProxy = new Proxy(data as ArrayLike<number>, {
-    get(target, prop) {
-      if (typeof prop === 'string' && !Number.isNaN(+prop)) return target[offset + +prop];
-      return (target as never)[prop];
-    },
-  });
-
-  return (
-    <div className="font-mono text-xs space-y-2">
-      <div className="flex items-center gap-2 text-muted-foreground text-xs flex-wrap">
-        <button
-          onClick={() => setSliceIdx(i => Math.max(0, i - 1))}
-          disabled={sliceIdx === 0}
-          className="disabled:opacity-30 hover:text-foreground transition-colors"
-        >
-          <ChevronLeft className="h-3 w-3" />
-        </button>
-        {/* bracket: colored outer indices + muted colons for matrix dims */}
-        <span>
-          {'['}
-          {outerIdx.map((idx, i) => (
-            <span key={i}>
-              {i > 0 && <span className="text-muted-foreground">, </span>}
-              <span style={{ color: DIM_COLORS[i % DIM_COLORS.length] }}>{idx}</span>
-            </span>
-          ))}
-          <span className="text-muted-foreground">{outerIdx.length > 0 ? ', ' : ''}:, :</span>
-          {']'}
-        </span>
-        {/* outer dim name=value, colored */}
-        {outerDims.map((d, i) => (
-          <span key={i} style={{ color: DIM_COLORS[i % DIM_COLORS.length] }}>
-            {d}={outerIdx[i]}
-          </span>
-        ))}
-        {/* matrix dim names, no value */}
-        <span className="text-muted-foreground">{rowDim}</span>
-        <span className="text-muted-foreground">{colDim}</span>
-        {/* dtype */}
-        {dtype && <span className="text-muted-foreground">{dtype}</span>}
-        <button
-          onClick={() => setSliceIdx(i => Math.min(numSlices - 1, i + 1))}
-          disabled={sliceIdx === numSlices - 1}
-          className="disabled:opacity-30 hover:text-foreground transition-colors"
-        >
-          <ChevronRight className="h-3 w-3" />
-        </button>
-        <span className="ml-auto">{sliceIdx + 1}/{numSlices}</span>
-      </div>
-
-      <MatrixDisplay
-        data={sliceProxy}
-        rows={rows}
-        cols={cols}
-        rowDim={rowDim}
-        colDim={colDim}
-        dtype={dtype}
-        maxRows={maxRows}
-        maxCols={maxCols}
-        showHeader={false}
-      />
-    </div>
-  );
-};
-
-
-
-// ─── Byte helpers ─────────────────────────────────────────────────────────────
-
-export function formatBytes(bytes: number): string {
-  const units = ['bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
-  let value = bytes;
-  let unitIndex = 0;
-  while (value >= 1024 && unitIndex < units.length - 1) {
-    value /= 1024;
-    unitIndex++;
-  }
-  return `${value.toFixed(2)} ${units[unitIndex]}`;
+interface FrozenMatrixProps {
+  data:           ArrayLike<number | bigint | string>;
+  offset:         number;
+  rows:           number;
+  cols:           number;
+  rowHeaders:     string[];
+  colHeaders:     string[];
+  rowDim:         string;
+  colDim:         string;
+  dtype:          Dtype;
+  showHeader:     boolean;
+  containerWidth: number;
 }
 
-function dtypeBytes(dtype?: string): number {
-  if (!dtype) return 4;
-  if (dtype === 'S1') return 1;   // NC_CHAR
-  if (dtype === 'str') return 0;  // NC_STRING (variable length)
-  if (dtype === 'NAT') return 0;
-  // NetCDF shorthand: i1/u1 → 1, i2/u2 → 2, i4/u4/f4 → 4, i8/u8/f8 → 8
-  const shorthand = dtype.match(/^[iufc](\d+)$/);
-  if (shorthand) return parseInt(shorthand[1]);
-  // Named: float64/int16/uint8 etc
-  if (dtype.includes('64')) return 8;
-  if (dtype.includes('32')) return 4;
-  if (dtype.includes('16')) return 2;
-  if (dtype.includes('8'))  return 1;
-  return 4;
+interface MatrixDisplayProps {
+  data:           ArrayLike<number | bigint | string>;
+  rows:           number;
+  cols:           number;
+  rowDim:         string;
+  colDim:         string;
+  dtype:          Dtype;
+  offset?:        number;
+  showHeader?:    boolean;
+  containerWidth: number;
 }
 
-// ─── Footer ───────────────────────────────────────────────────────────────────
+interface VectorDisplayProps {
+  data:           ArrayLike<number | bigint | string>;
+  len:            number;
+  dimName:        string;
+  dtype:          Dtype;
+  containerWidth: number;
+}
+
+interface NDDisplayProps {
+  data:           ArrayLike<number | bigint | string>;
+  shape:          number[];
+  dimNames:       string[];
+  dtype:          Dtype;
+  containerWidth: number;
+}
 
 interface FooterProps {
   varName?:    string;
   shape:       number[];
   totalShape?: number[];
-  dtype?:      string;
+  dtype:       Dtype;
 }
-const Footer: React.FC<FooterProps> = ({ varName, shape, totalShape, dtype }) => {
-  const bpp         = dtypeBytes(dtype);
-  const sliceTotal  = shape.reduce((a, b) => a * b, 1);
-  const sliceBytes  = sliceTotal * bpp;
-  const hasTotal    = totalShape && totalShape.length > 0;
-  const totalTotal  = hasTotal ? totalShape!.reduce((a, b) => a * b, 1) : null;
-  const totalBytes  = totalTotal !== null ? totalTotal * bpp : null;
+
+export interface ArrayDisplayProps {
+  data:        ArrayLike<number | bigint | string>;
+  shape:       number[];
+  dimNames?:   string[];
+  varName?:    string;
+  dtype?:      Dtype;
+  totalShape?: number[];
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function fmtVal(v: number | bigint | string, dtype: Dtype): string {
+  if (typeof v === "bigint") return String(v);
+  if (typeof v === "string") return v;
+  if (!Number.isFinite(v))   return String(v);
+  if (dtype?.startsWith("int") || dtype?.startsWith("uint")) return String(Math.trunc(v));
+  const abs = Math.abs(v);
+  if (abs === 0) return "0";
+  if (abs >= 1e5 || (abs < 1e-3 && abs > 0)) return v.toExponential(3);
+  return v.toPrecision(8).replace(/\.?0+$/, "");
+}
+
+function lpad(s: string, w: number): string {
+  return "\u00a0".repeat(Math.max(0, w - s.length)) + s;
+}
+
+function formatBytes(b: number): string {
+  const units = ["bytes", "KB", "MB", "GB"];
+  let v = b, i = 0;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(2)} ${units[i]}`;
+}
+
+function dtypeBytes(d: Dtype): number {
+  if (!d) return 4;
+  if (d === "S1") return 1;
+  if (d === "str" || d === "NAT") return 0;
+  const m = d.match(/^[iufc](\d+)$/);
+  if (m) return parseInt(m[1], 10);
+  if (d.includes("64")) return 8;
+  if (d.includes("32")) return 4;
+  if (d.includes("16")) return 2;
+  if (d.includes("8"))  return 1;
+  return 4;
+}
+
+// ─── useContainerWidth ────────────────────────────────────────────────────────
+
+function useContainerWidth(ref: RefObject<HTMLElement>): number {
+  const [width, setWidth] = useState<number>(0);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => setWidth(entries[0].contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+
+  return width;
+}
+
+// ─── useScrollState ───────────────────────────────────────────────────────────
+
+function useScrollState(ref: RefObject<HTMLElement>): ScrollEdges {
+  const [state, setState] = useState<ScrollEdges>({
+    scrollLeft: 0, scrollTop: 0,
+    L: false, R: false, T: false, B: false,
+  });
+
+  const update = useCallback((): void => {
+    const el = ref.current;
+    if (!el) return;
+    const { scrollLeft, scrollTop, scrollWidth, scrollHeight, clientWidth, clientHeight } = el;
+    setState({
+      scrollLeft,
+      scrollTop,
+      L: scrollLeft > CONFIG.scrollSlop,
+      R: scrollLeft < scrollWidth  - clientWidth  - CONFIG.scrollSlop,
+      T: scrollTop  > CONFIG.scrollSlop,
+      B: scrollTop  < scrollHeight - clientHeight - CONFIG.scrollSlop,
+    });
+  }, [ref]);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      ro.disconnect();
+    };
+  }, [update]);
+
+  return state;
+}
+
+// ─── GlassEdge ────────────────────────────────────────────────────────────────
+
+type EdgeDir = "L" | "R" | "T" | "B";
+
+function GlassEdge({ dir }: { dir: EdgeDir }): React.ReactElement {
+  const isH     = dir === "L" || dir === "R";
+  const size    = `${CONFIG.fadePx}px`;
+  const pos: React.CSSProperties = {
+    L: { top: 0, left:   0 },
+    R: { top: 0, right:  0 },
+    T: { top: 0, left:   0 },
+    B: { bottom: 0, left: 0 },
+  }[dir];
+  const gradDir = { L: "to right", R: "to left", T: "to bottom", B: "to top" }[dir];
+  const mask = `linear-gradient(${gradDir}, rgba(0,0,0,0.9) 0%, transparent 100%)`;
 
   return (
-    <div className="font-mono text-xs text-muted-foreground mt-2 flex items-baseline gap-2 flex-wrap">
-      {varName && (
-        <span style={{ color: '#a78bfa' }}>{varName}</span>
-      )}
-      <span>
-        [{shape.join(', ')}]
-        <span className="opacity-60 ml-1">{formatBytes(sliceBytes)}</span>
-      </span>
-      {hasTotal && totalBytes !== null && (
-        <>
-          <span className="opacity-40">/</span>
-          <span className="opacity-60">
-            [{totalShape!.join(', ')}]
-            <span className="ml-1">{formatBytes(totalBytes)}</span>
-          </span>
-        </>
-      )}
+    <div style={{
+      position:             "absolute",
+      ...pos,
+      width:                isH ? size : "100%",
+      height:               isH ? "100%" : size,
+      backdropFilter:       "blur(6px)",
+      WebkitBackdropFilter: "blur(6px)",
+      WebkitMaskImage:      mask,
+      maskImage:            mask,
+      pointerEvents:        "none",
+      zIndex:               2,
+    }} />
+  );
+}
+
+// ─── FrozenMatrix ─────────────────────────────────────────────────────────────
+
+function FrozenMatrix({
+  data, offset, rows, cols,
+  rowHeaders, colHeaders,
+  rowDim, colDim, dtype,
+  showHeader, containerWidth,
+}: FrozenMatrixProps): React.ReactElement {
+
+  const cw = useMemo<number[]>(() => {
+    const widths = Array.from({ length: cols }, (_, ci) => colHeaders[ci].length);
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const len = fmtVal(data[offset + r * cols + c], dtype).length;
+        if (len > widths[c]) widths[c] = len;
+      }
+    }
+    return widths;
+  }, [data, offset, rows, cols, colHeaders, dtype]);
+
+  const colOffsets = useMemo<number[]>(() => {
+    const offs = [0];
+    for (let c = 0; c < cols; c++) {
+      offs.push(offs[c] + cw[c] * CONFIG.chW + CONFIG.colCellPad);
+    }
+    return offs; // length = cols + 1; colOffsets[cols] = totalGridW
+  }, [cw, cols]);
+
+  const rhW_ch = useMemo<number>(() =>
+    Math.max(rowDim.length + CONFIG.rhExtraChar, ...rowHeaders.map(s => s.length)),
+  [rowDim, rowHeaders]);
+
+  const rhW        = rhW_ch * CONFIG.chW + CONFIG.rhPadPx;
+  const totalGridW = colOffsets[cols];
+  const totalGridH = rows * CONFIG.cellH;
+  const viewW      = containerWidth ? Math.max(CONFIG.minViewW, containerWidth - rhW) : 200;
+  const viewH      = Math.min(totalGridH, CONFIG.maxViewH);
+
+  const gridRef    = useRef<HTMLDivElement>(null);
+  const colHeadRef = useRef<HTMLDivElement>(null);
+  const rowHeadRef = useRef<HTMLDivElement>(null);
+
+  const scroll = useScrollState(gridRef as RefObject<HTMLElement>);
+
+  const onGridScroll = useCallback((): void => {
+    const g = gridRef.current;
+    if (!g) return;
+    if (colHeadRef.current) colHeadRef.current.scrollLeft = g.scrollLeft;
+    if (rowHeadRef.current) rowHeadRef.current.scrollTop  = g.scrollTop;
+  }, []);
+
+  const rowStart = Math.max(0,    Math.floor(scroll.scrollTop / CONFIG.cellH) - CONFIG.overscan);
+  const rowEnd   = Math.min(rows, Math.ceil((scroll.scrollTop + viewH) / CONFIG.cellH) + CONFIG.overscan);
+
+  const colStart = useMemo<number>(() => {
+    let lo = 0, hi = cols;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      colOffsets[mid + 1] <= scroll.scrollLeft ? (lo = mid + 1) : (hi = mid);
+    }
+    return Math.max(0, lo - CONFIG.overscan);
+  }, [colOffsets, cols, scroll.scrollLeft]);
+
+  const colEnd = useMemo<number>(() => {
+    let lo = colStart, hi = cols;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      colOffsets[mid] < scroll.scrollLeft + viewW ? (lo = mid + 1) : (hi = mid);
+    }
+    return Math.min(cols, lo + CONFIG.overscan);
+  }, [colOffsets, cols, colStart, scroll.scrollLeft, viewW]);
+
+  const paddingTop    = rowStart * CONFIG.cellH;
+  const paddingBottom = (rows - rowEnd) * CONFIG.cellH;
+  const paddingLeft   = colOffsets[colStart];
+  const paddingRight  = totalGridW - colOffsets[colEnd];
+
+  const S = {
+    mono:  {
+      fontFamily: THEME.font.family,
+      fontSize:   THEME.font.size,
+      lineHeight: `${CONFIG.cellH}px`,
+      whiteSpace: "nowrap" as const,
+    },
+    muted: { color: THEME.colors.muted  },
+    value: { color: THEME.colors.value  },
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
+
+      {/* dim label row */}
+      <div style={{ display: "flex", ...S.mono, marginBottom: 2 }}>
+        <div style={{ width: rhW, flexShrink: 0, ...S.muted, textAlign: "right", paddingRight: CONFIG.rhPadRight }}>
+          ↓ {rowDim}
+        </div>
+        <div style={{ width: viewW, overflow: "hidden", flexShrink: 0 }}>
+          <div style={{ ...S.muted, paddingLeft: 4 }}>
+            → {colDim}{showHeader && dtype ? `  ${dtype}` : ""}
+          </div>
+        </div>
+      </div>
+
+      {/* col-index header (mirrors scrollLeft, windowed) */}
+      <div style={{ display: "flex", ...S.mono, marginBottom: 2 }}>
+        <div style={{ width: rhW, flexShrink: 0 }} />
+        <div ref={colHeadRef} style={{ width: viewW, overflow: "hidden", flexShrink: 0 }}>
+          <div style={{ width: totalGridW, display: "flex" }}>
+            {paddingLeft > 0 && <div style={{ width: paddingLeft, flexShrink: 0 }} />}
+            {Array.from({ length: colEnd - colStart }, (_, i) => {
+              const ci = colStart + i;
+              return (
+                <div
+                  key={ci}
+                  style={{ width: cw[ci] * CONFIG.chW + CONFIG.colCellPad, flexShrink: 0, textAlign: "right", ...S.muted, paddingRight: CONFIG.colHeadPad }}
+                >
+                  {colHeaders[ci]}
+                </div>
+              );
+            })}
+            {paddingRight > 0 && <div style={{ width: paddingRight, flexShrink: 0 }} />}
+          </div>
+        </div>
+      </div>
+
+      {/* main area */}
+      <div style={{ display: "flex" }}>
+
+        {/* frozen row-index column */}
+        <div ref={rowHeadRef} style={{ width: rhW, flexShrink: 0, height: viewH, overflow: "hidden" }}>
+          <div style={{ height: totalGridH }}>
+            {paddingTop > 0 && <div style={{ height: paddingTop }} />}
+            {Array.from({ length: rowEnd - rowStart }, (_, i) => {
+              const ri = rowStart + i;
+              return (
+                <div key={ri} style={{ height: CONFIG.cellH, textAlign: "right", paddingRight: CONFIG.rhPadRight, ...S.mono, ...S.muted }}>
+                  {rowHeaders[ri]}
+                </div>
+              );
+            })}
+            {paddingBottom > 0 && <div style={{ height: paddingBottom }} />}
+          </div>
+        </div>
+
+        {/* scrollable cell grid */}
+        <div style={{ width: viewW, height: viewH, position: "relative", flexShrink: 0 }}>
+          {scroll.L && <GlassEdge dir="L" />}
+          {scroll.R && <GlassEdge dir="R" />}
+          {scroll.T && <GlassEdge dir="T" />}
+          {scroll.B && <GlassEdge dir="B" />}
+
+          <div
+            ref={gridRef}
+            onScroll={onGridScroll}
+            style={{ width: "100%", height: "100%", overflow: "scroll", scrollbarWidth: "none" }}
+          >
+            <div style={{ width: totalGridW, height: totalGridH }}>
+              {paddingTop > 0 && <div style={{ height: paddingTop }} />}
+
+              {Array.from({ length: rowEnd - rowStart }, (_, i) => {
+                const ri = rowStart + i;
+                return (
+                  <div key={ri} style={{ display: "flex", height: CONFIG.cellH }}>
+                    {paddingLeft > 0 && <div style={{ width: paddingLeft, flexShrink: 0 }} />}
+
+                    {Array.from({ length: colEnd - colStart }, (_, j) => {
+                      const ci = colStart + j;
+                      const v  = fmtVal(data[offset + ri * cols + ci], dtype);
+                      return (
+                        <div
+                          key={ci}
+                          style={{ width: cw[ci] * CONFIG.chW + CONFIG.colCellPad, flexShrink: 0, textAlign: "right", paddingRight: CONFIG.colHeadPad, ...S.mono, ...S.value }}
+                        >
+                          {lpad(v, cw[ci])}
+                        </div>
+                      );
+                    })}
+
+                    {paddingRight > 0 && <div style={{ width: paddingRight, flexShrink: 0 }} />}
+                  </div>
+                );
+              })}
+
+              {paddingBottom > 0 && <div style={{ height: paddingBottom }} />}
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   );
-};
+}
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+// ─── MatrixDisplay ────────────────────────────────────────────────────────────
 
-export const ArrayDisplay: React.FC<ArrayDisplayProps> = ({
-  data,
-  shape,
-  dimNames = [],
-  varName,
-  dtype,
-  totalShape,
-  maxRows = 24,
-  maxCols = 16,
-}) => {
+function MatrixDisplay({
+  data, rows, cols, rowDim, colDim, dtype,
+  offset = 0, showHeader = true, containerWidth,
+}: MatrixDisplayProps): React.ReactElement {
+  const colHeaders = useMemo<string[]>(() => Array.from({ length: cols }, (_, i) => String(i)), [cols]);
+  const rowHeaders = useMemo<string[]>(() => Array.from({ length: rows }, (_, i) => String(i)), [rows]);
+
+  return (
+    <FrozenMatrix
+      data={data} offset={offset} rows={rows} cols={cols}
+      rowHeaders={rowHeaders} colHeaders={colHeaders}
+      rowDim={rowDim} colDim={colDim} dtype={dtype}
+      showHeader={showHeader} containerWidth={containerWidth}
+    />
+  );
+}
+
+// ─── VectorDisplay ────────────────────────────────────────────────────────────
+
+function VectorDisplay({ data, len, dimName, dtype, containerWidth }: VectorDisplayProps): React.ReactElement {
+  const rowHeaders = useMemo<string[]>(() => Array.from({ length: len }, (_, i) => String(i)), [len]);
+  const colHeaders = useMemo<string[]>(() => [dimName], [dimName]);
+
+  return (
+    <FrozenMatrix
+      data={data} offset={0} rows={len} cols={1}
+      rowHeaders={rowHeaders} colHeaders={colHeaders}
+      rowDim="idx" colDim={dimName} dtype={dtype}
+      showHeader containerWidth={containerWidth}
+    />
+  );
+}
+
+// ─── NDDisplay ────────────────────────────────────────────────────────────────
+
+function NDDisplay({ data, shape, dimNames, dtype, containerWidth }: NDDisplayProps): React.ReactElement {
+  const ndim  = shape.length;
+  const rows  = shape[ndim - 2];
+  const cols  = shape[ndim - 1];
+  const rowDim = dimNames[ndim - 2] ?? `dim_${ndim - 2}`;
+  const colDim = dimNames[ndim - 1] ?? `dim_${ndim - 1}`;
+
+  const outerShape = useMemo<number[]>(() => shape.slice(0, ndim - 2), [shape, ndim]);
+  const outerDims  = useMemo<string[]>(() => dimNames.slice(0, ndim - 2), [dimNames, ndim]);
+  const numSlices  = outerShape.reduce((a, b) => a * b, 1);
+
+  const [sliceIdx, setSliceIdx] = useState<number>(0);
+
+  const outerIdx = useMemo<number[]>(() => {
+    const idx: number[] = [];
+    let rem = sliceIdx;
+    for (let d = outerShape.length - 1; d >= 0; d--) {
+      idx[d] = rem % outerShape[d];
+      rem = Math.floor(rem / outerShape[d]);
+    }
+    return idx;
+  }, [sliceIdx, outerShape]);
+
+  const offset     = sliceIdx * rows * cols;
+  const colHeaders = useMemo<string[]>(() => Array.from({ length: cols }, (_, i) => String(i)), [cols]);
+  const rowHeaders = useMemo<string[]>(() => Array.from({ length: rows }, (_, i) => String(i)), [rows]);
+
+  return (
+    <div>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 6,
+        fontFamily: THEME.font.family, fontSize: THEME.font.sizeXs,
+        color: THEME.colors.accent, marginBottom: 6, flexWrap: "wrap",
+      }}>
+        <button
+          onClick={() => setSliceIdx(i => Math.max(0, i - 1))}
+          disabled={sliceIdx === 0}
+          style={{ opacity: sliceIdx === 0 ? 0.3 : 1, background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 0, display: "flex", alignItems: "center" }}
+        >
+          <ChevronLeft style={{ width: 12, height: 12 }} />
+        </button>
+
+        <span>
+          {"["}
+          {outerIdx.map((idx, i) => (
+            <span key={`outer-${i}`}>
+              {i > 0 && <span style={{ color: THEME.colors.muted }}>, </span>}
+              <span style={{ color: THEME.colors.dims[i % THEME.colors.dims.length] }}>{idx}</span>
+            </span>
+          ))}
+          <span style={{ color: THEME.colors.muted }}>{outerIdx.length > 0 ? ", " : ""}:, :</span>
+          {"]"}
+        </span>
+
+        {outerDims.map((d, i) => (
+          <span key={`dim-${i}`} style={{ color: THEME.colors.dims[i % THEME.colors.dims.length] }}>
+            {d}={outerIdx[i]}
+          </span>
+        ))}
+
+        <button
+          onClick={() => setSliceIdx(i => Math.min(numSlices - 1, i + 1))}
+          disabled={sliceIdx === numSlices - 1}
+          style={{ opacity: sliceIdx === numSlices - 1 ? 0.3 : 1, background: "none", border: "none", cursor: "pointer", color: "inherit", padding: 0, display: "flex", alignItems: "center" }}
+        >
+          <ChevronRight style={{ width: 12, height: 12 }} />
+        </button>
+
+        <span style={{ marginLeft: "auto" }}>{sliceIdx + 1}/{numSlices}</span>
+      </div>
+
+      <FrozenMatrix
+        data={data} offset={offset} rows={rows} cols={cols}
+        rowHeaders={rowHeaders} colHeaders={colHeaders}
+        rowDim={rowDim} colDim={colDim} dtype={dtype}
+        showHeader={false} containerWidth={containerWidth}
+      />
+    </div>
+  );
+}
+
+// ─── Footer ───────────────────────────────────────────────────────────────────
+
+function Footer({ varName, shape, totalShape, dtype }: FooterProps): React.ReactElement {
+  const bpp = dtypeBytes(dtype);
+  const sb  = shape.reduce((a, b) => a * b, 1) * bpp;
+  const has = (totalShape?.length ?? 0) > 0;
+  const tb  = has && totalShape ? totalShape.reduce((a, b) => a * b, 1) * bpp : null;
+
+  return (
+    <div style={{
+      fontFamily: THEME.font.family, fontSize: THEME.font.sizeXs,
+      color: THEME.colors.muted, marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap",
+    }}>
+      {varName && <span style={{ color: THEME.colors.varName }}>{varName}</span>}
+      <span>
+        [{shape.join(", ")}]
+        <span style={{ opacity: 0.6, marginLeft: 4 }}>{formatBytes(sb)}</span>
+      </span>
+      {has && tb !== null && <>
+        <span style={{ opacity: 0.4 }}>/</span>
+        <span style={{ opacity: 0.6 }}>
+          [{totalShape!.join(", ")}]
+          <span style={{ marginLeft: 4 }}>{formatBytes(tb)}</span>
+        </span>
+      </>}
+    </div>
+  );
+}
+
+// ─── ArrayDisplay ─────────────────────────────────────────────────────────────
+
+export function ArrayDisplay({
+  data, shape, dimNames = [], varName, dtype, totalShape,
+}: ArrayDisplayProps): React.ReactElement {
+  const containerRef   = useRef<HTMLDivElement>(null);
+  const containerWidth = useContainerWidth(containerRef as RefObject<HTMLElement>);
+
   const ndim  = shape.length;
   const total = shape.reduce((a, b) => a * b, 1);
   const names = shape.map((_, i) => dimNames[i] ?? `dim_${i}`);
 
-  const footer = (
-    <Footer varName={varName} shape={shape} totalShape={totalShape} dtype={dtype} />
-  );
-
+  let body: React.ReactElement;
   if (ndim === 0 || total === 1) {
-    return (
-      <div>
-        <ScalarDisplay value={fmtVal(data[0] as never, dtype)} dtype={dtype} />
-        {footer}
+    body = (
+      <div style={{ fontFamily: THEME.font.family, fontSize: THEME.font.size, color: THEME.colors.value }}>
+        {fmtVal(data[0], dtype)}
       </div>
     );
-  }
-
-  if (ndim === 1) {
-    return (
-      <div>
-        <VectorDisplay data={data} len={shape[0]} dimName={names[0]} dtype={dtype} maxRows={maxRows} />
-        {footer}
-      </div>
-    );
-  }
-
-  if (ndim === 2) {
-    return (
-      <div>
-        <MatrixDisplay
-          data={data} rows={shape[0]} cols={shape[1]}
-          rowDim={names[0]} colDim={names[1]}
-          dtype={dtype} maxRows={maxRows} maxCols={maxCols}
-        />
-        {footer}
-      </div>
-    );
+  } else if (ndim === 1) {
+    body = <VectorDisplay data={data} len={shape[0]} dimName={names[0]} dtype={dtype} containerWidth={containerWidth} />;
+  } else if (ndim === 2) {
+    body = <MatrixDisplay data={data} rows={shape[0]} cols={shape[1]} rowDim={names[0]} colDim={names[1]} dtype={dtype} containerWidth={containerWidth} />;
+  } else {
+    body = <NDDisplay data={data} shape={shape} dimNames={names} dtype={dtype} containerWidth={containerWidth} />;
   }
 
   return (
-    <div>
-      <NDDisplay
-        data={data} shape={shape} dimNames={names}
-        dtype={dtype} maxRows={maxRows} maxCols={maxCols}
-      />
-      {footer}
+    <div ref={containerRef} style={{ width: "100%" }}>
+      {body}
+      <Footer varName={varName} shape={shape} totalShape={totalShape} dtype={dtype} />
     </div>
   );
-};
+}
 
 export default ArrayDisplay;
