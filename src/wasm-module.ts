@@ -148,7 +148,7 @@ export class WasmModuleLoader {
         const nc_get_vars_ulonglong_wrapper = module.cwrap('nc_get_vars_ulonglong_wrapper', 'number', ['number','number','number','number','number','number']);
         const nc_get_vars_string_wrapper    = module.cwrap('nc_get_vars_string_wrapper',    'number', ['number','number','number','number','number','number']);
         const nc_get_vars_wrapper           = module.cwrap('nc_get_vars_wrapper',           'number', ['number','number','number','number','number','number']);
-
+        // const nc_get_vars_as_type_wrapper   = module.cwrap('nc_get_vars_as_type_wrapper', 'number', ['number','number','number','number','number','number','number']);
 
         // Group inquiry wrappers
         const nc_inq_grps_wrapper = module.cwrap('nc_inq_grps_wrapper', 'number', ['number', 'number', 'number']);
@@ -1515,22 +1515,19 @@ export class WasmModuleLoader {
                 return { result, data };
             },
 
-            // Generic strided reader — routes by nctype, including NC_STRING.
-            // NC_STRING is handled by delegating to nc_get_vars_string_wrapper directly,
-            // since the generic nc_get_vars_wrapper C switch omits it (returns NC_EBADTYPE).
             nc_get_vars_generic: (ncid: number, varid: number, start: number[], count: number[], stride: number[], nctype: number) => {
                 const elementSize = DATA_TYPE_SIZE[nctype];
                 const totalLength = stridedLength(count);
-                const startPtr  = module._malloc(start.length * 4);
-                const countPtr  = module._malloc(count.length * 4);
+
+                const startPtr  = module._malloc(start.length  * 4);
+                const countPtr  = module._malloc(count.length  * 4);
                 const stridePtr = module._malloc(stride.length * 4);
                 start .forEach((v, i) => module.setValue(startPtr  + i * 4, v, 'i32'));
                 count .forEach((v, i) => module.setValue(countPtr  + i * 4, v, 'i32'));
                 stride.forEach((v, i) => module.setValue(stridePtr + i * 4, v, 'i32'));
 
-                // NC_STRING: generic C wrapper omits this case — delegate to typed string wrapper
                 if (nctype === NC_CONSTANTS.NC_STRING) {
-                    const dataPtr = module._malloc(totalLength * 4); // char* pointers (4 bytes in wasm32)
+                    const dataPtr = module._malloc(totalLength * 4);
                     const result = nc_get_vars_string_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
                     let data: string[] | undefined;
                     if (result === NC_CONSTANTS.NC_NOERR) {
@@ -1545,20 +1542,27 @@ export class WasmModuleLoader {
                 }
 
                 const dataPtr = module._malloc(totalLength * elementSize);
+                console.log('[cwrap check] nc_get_vars_wrapper exists:', 
+                    typeof nc_get_vars_wrapper !== 'undefined'
+                );
                 const result = nc_get_vars_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+
                 let data;
                 if (result === NC_CONSTANTS.NC_NOERR) {
                     switch (nctype) {
-                        case NC_CONSTANTS.NC_BYTE:   data = new Int8Array(module.HEAP8.buffer,       dataPtr, totalLength).slice(); break;
-                        case NC_CONSTANTS.NC_UBYTE:  data = new Uint8Array(module.HEAPU8.buffer,     dataPtr, totalLength).slice(); break;
-                        case NC_CONSTANTS.NC_SHORT:  data = new Int16Array(module.HEAP16.buffer,     dataPtr, totalLength).slice(); break;
-                        case NC_CONSTANTS.NC_USHORT: data = new Uint16Array(module.HEAPU16.buffer,   dataPtr, totalLength).slice(); break;
-                        case NC_CONSTANTS.NC_INT:    data = new Int32Array(module.HEAP32.buffer,     dataPtr, totalLength).slice(); break;
-                        case NC_CONSTANTS.NC_UINT:   data = new Uint32Array(module.HEAPU32.buffer,   dataPtr, totalLength).slice(); break;
-                        case NC_CONSTANTS.NC_INT64:  data = new BigInt64Array(module.HEAP64.buffer,  dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_BYTE:   data = new Int8Array    (module.HEAP8.buffer,    dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_UBYTE:  data = new Uint8Array   (module.HEAPU8.buffer,   dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_SHORT:  data = new Int16Array   (module.HEAP16.buffer,   dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_USHORT: data = new Uint16Array  (module.HEAPU16.buffer,  dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_INT:    data = new Int32Array   (module.HEAP32.buffer,   dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_UINT:   data = new Uint32Array  (module.HEAPU32.buffer,  dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_FLOAT:  data = new Float32Array (module.HEAPF32.buffer,  dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_DOUBLE: data = new Float64Array (module.HEAPF64.buffer,  dataPtr, totalLength).slice(); break;
+                        case NC_CONSTANTS.NC_INT64:  data = new BigInt64Array (module.HEAP64.buffer,  dataPtr, totalLength).slice(); break;
                         case NC_CONSTANTS.NC_UINT64: data = new BigUint64Array(module.HEAPU64.buffer, dataPtr, totalLength).slice(); break;
                     }
                 }
+
                 module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
                 return { result, data };
             },

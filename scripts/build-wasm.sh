@@ -1020,30 +1020,12 @@ int nc_get_vars_string_wrapper(int ncid, int varid, const size_t* start, const s
     return nc_get_vars_string(ncid, varid, start, count, stride, value);
 }
 
-// Generic strided wrapper — mirrors existing nc_get_vara_wrapper
-// Uses nc_get_vars which accepts void* output and nc_type for dispatch
+// Generic strided wrapper — mirrors nc_get_vara_wrapper.
+// nc_get_vars (no type suffix) reads raw bytes into void* without type checking,
+// so it works for enum variables (declared type >= 32) unlike nc_get_vars_schar etc.
 EMSCRIPTEN_KEEPALIVE
 int nc_get_vars_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, void* value) {
-    // nc_get_vars_* requires knowing the type — use nc_get_vara with the generic
-    // approach by getting the variable type first and dispatching
-    nc_type xtype;
-    int stat = nc_inq_vartype(ncid, varid, &xtype);
-    if (stat != NC_NOERR) return stat;
-
-    switch (xtype) {
-        case NC_BYTE:     return nc_get_vars_schar(ncid, varid, start, count, stride, (signed char*)value);
-        case NC_UBYTE:    return nc_get_vars_uchar(ncid, varid, start, count, stride, (unsigned char*)value);
-        case NC_SHORT:    return nc_get_vars_short(ncid, varid, start, count, stride, (short*)value);
-        case NC_USHORT:   return nc_get_vars_ushort(ncid, varid, start, count, stride, (unsigned short*)value);
-        case NC_INT:      return nc_get_vars_int(ncid, varid, start, count, stride, (int*)value);
-        case NC_UINT:     return nc_get_vars_uint(ncid, varid, start, count, stride, (unsigned int*)value);
-        case NC_FLOAT:    return nc_get_vars_float(ncid, varid, start, count, stride, (float*)value);
-        case NC_DOUBLE:   return nc_get_vars_double(ncid, varid, start, count, stride, (double*)value);
-        case NC_INT64:    return nc_get_vars_longlong(ncid, varid, start, count, stride, (long long*)value);
-        case NC_UINT64:   return nc_get_vars_ulonglong(ncid, varid, start, count, stride, (unsigned long long*)value);
-        case NC_STRING:   return nc_get_vars_string(ncid, varid, start, count, stride, (char**)value);
-        default:          return NC_EBADTYPE;
-    }
+    return nc_get_vars(ncid, varid, start, count, stride, value);
 }
 
 // =========================
