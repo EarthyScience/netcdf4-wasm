@@ -277,7 +277,7 @@ export const useViewerState = () => {
     setLoadingSlice(true);
     setSliceError(null);
     try {
-      const selection = buildSelection(sliceSelections, info.shape);
+      const selection = buildSelection(sliceSelections);
       const data = await (dataset as any).get(
         selectedVariable,
         selection,

@@ -676,7 +676,7 @@ export function getVariableArrayWithSelection(
         varid = r.varid as number;
     }
 
-    // Query variable dimensions — use workingNcid throughout
+    // Query variable dimensions
     const varInfo = module.nc_inq_var(workingNcid, varid);
     if (varInfo.result !== NC_CONSTANTS.NC_NOERR) {
         throw new Error(`Failed to query variable info (error: ${varInfo.result})`);
@@ -690,50 +690,34 @@ export function getVariableArrayWithSelection(
             `Selection has ${selection.length} dimension(s) but variable has ${ndim}`
         );
     }
-    console.log('[varInfo]', {
-        dimids: Array.from(varInfo.dimids ?? []),
-        varid,
-        workingNcid,
-        varInfoRaw: JSON.stringify(varInfo)
-    });
 
     // Fetch each dimension's size — resolveDim handles BigInt safely
     const dimSizes = dimids.map((dimid: number) => {
-        console.log('[nc_inq_dimlen] calling with', { workingNcid, dimid });
         const r = module.nc_inq_dimlen(workingNcid, dimid);
-        console.log('[nc_inq_dimlen raw]', r);
         if (r.result !== NC_CONSTANTS.NC_NOERR) {
             throw new Error(`Failed to query dim length for dimid ${dimid} (error: ${r.result})`);
         }
         return r.len as number | bigint;
     });
 
-    // Resolve each selection — resolveDim coerces BigInt internally
+    // Resolve each selection
     const resolved: ResolvedDim[] = selection.map((sel, i) =>
         resolveDim(sel, dimSizes[i])
     );
 
     const start  = resolved.map(d => d.start);
     const count  = resolved.map(d => d.count);
-    const stride = resolved.map(d => Math.abs(d.step));
-
-    const hasNegativeStep = resolved.some(d => d.step < 0);
-
+    const stride = resolved.map(d => d.step);
 
     // Validate parameters against dimension sizes
     for (let i = 0; i < start.length; i++) {
         const dimSize = Number(dimSizes[i]);
-        console.log(`[validate dim ${i}]`, { start: start[i], count: count[i], stride: stride[i], dimSize, lastIdx: start[i] + (count[i] - 1) * stride[i] });
         if (start[i] < 0 || start[i] >= dimSize) {
             throw new Error(
                 `Invalid start[${i}] = ${start[i]} for dimension size ${dimSize}`
             );
         }
-        if (count[i] <= 0) {
-            throw new Error(
-                `Invalid count[${i}] = ${count[i]} (must be > 0)`
-            );
-        }
+        if (count[i] === 0) continue; // valid empty slice — skip further checks
         const lastIdx = start[i] + (count[i] - 1) * stride[i];
         if (lastIdx >= dimSize) {
             throw new Error(
@@ -743,17 +727,40 @@ export function getVariableArrayWithSelection(
         }
     }
 
+    // Guard against integer overflow in WASM — total elements must fit in a signed 32-bit int
+    // not sure how well is this, ~2 billion elements, will perform in JS but may cause issues in WASM memory allocation or indexing
+    const totalElements = count.reduce((acc, c) => acc * c, 1);
+    if (totalElements > 2 ** 31 - 1) {
+        throw new Error(
+            `Selection would read ${totalElements} elements, exceeding the safe limit of 2^31 - 1`
+        );
+    }
+
     // Resolve variable type — use workingNcid so enum lookup is in the right group
     const { enumCtx } = resolveVariableType(module, workingNcid, varid);
     const arrayType = enumCtx.baseType;
 
-    let arrayData: { result: number; data?: any };
+    // Return appropriately typed empty array if any dimension has count 0
+    if (count.some(c => c === 0)) {
+        const emptyReaders: Record<number, () => AnyTypedArray> = {
+            [NC_CONSTANTS.NC_BYTE]:      () => new Int8Array(0),
+            [NC_CONSTANTS.NC_UBYTE]:     () => new Uint8Array(0),
+            [NC_CONSTANTS.NC_SHORT]:     () => new Int16Array(0),
+            [NC_CONSTANTS.NC_USHORT]:    () => new Uint16Array(0),
+            [NC_CONSTANTS.NC_INT]:       () => new Int32Array(0),
+            [NC_CONSTANTS.NC_UINT]:      () => new Uint32Array(0),
+            [NC_CONSTANTS.NC_FLOAT]:     () => new Float32Array(0),
+            [NC_CONSTANTS.NC_DOUBLE]:    () => new Float64Array(0),
+            [NC_CONSTANTS.NC_INT64]:     () => new BigInt64Array(0),
+            [NC_CONSTANTS.NC_LONGLONG]:  () => new BigInt64Array(0),
+            [NC_CONSTANTS.NC_UINT64]:    () => new BigUint64Array(0),
+            [NC_CONSTANTS.NC_ULONGLONG]: () => new BigUint64Array(0),
+            [NC_CONSTANTS.NC_STRING]:    () => [],
+        };
+        return (emptyReaders[arrayType] ?? (() => new Float64Array(0)))();
+    }
 
-    // Read data
-    // Always use nc_get_vars_* (strided) — nc_get_vara has marshalling issues
-    // with null/all selections. When stride is all-1s the netCDF-C library takes
-    // the same fast contiguous path internally, so there is no performance cost.
-    console.log('vars read', { start, count, stride, dimSizes: dimSizes.map(Number), arrayType, hasNegativeStep });
+    let arrayData: { result: number; data?: any };
 
     if (enumCtx.isEnum) {
         arrayData = module.nc_get_vars_generic(workingNcid, varid, start, count, stride, arrayType);
@@ -779,7 +786,6 @@ export function getVariableArrayWithSelection(
 
         const reader = readers[arrayType];
         if (!reader) {
-            console.warn(`Unknown NetCDF type ${arrayType}, falling back to double`);
             arrayData = module.nc_get_vars_double(workingNcid, varid, start, count, stride);
         } else {
             arrayData = reader(workingNcid, varid, start, count, stride);
@@ -799,47 +805,7 @@ export function getVariableArrayWithSelection(
         result = convertEnumValuesToNames(result, enumCtx.enumDict);
     }
 
-    // Reverse dimensions that had a negative step — cheap, operates on already-small output
-    if (hasNegativeStep) {
-        result = applyNegativeStepReversal(result, resolved);
-    }
-
     return result;
-}
-
-// applyNegativeStepReversal
-
-function applyNegativeStepReversal<T extends AnyTypedArray>(
-    data: T,
-    resolved: ResolvedDim[]
-): T {
-    const ndim = resolved.length;
-    const outCount = resolved.map(d => d.collapsed ? 1 : d.count);
-    const totalOut = outCount.reduce((a, b) => a * b, 1);
-
-    const outStrides = new Array<number>(ndim);
-    outStrides[ndim - 1] = 1;
-    for (let i = ndim - 2; i >= 0; i--) {
-        outStrides[i] = outStrides[i + 1] * outCount[i + 1];
-    }
-
-    const out: AnyTypedArray = Array.isArray(data)
-        ? new Array<string>(totalOut)
-        : new (data.constructor as any)(totalOut);
-
-    for (let outIdx = 0; outIdx < totalOut; outIdx++) {
-        let rem    = outIdx;
-        let srcIdx = 0;
-        for (let d = 0; d < ndim; d++) {
-            const logI = Math.floor(rem / outStrides[d]);
-            rem -= logI * outStrides[d];
-            const srcI = resolved[d].step < 0 ? outCount[d] - 1 - logI : logI;
-            srcIdx += srcI * outStrides[d];
-        }
-        (out as any)[outIdx] = (data as any)[srcIdx];
-    }
-
-    return out as T;
 }
 
 //---- Group Functions ----//

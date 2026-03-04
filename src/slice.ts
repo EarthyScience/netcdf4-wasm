@@ -49,7 +49,7 @@ export function slice(
  * A single dimension selection:
  *  - all()  → full dimension
  *  - "all"  → full dimension (compat)
- *  - null   → full dimension (compat; matches older docs/examples)
+ *  - null   → full dimension (compat)
  *  - number → scalar index
  *  - Slice  → range selection
  */
@@ -60,13 +60,13 @@ export type DimSelection = All | "all" | null | number | Slice;
  * DimSelection against a known dimension size.
  */
 export interface ResolvedDim {
-    /** Start index in the NetCDF dimension (always the lower bound, even for negative step) */
+    /** Start index in the NetCDF dimension */
     start: number;
 
-    /** Number of elements to read from NetCDF (contiguous span, always positive) */
+    /** Number of elements to read from NetCDF (contiguous span, always >= 0) */
     count: number;
 
-    /** Step. Positive = forward, negative = reversed output. Never 0. */
+    /** Step. Always positive. Never 0. */
     step: number;
 
     /** True when the selection was a scalar index — dimension is collapsed */
@@ -76,10 +76,12 @@ export interface ResolvedDim {
 /**
  * Resolve a DimSelection against a concrete dimension size.
  * Accepts BigInt dimension sizes (from nc_inq_dimlen i64 reads) and coerces safely.
+ * Step is always treated as positive; start/stop are swapped if out of order.
  */
 export function resolveDim(sel: DimSelection, dimSizeRaw: number | bigint): ResolvedDim {
 
     const dimSize = Number(dimSizeRaw);
+
     // full dimension
     if (sel === null || sel === "all" || isAll(sel)) {
         return { start: 0, count: dimSize, step: 1, collapsed: false };
@@ -92,51 +94,28 @@ export function resolveDim(sel: DimSelection, dimSizeRaw: number | bigint): Reso
         return { start: clamped, count: 1, step: 1, collapsed: true };
     }
 
-    // Slice
+    // Slice — step is always positive
     const step = sel.step ?? 1;
-    if (step === 0) throw new Error("Slice step cannot be zero");
+    if (step <= 0) throw new Error("Slice step must be a positive integer");
 
-    if (step > 0) {
+    const rawStart = sel.start ?? 0;
+    const rawStop  = sel.stop  ?? dimSize;
 
-        const rawStart = sel.start ?? 0;
-        const rawStop  = sel.stop  ?? dimSize;
+    const start = Math.max(
+        0,
+        Math.min(rawStart < 0 ? dimSize + rawStart : rawStart, dimSize)
+    );
 
-        const start = Math.max(
-            0,
-            Math.min(rawStart < 0 ? dimSize + rawStart : rawStart, dimSize)
-        );
+    const stop = Math.max(
+        0,
+        Math.min(rawStop < 0 ? dimSize + rawStop : rawStop, dimSize)
+    );
 
-        const stop = Math.max(
-            0,
-            Math.min(rawStop < 0 ? dimSize + rawStop : rawStop, dimSize)
-        );
+    // Swap if caller passed start > stop — resolve to the correct forward range
+    const lo = Math.min(start, stop);
+    const hi = Math.max(start, stop);
 
-        const span  = Math.max(0, stop - start);
-        const count = span === 0 ? 0 : Math.ceil(span / step);
-        return { start, count, step, collapsed: false };
-
-    } else {
-
-        const rawStart = sel.start ?? dimSize - 1;
-        const rawStopProvided = sel.stop;
-        const rawStop = rawStopProvided === undefined
-            ? -1
-            : (rawStopProvided < 0 ? dimSize + rawStopProvided : rawStopProvided);
-
-        const start = Math.max(
-            0,
-            Math.min(rawStart < 0 ? dimSize + rawStart : rawStart, dimSize - 1)
-        );
-
-        const stop = Math.max(
-            -1,
-            Math.min(rawStop, dimSize - 1)
-        );
-
-        const span  = Math.max(0, start - stop);
-        const count = span === 0 ? 0 : Math.ceil(span / Math.abs(step));
-        const result = { start: stop + 1, count, step, collapsed: false };
-        // For negative step: read forward then reverse later
-        return result;
-    }
+    const span  = hi - lo;
+    const count = span === 0 ? 0 : Math.ceil(span / step);
+    return { start: lo, count, step, collapsed: false };
 }

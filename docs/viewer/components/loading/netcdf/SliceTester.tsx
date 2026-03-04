@@ -7,7 +7,7 @@ import { PlusIcon, MinusIcon } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Terminal, ChevronRight, ChevronDown } from 'lucide-react';
-import { slice as ncSlice } from '@earthyscience/netcdf4-wasm';
+import { all, Slice, DimSelection, resolveDim } from '@earthyscience/netcdf4-wasm';
 import { VariableInfo, VariableArrayData } from './types';
 import ArrayDisplay from './ArrayDisplay';
 
@@ -15,79 +15,63 @@ import ArrayDisplay from './ArrayDisplay';
 export type SelectionMode = 'all' | 'scalar' | 'slice';
 
 export interface SliceSelectionState {
-  mode:   SelectionMode;
-  scalar: string;
-  start:  string;
-  stop:   string;
-  step:   string;
+    mode:   SelectionMode;
+    scalar: string;
+    start:  string;
+    stop:   string;
+    step:   string;
 }
 
 export function defaultSelection(): SliceSelectionState {
-  return { mode: 'all', scalar: '0', start: '0', stop: '', step: '1' };
+    return { mode: 'all', scalar: '0', start: '0', stop: '', step: '1' };
 }
 
 const MAX_ELEMENTS = 10_000_000;
 
 const MODE_ACCENT: Record<SelectionMode, string> = {
-  all:    'border-l-muted-foreground/30',
-  scalar: 'border-l-teal-700',
-  slice:  'border-l-[#644FF0]',
+    all:    'border-l-muted-foreground/30',
+    scalar: 'border-l-teal-700',
+    slice:  'border-l-[#644FF0]',
 };
 
 const MODE_BADGE: Record<SelectionMode, string> = {
-  all:    'text-muted-foreground/50',
-  scalar: 'text-teal-700',
-  slice:  'text-[#644FF0]',
+    all:    'text-muted-foreground/50',
+    scalar: 'text-teal-700',
+    slice:  'text-[#644FF0]',
 };
 
-// Build canonical DimSelection array
+// Translate UI state into a DimSelection — all resolution is delegated to resolveDim
 export function buildSelection(
-  sels: SliceSelectionState[],
-  shape: Array<number | bigint>
-) {
-  return sels.map((s, i) => {
-    const dimSize = Number(shape[i]);
-    if (s.mode === 'all') return ncSlice(0, dimSize, 1);
-    if (s.mode === 'scalar') {
-      let idx = parseInt(s.scalar);
-      if (Number.isNaN(idx)) idx = 0;
-      if (idx < -dimSize || idx >= dimSize)
-        throw new Error(`index ${idx} out of bounds for dim ${i} size ${dimSize}`);
-      if (idx < 0) idx = dimSize + idx;
-      return idx;
-    }
-    let start = s.start !== '' ? parseInt(s.start) : 0;
-    let stop  = s.stop  !== '' ? parseInt(s.stop)  : dimSize;
-    let step  = s.step  !== '' ? parseInt(s.step)  : 1;
-    if (Number.isNaN(start)) start = 0;
-    if (Number.isNaN(stop))  stop  = dimSize;
-    if (Number.isNaN(step))  step  = 1;
-    if (step === 0)          step  = 1;
-    if (start < 0) start = Math.max(0, dimSize + start);
-    if (stop  < 0) stop  = Math.max(0, dimSize + stop);
-    if (start > stop) { const tmp = start; start = stop; stop = tmp; }
-    return ncSlice(start, stop, step);
-  });
+    sels: SliceSelectionState[],
+): DimSelection[] {
+    return sels.map(s => {
+        if (s.mode === 'all')    return all();
+        if (s.mode === 'scalar') return parseInt(s.scalar) || 0;
+
+        const start = s.start !== '' ? parseInt(s.start) : undefined;
+        const stop  = s.stop  !== '' ? parseInt(s.stop)  : undefined;
+        const step  = s.step  !== '' ? parseInt(s.step)  : undefined;
+        return new Slice(start, stop, step);
+    });
 }
 
-// Compute output shape
+// Compute output shape using resolveDim — stays in sync with the library by construction
 export function resultShape(
-  sels: SliceSelectionState[],
-  shape: Array<number | bigint>
+    sels: SliceSelectionState[],
+    shape: Array<number | bigint>
 ): number[] {
-  return sels.flatMap((s, i) => {
-    const dimSize = Number(shape[i]);
-    if (s.mode === 'scalar') return [];
-    if (s.mode === 'all') return [dimSize];
-    const start = s.start !== '' ? parseInt(s.start) : 0;
-    const stop  = s.stop  !== '' ? parseInt(s.stop)  : dimSize;
-    const step  = s.step  !== '' ? parseInt(s.step)  : 1;
-    const normStart = start < 0 ? Math.max(0, dimSize + start) : Math.min(start, dimSize);
-    const normStop  = stop  < 0 ? Math.max(0, dimSize + stop)  : Math.min(stop,  dimSize);
-    const absStep   = Math.abs(step === 0 ? 1 : step);
-    const n = Math.max(0, Math.ceil(Math.abs(normStop - normStart) / absStep));
-    return [n];
-  });
+    return sels.flatMap((s, i) => {
+        const sel: DimSelection =
+            s.mode === 'scalar' ? (parseInt(s.scalar) || 0) :
+            s.mode === 'all'    ? all() :
+            new Slice(
+                s.start !== '' ? parseInt(s.start) : undefined,
+                s.stop  !== '' ? parseInt(s.stop)  : undefined,
+                s.step  !== '' ? parseInt(s.step)  : undefined,
+            );
+        const resolved = resolveDim(sel, shape[i]);
+        return resolved.collapsed ? [] : [resolved.count];
+    });
 }
 
 function dimBadge(s: SliceSelectionState, dimSize: number): string | null {

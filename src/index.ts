@@ -3,7 +3,7 @@
 
 // Export all classes and types
 export { NetCDF4, DataTree } from './netcdf4.js';
-export { slice, Slice, all, isAll} from './slice.js';
+export { slice, Slice, all, isAll, resolveDim } from './slice.js';
 export type { DimSelection, ResolvedDim } from './slice.js';
 export type { GroupNode } from './netcdf4.js';
 export { Variable } from './variable.js';
