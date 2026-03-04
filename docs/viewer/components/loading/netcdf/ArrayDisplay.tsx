@@ -305,7 +305,11 @@ function FrozenMatrix({
     let lo = 0, hi = cols;
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
-      colOffsets[mid + 1] <= scroll.scrollLeft ? (lo = mid + 1) : (hi = mid);
+      if (colOffsets[mid + 1] <= scroll.scrollLeft) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
     }
     return Math.max(0, lo - CONFIG.overscan);
   }, [colOffsets, cols, scroll.scrollLeft]);
@@ -314,7 +318,11 @@ function FrozenMatrix({
     let lo = colStart, hi = cols;
     while (lo < hi) {
       const mid = (lo + hi) >> 1;
-      colOffsets[mid] < scroll.scrollLeft + viewW ? (lo = mid + 1) : (hi = mid);
+      if (colOffsets[mid] < scroll.scrollLeft + viewW) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
     }
     return Math.min(cols, lo + CONFIG.overscan);
   }, [colOffsets, cols, colStart, scroll.scrollLeft, viewW]);
