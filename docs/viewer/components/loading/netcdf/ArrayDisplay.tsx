@@ -4,8 +4,7 @@ import React, {
 } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-// ─── Config ───────────────────────────────────────────────────────────────────
-
+// Config
 const CONFIG = {
   fadePx:      36,
   cellH:       20,
@@ -24,8 +23,7 @@ const CONFIG = {
 
 const DIM_COLORS = ["#a78bfa", "#f87171", "#fb923c", "#facc15"] as const;
 
-// ─── Shared styles ────────────────────────────────────────────────────────────
-
+// Shared styles
 const STYLES = {
   mono: {
     fontFamily: `monospace`,
@@ -49,7 +47,7 @@ const STYLES = {
 // actual in-cell alignment independently.
 const CHW = 7.2;
 
-// ─── Glass-edge CSS ───────────────────────────────────────────────────────────
+// Glass-edge CSS
 
 const GLASS_CSS = `
 .ad-glass-edge {
@@ -75,8 +73,7 @@ function ensureGlassCSS(): void {
   glassCSSInjected = true;
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
+// Types
 type Dtype = string | undefined;
 type DataArray = ArrayLike<number | bigint | string>;
 
@@ -147,8 +144,7 @@ export interface ArrayDisplayProps {
   totalShape?: number[];
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
+// Helpers
 function fmtVal(v: number | bigint | string, dtype: Dtype): string {
   if (typeof v === "bigint") return String(v);
   if (typeof v === "string") return v;
@@ -180,8 +176,7 @@ function dtypeBytes(d: Dtype): number {
   return 4;
 }
 
-// ─── useContainerWidth ────────────────────────────────────────────────────────
-
+// useContainerWidth
 function useContainerWidth(ref: RefObject<HTMLElement>): number {
   const [width, setWidth] = useState<number>(0);
   useEffect(() => {
@@ -194,8 +189,7 @@ function useContainerWidth(ref: RefObject<HTMLElement>): number {
   return width;
 }
 
-// ─── useScrollState ───────────────────────────────────────────────────────────
-
+// useScrollState
 function useScrollState(ref: RefObject<HTMLElement>): ScrollEdges {
   const [state, setState] = useState<ScrollEdges>({
     scrollLeft: 0, scrollTop: 0,
@@ -228,8 +222,7 @@ function useScrollState(ref: RefObject<HTMLElement>): ScrollEdges {
   return state;
 }
 
-// ─── GlassEdge ────────────────────────────────────────────────────────────────
-
+// GlassEdge
 type EdgeDir = "L" | "R" | "T" | "B";
 
 const GRAD_DIR: Record<EdgeDir, string> = {
@@ -247,8 +240,7 @@ function GlassEdge({ dir }: { dir: EdgeDir }): React.ReactElement {
   );
 }
 
-// ─── FrozenMatrix ─────────────────────────────────────────────────────────────
-
+// FrozenMatrix
 function FrozenMatrix({
   data, offset, rows, cols,
   rowHeaders, colHeaders,
@@ -437,8 +429,7 @@ function FrozenMatrix({
   );
 }
 
-// ─── MatrixDisplay ────────────────────────────────────────────────────────────
-
+// MatrixDisplay
 function MatrixDisplay({
   data, rows, cols, rowDim, colDim, dtype,
   offset = 0, showHeader = true, containerWidth,
@@ -456,8 +447,7 @@ function MatrixDisplay({
   );
 }
 
-// ─── VectorDisplay ────────────────────────────────────────────────────────────
-
+// VectorDisplay
 function VectorDisplay({ data, len, dimName, dtype, containerWidth }: VectorDisplayProps): React.ReactElement {
   const rowHeaders = useMemo<string[]>(() => Array.from({ length: len }, (_, i) => String(i)), [len]);
   const colHeaders = useMemo<string[]>(() => [dimName], [dimName]);
@@ -472,8 +462,7 @@ function VectorDisplay({ data, len, dimName, dtype, containerWidth }: VectorDisp
   );
 }
 
-// ─── NDDisplay ────────────────────────────────────────────────────────────────
-
+// NDDisplay
 const BTN_STYLE: React.CSSProperties = {
   background: "none", border: "none", cursor: "pointer",
   color: "inherit", padding: 0, display: "flex", alignItems: "center",
@@ -556,8 +545,7 @@ function NDDisplay({ data, shape, dimNames, dtype, containerWidth }: NDDisplayPr
   );
 }
 
-// ─── Footer ───────────────────────────────────────────────────────────────────
-
+// Footer
 function Footer({ varName, shape, totalShape, dtype }: FooterProps): React.ReactElement {
   const bpp = dtypeBytes(dtype);
   const sb  = shape.reduce((a, b) => a * b, 1) * bpp;
@@ -582,8 +570,7 @@ function Footer({ varName, shape, totalShape, dtype }: FooterProps): React.React
   );
 }
 
-// ─── ArrayDisplay ─────────────────────────────────────────────────────────────
-
+// ArrayDisplay
 export function ArrayDisplay({
   data, shape, dimNames = [], varName, dtype, totalShape,
 }: ArrayDisplayProps): React.ReactElement {
