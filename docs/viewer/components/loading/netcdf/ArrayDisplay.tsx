@@ -5,55 +5,51 @@ import React, {
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // ─── Config ───────────────────────────────────────────────────────────────────
-// Layout numbers only — no colors, no font names (those come from globals.css).
 
 const CONFIG = {
   fadePx:      36,
-  cellH:       18,
-  chW:         8,
+  cellH:       20,
   overscan:    3,
   maxViewH:    220,
   minViewW:    80,
-  scrollSlop:  1,   // px threshold before showing an edge fade
+  scrollSlop:  1,
   rhPadRight:  12,
-  colCellPad:  8,
+  colCellPad:  12,
   colHeadPad:  4,
   rhExtraChar: 2,
   rhPadPx:     12,
+  fontSize:    12,
+  precision:   4,   // significant figures for float display
 } as const;
 
-// Dim-index accent colors are component-specific, not in globals.
 const DIM_COLORS = ["#a78bfa", "#f87171", "#fb923c", "#facc15"] as const;
 
 // ─── Shared styles ────────────────────────────────────────────────────────────
-// Font family and all text colors come from CSS variables set in globals.css.
-// Nothing here is hardcoded — the component adapts to light/dark automatically.
 
 const STYLES = {
   mono: {
-    fontFamily: "var(--font-mono)",
-    fontSize:   12,
+    fontFamily: `monospace`,
+    fontSize:   CONFIG.fontSize,
     lineHeight: `${CONFIG.cellH}px`,
     whiteSpace: "nowrap",
   } satisfies React.CSSProperties,
 
   monoXs: {
-    fontFamily: "var(--font-mono)",
-    fontSize:   12,
-    lineHeight: "16px"
+    fontFamily: `monospace`,
+    fontSize:   CONFIG.fontSize,
+    lineHeight: "16px",
   } satisfies React.CSSProperties,
 
-  // Cell values: primary readable text
-  value: { color: "var(--foreground)"         } satisfies React.CSSProperties,
-  // Dim labels, index headers, footer: secondary text
-  muted: { color: "var(--muted-foreground)"   } satisfies React.CSSProperties,
-  // Slice navigator: same secondary level
-  accent:{ color: "var(--muted-foreground)"   } satisfies React.CSSProperties,
+  value:  { color: "var(--foreground)"       } satisfies React.CSSProperties,
+  muted:  { color: "var(--muted-foreground)" } satisfies React.CSSProperties,
+  accent: { color: "var(--muted-foreground)" } satisfies React.CSSProperties,
 } as const;
 
+// Character width estimate for column sizing. text-align:right handles
+// actual in-cell alignment independently.
+const CHW = 7.2;
+
 // ─── Glass-edge CSS ───────────────────────────────────────────────────────────
-// Injected once at runtime. Uses --background so the frosted tint matches
-// the app's current theme automatically.
 
 const GLASS_CSS = `
 .ad-glass-edge {
@@ -82,7 +78,6 @@ function ensureGlassCSS(): void {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Dtype = string | undefined;
-
 type DataArray = ArrayLike<number | bigint | string>;
 
 type ScrollEdges = {
@@ -165,10 +160,6 @@ function fmtVal(v: number | bigint | string, dtype: Dtype): string {
   return v.toPrecision(8).replace(/\.?0+$/, "");
 }
 
-function lpad(s: string, w: number): string {
-  return "\u00a0".repeat(Math.max(0, w - s.length)) + s;
-}
-
 function formatBytes(b: number): string {
   const units = ["bytes", "KB", "MB", "GB"];
   let v = b, i = 0;
@@ -193,7 +184,6 @@ function dtypeBytes(d: Dtype): number {
 
 function useContainerWidth(ref: RefObject<HTMLElement>): number {
   const [width, setWidth] = useState<number>(0);
-
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -201,7 +191,6 @@ function useContainerWidth(ref: RefObject<HTMLElement>): number {
     ro.observe(el);
     return () => ro.disconnect();
   }, [ref]);
-
   return width;
 }
 
@@ -218,8 +207,7 @@ function useScrollState(ref: RefObject<HTMLElement>): ScrollEdges {
     if (!el) return;
     const { scrollLeft, scrollTop, scrollWidth, scrollHeight, clientWidth, clientHeight } = el;
     setState({
-      scrollLeft,
-      scrollTop,
+      scrollLeft, scrollTop,
       L: scrollLeft > CONFIG.scrollSlop,
       R: scrollLeft < scrollWidth  - clientWidth  - CONFIG.scrollSlop,
       T: scrollTop  > CONFIG.scrollSlop,
@@ -234,10 +222,7 @@ function useScrollState(ref: RefObject<HTMLElement>): ScrollEdges {
     el.addEventListener("scroll", update, { passive: true });
     const ro = new ResizeObserver(update);
     ro.observe(el);
-    return () => {
-      el.removeEventListener("scroll", update);
-      ro.disconnect();
-    };
+    return () => { el.removeEventListener("scroll", update); ro.disconnect(); };
   }, [update]);
 
   return state;
@@ -253,9 +238,7 @@ const GRAD_DIR: Record<EdgeDir, string> = {
 
 function GlassEdge({ dir }: { dir: EdgeDir }): React.ReactElement {
   useEffect(ensureGlassCSS, []);
-
   const mask = `linear-gradient(${GRAD_DIR[dir]}, black 0%, transparent 100%)`;
-
   return (
     <div
       className={`ad-glass-edge ad-glass-edge-${dir}`}
@@ -287,16 +270,16 @@ function FrozenMatrix({
   const colOffsets = useMemo<number[]>(() => {
     const offs = [0];
     for (let c = 0; c < cols; c++) {
-      offs.push(offs[c] + cw[c] * CONFIG.chW + CONFIG.colCellPad);
+      offs.push(offs[c] + Math.ceil(cw[c] * CHW) + CONFIG.colCellPad);
     }
-    return offs; // length = cols + 1; colOffsets[cols] = totalGridW
+    return offs;
   }, [cw, cols]);
 
   const rhW_ch = useMemo<number>(() =>
     Math.max(rowDim.length + CONFIG.rhExtraChar, ...rowHeaders.map(s => s.length)),
   [rowDim, rowHeaders]);
 
-  const rhW        = rhW_ch * CONFIG.chW + CONFIG.rhPadPx;
+  const rhW        = Math.ceil(rhW_ch * CHW) + CONFIG.rhPadPx;
   const totalGridW = colOffsets[cols];
   const totalGridH = rows * CONFIG.cellH;
   const viewW      = containerWidth ? Math.max(CONFIG.minViewW, containerWidth - rhW) : 200;
@@ -356,7 +339,7 @@ function FrozenMatrix({
         </div>
       </div>
 
-      {/* col-index header (mirrors scrollLeft, windowed) */}
+      {/* col-index header */}
       <div style={{ display: "flex", ...STYLES.mono, marginBottom: 2 }}>
         <div style={{ width: rhW, flexShrink: 0 }} />
         <div ref={colHeadRef} style={{ width: viewW, overflow: "hidden", flexShrink: 0 }}>
@@ -367,7 +350,7 @@ function FrozenMatrix({
               return (
                 <div
                   key={ci}
-                  style={{ width: cw[ci] * CONFIG.chW + CONFIG.colCellPad, flexShrink: 0, textAlign: "right", ...STYLES.muted, paddingRight: CONFIG.colHeadPad }}
+                  style={{ width: colOffsets[ci + 1] - colOffsets[ci], flexShrink: 0, textAlign: "right", ...STYLES.muted, paddingRight: CONFIG.colHeadPad }}
                 >
                   {colHeaders[ci]}
                 </div>
@@ -424,9 +407,9 @@ function FrozenMatrix({
                       return (
                         <div
                           key={ci}
-                          style={{ width: cw[ci] * CONFIG.chW + CONFIG.colCellPad, flexShrink: 0, textAlign: "right", paddingRight: CONFIG.colHeadPad, ...STYLES.mono, ...STYLES.value }}
+                          style={{ width: colOffsets[ci + 1] - colOffsets[ci], flexShrink: 0, textAlign: "right", paddingRight: CONFIG.colHeadPad, ...STYLES.mono, ...STYLES.value }}
                         >
-                          {v}
+                          {String(v)}
                         </div>
                       );
                     })}
@@ -523,7 +506,7 @@ function NDDisplay({ data, shape, dimNames, dtype, containerWidth }: NDDisplayPr
           disabled={sliceIdx === 0}
           style={{ ...BTN_STYLE, opacity: sliceIdx === 0 ? 0.3 : 1 }}
         >
-          <ChevronLeft size={20}/>
+          <ChevronLeft size={14} />
         </button>
 
         <span>
@@ -549,7 +532,7 @@ function NDDisplay({ data, shape, dimNames, dtype, containerWidth }: NDDisplayPr
           disabled={sliceIdx === numSlices - 1}
           style={{ ...BTN_STYLE, opacity: sliceIdx === numSlices - 1 ? 0.3 : 1 }}
         >
-          <ChevronRight size={20}/>
+          <ChevronRight size={14} />
         </button>
 
         <span style={{ marginLeft: "auto" }}>{sliceIdx + 1}/{numSlices}</span>
