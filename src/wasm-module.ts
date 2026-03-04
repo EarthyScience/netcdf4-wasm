@@ -11,6 +11,19 @@ function stridedLength(count: number[]): number {
     return count.reduce((acc, c) => acc * c, 1);
 }
 
+// Helper: validates that the total byte allocation won't overflow a WASM32 uint32.
+// Throws a RangeError if the allocation would be unsafe.
+function safeByteLength(totalLength: number, elementSize: number): number {
+    const byteLength = totalLength * elementSize;
+    if (byteLength > 0xFFFFFFFF) {
+        throw new RangeError(
+            `Allocation size ${byteLength} exceeds WASM32 heap limit (0xFFFFFFFF). ` +
+            `Requested ${totalLength} elements of ${elementSize} bytes each.`
+        );
+    }
+    return byteLength;
+}
+
 export class WasmModuleLoader {
     static async loadModule(options: NetCDF4WasmOptions = {}): Promise<NetCDF4Module> {
         try {            
@@ -1325,7 +1338,7 @@ export class WasmModuleLoader {
 
             nc_get_vars_schar: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
                 const totalLength = stridedLength(count);
-                const dataPtr   = module._malloc(totalLength * 1);
+                const dataPtr   = module._malloc(safeByteLength(totalLength, 1));
                 const startPtr  = module._malloc(start.length * 4);
                 const countPtr  = module._malloc(count.length * 4);
                 const stridePtr = module._malloc(stride.length * 4);
@@ -1342,7 +1355,7 @@ export class WasmModuleLoader {
 
             nc_get_vars_uchar: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
                 const totalLength = stridedLength(count);
-                const dataPtr   = module._malloc(totalLength * 1);
+                const dataPtr   = module._malloc(safeByteLength(totalLength, 1));
                 const startPtr  = module._malloc(start.length * 4);
                 const countPtr  = module._malloc(count.length * 4);
                 const stridePtr = module._malloc(stride.length * 4);
@@ -1359,7 +1372,7 @@ export class WasmModuleLoader {
 
             nc_get_vars_short: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
                 const totalLength = stridedLength(count);
-                const dataPtr   = module._malloc(totalLength * 2);
+                const dataPtr   = module._malloc(safeByteLength(totalLength, 2));
                 const startPtr  = module._malloc(start.length * 4);
                 const countPtr  = module._malloc(count.length * 4);
                 const stridePtr = module._malloc(stride.length * 4);
@@ -1376,7 +1389,7 @@ export class WasmModuleLoader {
 
             nc_get_vars_ushort: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
                 const totalLength = stridedLength(count);
-                const dataPtr   = module._malloc(totalLength * 2);
+                const dataPtr   = module._malloc(safeByteLength(totalLength, 2));
                 const startPtr  = module._malloc(start.length * 4);
                 const countPtr  = module._malloc(count.length * 4);
                 const stridePtr = module._malloc(stride.length * 4);
@@ -1393,7 +1406,7 @@ export class WasmModuleLoader {
 
             nc_get_vars_int: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
                 const totalLength = stridedLength(count);
-                const dataPtr   = module._malloc(totalLength * 4);
+                const dataPtr   = module._malloc(safeByteLength(totalLength, 4));
                 const startPtr  = module._malloc(start.length * 4);
                 const countPtr  = module._malloc(count.length * 4);
                 const stridePtr = module._malloc(stride.length * 4);
@@ -1410,7 +1423,7 @@ export class WasmModuleLoader {
 
             nc_get_vars_uint: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
                 const totalLength = stridedLength(count);
-                const dataPtr   = module._malloc(totalLength * 4);
+                const dataPtr   = module._malloc(safeByteLength(totalLength, 4));
                 const startPtr  = module._malloc(start.length * 4);
                 const countPtr  = module._malloc(count.length * 4);
                 const stridePtr = module._malloc(stride.length * 4);
@@ -1427,7 +1440,7 @@ export class WasmModuleLoader {
 
             nc_get_vars_float: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
                 const totalLength = stridedLength(count);
-                const dataPtr   = module._malloc(totalLength * 4);
+                const dataPtr   = module._malloc(safeByteLength(totalLength, 4));
                 const startPtr  = module._malloc(start.length * 4);
                 const countPtr  = module._malloc(count.length * 4);
                 const stridePtr = module._malloc(stride.length * 4);
@@ -1444,7 +1457,7 @@ export class WasmModuleLoader {
 
             nc_get_vars_double: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
                 const totalLength = stridedLength(count);
-                const dataPtr   = module._malloc(totalLength * 8);
+                const dataPtr   = module._malloc(safeByteLength(totalLength, 8));
                 const startPtr  = module._malloc(start.length * 4);
                 const countPtr  = module._malloc(count.length * 4);
                 const stridePtr = module._malloc(stride.length * 4);
@@ -1461,7 +1474,7 @@ export class WasmModuleLoader {
 
             nc_get_vars_longlong: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
                 const totalLength = stridedLength(count);
-                const dataPtr   = module._malloc(totalLength * 8);
+                const dataPtr   = module._malloc(safeByteLength(totalLength, 8));
                 const startPtr  = module._malloc(start.length * 4);
                 const countPtr  = module._malloc(count.length * 4);
                 const stridePtr = module._malloc(stride.length * 4);
@@ -1478,7 +1491,7 @@ export class WasmModuleLoader {
 
             nc_get_vars_ulonglong: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
                 const totalLength = stridedLength(count);
-                const dataPtr   = module._malloc(totalLength * 8);
+                const dataPtr   = module._malloc(safeByteLength(totalLength, 8));
                 const startPtr  = module._malloc(start.length * 4);
                 const countPtr  = module._malloc(count.length * 4);
                 const stridePtr = module._malloc(stride.length * 4);
@@ -1495,7 +1508,9 @@ export class WasmModuleLoader {
 
             nc_get_vars_string: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
                 const totalLength = stridedLength(count);
-                const dataPtr   = module._malloc(totalLength * 4); // char* pointers (4 bytes in wasm32)
+                // validate allocation size won't overflow WASM32 uint32.
+                // char* pointers are 4 bytes in wasm32, so elementSize = 4.
+                const dataPtr   = module._malloc(safeByteLength(totalLength, 4));
                 const startPtr  = module._malloc(start.length * 4);
                 const countPtr  = module._malloc(count.length * 4);
                 const stridePtr = module._malloc(stride.length * 4);
@@ -1510,8 +1525,13 @@ export class WasmModuleLoader {
                         const strPtr = module.getValue(dataPtr + i * 4, '*');
                         data.push(module.UTF8ToString(strPtr));
                     }
+                    // free the individual strings allocated by NetCDF-C before
+                    // freeing the pointer array. nc_free_string_wrapper handles both.
+                    nc_free_string_wrapper(totalLength, dataPtr);
+                } else {
+                    module._free(dataPtr);
                 }
-                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                module._free(startPtr); module._free(countPtr); module._free(stridePtr);
                 return { result, data };
             },
 
@@ -1527,7 +1547,8 @@ export class WasmModuleLoader {
                 stride.forEach((v, i) => module.setValue(stridePtr + i * 4, v, 'i32'));
 
                 if (nctype === NC_CONSTANTS.NC_STRING) {
-                    const dataPtr = module._malloc(totalLength * 4);
+                    // validate allocation size won't overflow WASM32 uint32.
+                    const dataPtr = module._malloc(safeByteLength(totalLength, 4));
                     const result = nc_get_vars_string_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
                     let data: string[] | undefined;
                     if (result === NC_CONSTANTS.NC_NOERR) {
@@ -1536,15 +1557,18 @@ export class WasmModuleLoader {
                             const strPtr = module.getValue(dataPtr + i * 4, '*');
                             data.push(module.UTF8ToString(strPtr));
                         }
+                        // free the individual strings allocated by NetCDF-C before
+                        // freeing the pointer array. nc_free_string_wrapper handles both.
+                        nc_free_string_wrapper(totalLength, dataPtr);
+                    } else {
+                        module._free(dataPtr);
                     }
-                    module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                    module._free(startPtr); module._free(countPtr); module._free(stridePtr);
                     return { result, data };
                 }
 
-                const dataPtr = module._malloc(totalLength * elementSize);
-                console.log('[cwrap check] nc_get_vars_wrapper exists:', 
-                    typeof nc_get_vars_wrapper !== 'undefined'
-                );
+                //  validate allocation size won't overflow WASM32 uint32.
+                const dataPtr = module._malloc(safeByteLength(totalLength, elementSize));
                 const result = nc_get_vars_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
 
                 let data;

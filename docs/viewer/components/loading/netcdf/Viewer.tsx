@@ -242,7 +242,7 @@ const Viewer = () => {
           )}
 
           {/* Variable Data Loader */}
-          {/* {selectedVariable && variables[selectedVariable]?.info && (
+          {selectedVariable && variables[selectedVariable]?.info && (
             <VariableDataLoader
               variableName={selectedVariable}
               variable={variables[selectedVariable]}
@@ -252,7 +252,7 @@ const Viewer = () => {
               onLoadSlice={loadVariableSlice}
               onLoadAll={loadVariableData}
             />
-          )} */}
+          )}
 
           {/* Slice Tester */}
           {selectedVariable && variables[selectedVariable]?.info && (
