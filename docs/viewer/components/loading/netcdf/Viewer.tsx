@@ -241,19 +241,6 @@ const Viewer = () => {
             />
           )}
 
-          {/* Variable Data Loader */}
-          {selectedVariable && variables[selectedVariable]?.info && (
-            <VariableDataLoader
-              variableName={selectedVariable}
-              variable={variables[selectedVariable]}
-              loadingVariable={loadingVariable}
-              sliceSize={sliceSize}
-              onSliceSizeChange={setSliceSize}
-              onLoadSlice={loadVariableSlice}
-              onLoadAll={loadVariableData}
-            />
-          )}
-
           {/* Slice Tester */}
           {selectedVariable && variables[selectedVariable]?.info && (
             <SliceTester
@@ -266,6 +253,17 @@ const Viewer = () => {
               sliceError={sliceError}
               loadingSlice={loadingSlice}
               onRun={handleRunSlice}
+            />
+          )}
+
+           {/* Variable Data Loader */}
+          {selectedVariable && variables[selectedVariable]?.info && (
+            <VariableDataLoader
+              variableName={selectedVariable}
+              variable={variables[selectedVariable]}
+              loadingVariable={loadingVariable}
+              onLoadSlice={loadVariableSlice}
+              onLoadAll={loadVariableData}
             />
           )}
 

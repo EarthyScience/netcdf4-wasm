@@ -1,20 +1,20 @@
 'use client';
 import React from 'react';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Card, CardContent } from '@/components/ui/card';
 import { VariableData, VariableArrayData } from './types';
 
 type ArrayElement = number | bigint | string;
 
+const DEFAULT_SLICE_SIZE = 2;
+
 interface VariableDataLoaderProps {
   variableName: string;
   variable: VariableData;
   loadingVariable: string | null;
-  sliceSize: string;
-  onSliceSizeChange: (value: string) => void;
   onLoadSlice: (name: string, size: number) => void;
   onLoadAll: (name: string) => void;
 }
@@ -46,8 +46,6 @@ export const VariableDataLoader = ({
   variableName,
   variable,
   loadingVariable,
-  sliceSize,
-  onSliceSizeChange,
   onLoadSlice,
   onLoadAll,
 }: VariableDataLoaderProps) => {
@@ -65,39 +63,34 @@ export const VariableDataLoader = ({
         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-end">
           {!isStringType && (
             <>
-              <div className="w-full sm:w-32">
-                <Label className="text-xs text-muted-foreground mb-1 block">Slice size</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max={info.size}
-                  value={sliceSize}
-                  onChange={(e) => onSliceSizeChange(e.target.value)}
-                  className="h-9 text-sm"
-                  placeholder="10"
-                />
-              </div>
               <div className="flex gap-2 w-full sm:w-auto items-center">
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() =>
-                    onLoadSlice(variableName, Math.min(parseInt(sliceSize) || 10, info.size))
-                  }
+                  onClick={() => onLoadSlice(variableName, Math.min(DEFAULT_SLICE_SIZE, info.size))}
                   disabled={isLoading}
-                  className="flex-1 sm:flex-initial"
+                  className="flex-1 sm:flex-initial cursor-pointer"
                 >
-                  Load Slice
+                  Load Test Slice
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onLoadAll(variableName)}
-                  disabled={isLoading}
-                  className="flex-1 sm:flex-initial"
-                >
-                  Load All
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => onLoadAll(variableName)}
+                        disabled={isLoading}
+                        className="flex-1 sm:flex-initial cursor-pointer"
+                      >
+                        Load All Data
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Loading all data may be slow or crash for large variables.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 {isLoading && (
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Spinner className="h-4 w-4" />
@@ -117,9 +110,9 @@ export const VariableDataLoader = ({
                 variant="outline"
                 onClick={() => onLoadAll(variableName)}
                 disabled={isLoading}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto cursor-pointer"
               >
-                Load All
+                Load String Data
               </Button>
               {isLoading && (
                 <div className="flex items-center gap-2 flex-shrink-0">
