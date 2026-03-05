@@ -769,6 +769,7 @@ export function getVariableArrayWithSelection(
         type VarsResult = { result: number; data?: any };
 
         const readers: Record<number, (...args: VarsArgs) => VarsResult> = {
+            [NC_CONSTANTS.NC_CHAR]:      (...args) => module.nc_get_vars_text(...args),
             [NC_CONSTANTS.NC_BYTE]:      (...args) => module.nc_get_vars_schar(...args),
             [NC_CONSTANTS.NC_UBYTE]:     (...args) => module.nc_get_vars_uchar(...args),
             [NC_CONSTANTS.NC_SHORT]:     (...args) => module.nc_get_vars_short(...args),

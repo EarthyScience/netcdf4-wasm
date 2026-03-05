@@ -161,6 +161,7 @@ export class WasmModuleLoader {
         const nc_get_vars_ulonglong_wrapper = module.cwrap('nc_get_vars_ulonglong_wrapper', 'number', ['number','number','number','number','number','number']);
         const nc_get_vars_string_wrapper    = module.cwrap('nc_get_vars_string_wrapper',    'number', ['number','number','number','number','number','number']);
         const nc_get_vars_wrapper           = module.cwrap('nc_get_vars_wrapper',           'number', ['number','number','number','number','number','number']);
+        const nc_get_vars_text_wrapper      = module.cwrap('nc_get_vars_text_wrapper',      'number', ['number','number','number','number','number','number']);
         // const nc_get_vars_as_type_wrapper   = module.cwrap('nc_get_vars_as_type_wrapper', 'number', ['number','number','number','number','number','number','number']);
 
         // Group inquiry wrappers
@@ -1587,6 +1588,25 @@ export class WasmModuleLoader {
                     }
                 }
 
+                module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
+                return { result, data };
+            },
+            nc_get_vars_text: (ncid: number, varid: number, start: number[], count: number[], stride: number[]) => {
+                const totalLength = stridedLength(count);
+                const dataPtr   = module._malloc(safeByteLength(totalLength, 1));
+                const startPtr  = module._malloc(start.length * 4);
+                const countPtr  = module._malloc(count.length * 4);
+                const stridePtr = module._malloc(stride.length * 4);
+                start .forEach((v, i) => module.setValue(startPtr  + i * 4, v, 'i32'));
+                count .forEach((v, i) => module.setValue(countPtr  + i * 4, v, 'i32'));
+                stride.forEach((v, i) => module.setValue(stridePtr + i * 4, v, 'i32'));
+                const result = nc_get_vars_text_wrapper(ncid, varid, startPtr, countPtr, stridePtr, dataPtr);
+                const data = result === NC_CONSTANTS.NC_NOERR
+                    ? Array.from(
+                        new TextDecoder().decode(module.HEAPU8.subarray(dataPtr, dataPtr + totalLength)),
+                        char => char === '\0' ? '' : char
+                    )
+                    : undefined;
                 module._free(dataPtr); module._free(startPtr); module._free(countPtr); module._free(stridePtr);
                 return { result, data };
             },

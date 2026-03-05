@@ -1028,6 +1028,11 @@ int nc_get_vars_wrapper(int ncid, int varid, const size_t* start, const size_t* 
     return nc_get_vars(ncid, varid, start, count, stride, value);
 }
 
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_text_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, char* value) {
+    return nc_get_vars_text(ncid, varid, start, count, stride, value);
+}
+
 // =========================
 // Data Writing
 // =========================

@@ -273,7 +273,7 @@ function FrozenMatrix({
 
   const rhW        = Math.ceil(rhW_ch * CHW) + CONFIG.rhPadPx;
   const totalGridW = colOffsets[cols];
-  const totalGridH = rows * CONFIG.cellH;
+  const totalGridH = (Number.isFinite(rows) ? rows : 0) * CONFIG.cellH;
   const viewW      = containerWidth ? Math.max(CONFIG.minViewW, containerWidth - rhW) : 200;
   const viewH      = Math.min(totalGridH, CONFIG.maxViewH);
 
