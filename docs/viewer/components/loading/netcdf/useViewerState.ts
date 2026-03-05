@@ -278,7 +278,8 @@ export const useViewerState = () => {
     setSliceError(null);
     try {
       const selection = buildSelection(sliceSelections);
-      const data = await (dataset as any).get(
+      // or, await (dataset as NetCDF4).get(...) if you prefer an explicit cast.
+      const data = await dataset.get(
         selectedVariable,
         selection,
         currentGroupPath === '/' ? undefined : currentGroupPath
