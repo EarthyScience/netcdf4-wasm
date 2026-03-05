@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.2.4] - 2026-03-05
+- Added stride read support and a new convenience method, `get` see [#57](https://github.com/EarthyScience/netcdf4-wasm/pull/57)
+
 ## [0.2.3] - 2026-02-21
 - Removed leading slash if not root to match how zarrita handles groups [#55](https://github.com/EarthyScience/netcdf4-wasm/pull/55)
 
