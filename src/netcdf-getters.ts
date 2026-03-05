@@ -1,5 +1,6 @@
 import { NC_CONSTANTS, DATA_TYPE_SIZE, CONSTANT_DTYPE_MAP } from './constants.js';
 import type { NetCDF4Module } from './types.js';
+import { DimSelection, ResolvedDim, resolveDim } from "./slice.js";
 
 export function getGroupVariables(
     module: NetCDF4Module,
@@ -643,6 +644,169 @@ export function getSlicedVariableArray(
     }
 
     return arrayData.data;
+}
+
+type AnyTypedArray =
+    | Int8Array    | Uint8Array
+    | Int16Array   | Uint16Array
+    | Int32Array   | Uint32Array
+    | Float32Array | Float64Array
+    | BigInt64Array | BigUint64Array
+    | string[];
+
+export function getVariableArrayWithSelection(
+    module: NetCDF4Module,
+    ncid: number,
+    variable: number | string,
+    selection: DimSelection[],
+    groupPath?: string,
+    options?: { convertEnumsToNames?: boolean }
+): AnyTypedArray {
+    const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
+
+    // Resolve varid
+    let varid: number;
+    if (typeof variable === "number") {
+        varid = variable;
+    } else {
+        const r = module.nc_inq_varid(workingNcid, variable);
+        if (r.result !== NC_CONSTANTS.NC_NOERR) {
+            throw new Error(`Failed to get variable id for '${variable}' (error: ${r.result})`);
+        }
+        varid = r.varid as number;
+    }
+
+    // Query variable dimensions
+    const varInfo = module.nc_inq_var(workingNcid, varid);
+    if (varInfo.result !== NC_CONSTANTS.NC_NOERR) {
+        throw new Error(`Failed to query variable info (error: ${varInfo.result})`);
+    }
+
+    const dimids: number[] = Array.from(varInfo.dimids ?? []);
+    const ndim = dimids.length;
+
+    if (selection.length !== ndim) {
+        throw new Error(
+            `Selection has ${selection.length} dimension(s) but variable has ${ndim}`
+        );
+    }
+
+    // Fetch each dimension's size — resolveDim handles BigInt safely
+    const dimSizes = dimids.map((dimid: number) => {
+        const r = module.nc_inq_dimlen(workingNcid, dimid);
+        if (r.result !== NC_CONSTANTS.NC_NOERR) {
+            throw new Error(`Failed to query dim length for dimid ${dimid} (error: ${r.result})`);
+        }
+        return r.len as number | bigint;
+    });
+
+    // Resolve each selection
+    const resolved: ResolvedDim[] = selection.map((sel, i) =>
+        resolveDim(sel, dimSizes[i])
+    );
+
+    const start  = resolved.map(d => d.start);
+    const count  = resolved.map(d => d.count);
+    const stride = resolved.map(d => d.step);
+
+    // Validate parameters against dimension sizes
+    for (let i = 0; i < start.length; i++) {
+        const dimSize = Number(dimSizes[i]);
+        if (start[i] < 0 || start[i] >= dimSize) {
+            throw new Error(
+                `Invalid start[${i}] = ${start[i]} for dimension size ${dimSize}`
+            );
+        }
+        if (count[i] === 0) continue; // valid empty slice — skip further checks
+        const lastIdx = start[i] + (count[i] - 1) * stride[i];
+        if (lastIdx >= dimSize) {
+            throw new Error(
+                `Stride read would exceed dimension bounds: start[${i}]=${start[i]}, ` +
+                `count[${i}]=${count[i]}, stride[${i}]=${stride[i]}, last_idx=${lastIdx}, dimSize=${dimSize}`
+            );
+        }
+    }
+
+    // Guard against integer overflow in WASM — total elements must fit in a signed 32-bit int
+    // not sure how well is this, ~2 billion elements, will perform in JS but may cause issues in WASM memory allocation or indexing
+    const totalElements = count.reduce((acc, c) => acc * c, 1);
+    if (totalElements > 2 ** 31 - 1) {
+        throw new Error(
+            `Selection would read ${totalElements} elements, exceeding the safe limit of 2^31 - 1`
+        );
+    }
+
+    // Resolve variable type — use workingNcid so enum lookup is in the right group
+    const { enumCtx } = resolveVariableType(module, workingNcid, varid);
+    const arrayType = enumCtx.baseType;
+
+    // Return appropriately typed empty array if any dimension has count 0
+    if (count.some(c => c === 0)) {
+        const emptyReaders: Record<number, () => AnyTypedArray> = {
+            [NC_CONSTANTS.NC_BYTE]:      () => new Int8Array(0),
+            [NC_CONSTANTS.NC_UBYTE]:     () => new Uint8Array(0),
+            [NC_CONSTANTS.NC_SHORT]:     () => new Int16Array(0),
+            [NC_CONSTANTS.NC_USHORT]:    () => new Uint16Array(0),
+            [NC_CONSTANTS.NC_INT]:       () => new Int32Array(0),
+            [NC_CONSTANTS.NC_UINT]:      () => new Uint32Array(0),
+            [NC_CONSTANTS.NC_FLOAT]:     () => new Float32Array(0),
+            [NC_CONSTANTS.NC_DOUBLE]:    () => new Float64Array(0),
+            [NC_CONSTANTS.NC_INT64]:     () => new BigInt64Array(0),
+            [NC_CONSTANTS.NC_LONGLONG]:  () => new BigInt64Array(0),
+            [NC_CONSTANTS.NC_UINT64]:    () => new BigUint64Array(0),
+            [NC_CONSTANTS.NC_ULONGLONG]: () => new BigUint64Array(0),
+            [NC_CONSTANTS.NC_STRING]:    () => [],
+        };
+        return (emptyReaders[arrayType] ?? (() => new Float64Array(0)))();
+    }
+
+    let arrayData: { result: number; data?: any };
+
+    if (enumCtx.isEnum) {
+        arrayData = module.nc_get_vars_generic(workingNcid, varid, start, count, stride, arrayType);
+    } else {
+        type VarsArgs = [number, number, number[], number[], number[]];
+        type VarsResult = { result: number; data?: any };
+
+        const readers: Record<number, (...args: VarsArgs) => VarsResult> = {
+            [NC_CONSTANTS.NC_CHAR]:      (...args) => module.nc_get_vars_text(...args),
+            [NC_CONSTANTS.NC_BYTE]:      (...args) => module.nc_get_vars_schar(...args),
+            [NC_CONSTANTS.NC_UBYTE]:     (...args) => module.nc_get_vars_uchar(...args),
+            [NC_CONSTANTS.NC_SHORT]:     (...args) => module.nc_get_vars_short(...args),
+            [NC_CONSTANTS.NC_USHORT]:    (...args) => module.nc_get_vars_ushort(...args),
+            [NC_CONSTANTS.NC_INT]:       (...args) => module.nc_get_vars_int(...args),
+            [NC_CONSTANTS.NC_UINT]:      (...args) => module.nc_get_vars_uint(...args),
+            [NC_CONSTANTS.NC_FLOAT]:     (...args) => module.nc_get_vars_float(...args),
+            [NC_CONSTANTS.NC_DOUBLE]:    (...args) => module.nc_get_vars_double(...args),
+            [NC_CONSTANTS.NC_INT64]:     (...args) => module.nc_get_vars_longlong(...args),
+            [NC_CONSTANTS.NC_LONGLONG]:  (...args) => module.nc_get_vars_longlong(...args),
+            [NC_CONSTANTS.NC_UINT64]:    (...args) => module.nc_get_vars_ulonglong(...args),
+            [NC_CONSTANTS.NC_ULONGLONG]: (...args) => module.nc_get_vars_ulonglong(...args),
+            [NC_CONSTANTS.NC_STRING]:    (...args) => module.nc_get_vars_string(...args),
+        };
+
+        const reader = readers[arrayType];
+        if (!reader) {
+            arrayData = module.nc_get_vars_double(workingNcid, varid, start, count, stride);
+        } else {
+            arrayData = reader(workingNcid, varid, start, count, stride);
+        }
+    }
+
+    if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
+        throw new Error(`Failed to read array data (error: ${arrayData.result})`);
+    }
+    if (!arrayData.data) {
+        throw new Error("nc_get_vars returned no data");
+    }
+
+    let result: AnyTypedArray = arrayData.data;
+
+    if (enumCtx.isEnum && options?.convertEnumsToNames && enumCtx.enumDict) {
+        result = convertEnumValuesToNames(result, enumCtx.enumDict);
+    }
+
+    return result;
 }
 
 //---- Group Functions ----//

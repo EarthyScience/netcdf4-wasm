@@ -963,6 +963,76 @@ int nc_get_var_ulonglong_wrapper(int ncid, int varid, unsigned long long* value)
     return nc_get_var_ulonglong(ncid, varid, value);
 }
 
+// Strided Data Access (nc_get_vars_*)
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_schar_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, signed char* value) {
+    return nc_get_vars_schar(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_uchar_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, unsigned char* value) {
+    return nc_get_vars_uchar(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_short_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, short* value) {
+    return nc_get_vars_short(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_ushort_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, unsigned short* value) {
+    return nc_get_vars_ushort(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_int_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, int* value) {
+    return nc_get_vars_int(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_uint_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, unsigned int* value) {
+    return nc_get_vars_uint(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_float_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, float* value) {
+    return nc_get_vars_float(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_double_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, double* value) {
+    return nc_get_vars_double(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_longlong_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, long long* value) {
+    return nc_get_vars_longlong(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_ulonglong_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, unsigned long long* value) {
+    return nc_get_vars_ulonglong(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_string_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, char** value) {
+    return nc_get_vars_string(ncid, varid, start, count, stride, value);
+}
+
+// Generic strided wrapper — mirrors nc_get_vara_wrapper.
+// nc_get_vars (no type suffix) reads raw bytes into void* without type checking,
+// so it works for enum variables (declared type >= 32) unlike nc_get_vars_schar etc.
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, void* value) {
+    return nc_get_vars(ncid, varid, start, count, stride, value);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int nc_get_vars_text_wrapper(int ncid, int varid, const size_t* start, const size_t* count, const ptrdiff_t* stride, char* value) {
+    return nc_get_vars_text(ncid, varid, start, count, stride, value);
+}
+
 // =========================
 // Data Writing
 // =========================

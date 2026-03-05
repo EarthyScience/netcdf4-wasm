@@ -2,6 +2,7 @@
 import { ChangeEvent, useState, useEffect, useCallback } from 'react';
 import { NetCDF4, DataTree } from '@earthyscience/netcdf4-wasm';
 import { VariableData, VariableInfo, VariableArrayData, Dimension } from './types';
+import { SliceSelectionState, defaultSelection, buildSelection } from './SliceTester';
 
 const NETCDF_EXT_REGEX = /\.(nc|netcdf|nc3|nc4)$/i;
 
@@ -252,6 +253,45 @@ export const useViewerState = () => {
     setSearchResults([]);
   };
 
+  // Slice tester state
+  const [sliceSelections, setSliceSelections] = useState<SliceSelectionState[]>([]);
+  const [expandedSliceTester, setExpandedSliceTester] = useState(true);
+  const [sliceResult, setSliceResult] = useState<VariableArrayData | null>(null);
+  const [sliceError, setSliceError] = useState<string | null>(null);
+  const [loadingSlice, setLoadingSlice] = useState(false);
+
+  // Reset slice tester when selected variable changes
+  useEffect(() => {
+    if (!selectedVariable) return;
+    const info = variables[selectedVariable]?.info;
+    if (!info?.shape) return;
+    setSliceSelections(info.shape.map(() => defaultSelection()));
+    setSliceResult(null);
+    setSliceError(null);
+  }, [selectedVariable, variables]);
+
+  const handleRunSlice = useCallback(async () => {
+    if (!dataset || !selectedVariable) return;
+    const info = variables[selectedVariable]?.info;
+    if (!info?.shape) return;
+    setLoadingSlice(true);
+    setSliceError(null);
+    try {
+      const selection = buildSelection(sliceSelections);
+      // or, await (dataset as NetCDF4).get(...) if you prefer an explicit cast.
+      const data = await dataset.get(
+        selectedVariable,
+        selection,
+        currentGroupPath === '/' ? undefined : currentGroupPath
+      ) as VariableArrayData;
+      setSliceResult(data);
+    } catch (err) {
+      setSliceError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoadingSlice(false);
+    }
+  }, [dataset, selectedVariable, variables, sliceSelections, currentGroupPath]);
+
   // Derived values
 
   const breadcrumbs = tree ? tree.getBreadcrumbs(currentGroupPath) : [];
@@ -310,6 +350,15 @@ export const useViewerState = () => {
     handleToggleGroupExpand,
     handleSearchInputChange,
     selectSearchResult,
+    // Slice tester
+    sliceSelections,
+    setSliceSelections,
+    expandedSliceTester,
+    setExpandedSliceTester,
+    sliceResult,
+    sliceError,
+    loadingSlice,
+    handleRunSlice,
     // Derived
     breadcrumbs,
     groupSummary,
