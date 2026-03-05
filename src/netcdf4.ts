@@ -461,11 +461,11 @@ export class NetCDF4 extends Group {
      * @example
      * // Variable shape [time, lat, lon]
      * // Read 10 time steps, all lats, first lon:
-     * const data = await arr.get("temperature", [slice(0, 10), 'all', 0]);
+     * const data = await dataset.get("temperature", [slice(0, 10), 'all', 0]);
      *
      * @example
      * // Every other element along time:
-     * const data = await arr.get("temperature", [slice(0, 100, 2), null, null]);
+     * const data = await dataset.get("temperature", [slice(0, 100, 2), null, null]);
      *
      */
     async get(
