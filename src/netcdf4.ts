@@ -591,6 +591,12 @@ export class NetCDF4 extends Group {
             (global as any).__netcdf4_mock_files = {};
         }
         const mockFiles = (global as any).__netcdf4_mock_files;
+        const getFile = () => this.filename ? mockFiles[this.filename] : undefined;
+        const getVariableNames = (): string[] => Object.keys(getFile()?.variables ?? {});
+        // Match the existing mock's 1-based variable IDs.
+        const getVariable = (varid: number) => getFile()?.variables[getVariableNames()[varid - 1]];
+        const getAttributes = (varid: number) => varid === NC_CONSTANTS.NC_GLOBAL
+            ? getFile()?.attributes : getVariable(varid)?.attributes;
 
         return {
             nc_open: (path: string, mode: number) => {
@@ -640,6 +646,8 @@ export class NetCDF4 extends Group {
                 // Initialize variable storage
                 if (this.filename && mockFiles[this.filename]) {
                     mockFiles[this.filename].variables[name] = {
+                        type: xtype,
+                        dimids: [...dimids],
                         data: new Float64Array(0),
                         attributes: {}
                     };
@@ -649,6 +657,60 @@ export class NetCDF4 extends Group {
                 }
                 return { result: NC_CONSTANTS.NC_NOERR, varid: 1 };
             },
+            nc_inq_varids: (ncid: number) => ({
+                result: NC_CONSTANTS.NC_NOERR,
+                varids: Int32Array.from(getVariableNames(), (_, i) => i + 1)
+            }),
+            nc_inq_varid: (ncid: number, name: string) => {
+                const index = getVariableNames().indexOf(name);
+                return index < 0 ? { result: -1 } : { result: NC_CONSTANTS.NC_NOERR, varid: index + 1 };
+            },
+            nc_inq_var: (ncid: number, varid: number) => {
+                const variable = getVariable(varid);
+                if (!variable) return { result: -1 };
+                return {
+                    result: NC_CONSTANTS.NC_NOERR,
+                    name: getVariableNames()[varid - 1],
+                    type: variable.type,
+                    ndims: variable.dimids.length,
+                    dimids: Int32Array.from(variable.dimids),
+                    natts: Object.keys(variable.attributes).length
+                };
+            },
+            nc_inq_dim: (ncid: number, dimid: number) => {
+                const dimensions = getFile()?.dimensions ?? {};
+                const name = Object.keys(dimensions)[dimid];
+                return name === undefined ? { result: -1 } : {
+                    result: NC_CONSTANTS.NC_NOERR, name, len: dimensions[name].size
+                };
+            },
+            nc_inq_grp_parent: (ncid: number) => ({ result: -1 }),
+            nc_inq_attname: (ncid: number, varid: number, attnum: number) => {
+                const name = Object.keys(getAttributes(varid) ?? {})[attnum];
+                return name === undefined ? { result: -1 } : { result: NC_CONSTANTS.NC_NOERR, name };
+            },
+            nc_inq_att: (ncid: number, varid: number, name: string) => {
+                const value = getAttributes(varid)?.[name];
+                if (value === undefined) return { result: -1 };
+                return {
+                    result: NC_CONSTANTS.NC_NOERR,
+                    type: typeof value === 'string' ? NC_CONSTANTS.NC_CHAR : NC_CONSTANTS.NC_DOUBLE,
+                    len: typeof value === 'string' || Array.isArray(value) ? value.length : 1
+                };
+            },
+            nc_get_att_text: (ncid: number, varid: number, name: string, length: number) => {
+                const data = getAttributes(varid)?.[name];
+                return typeof data === 'string' ? { result: NC_CONSTANTS.NC_NOERR, data } : { result: -1 };
+            },
+            nc_get_att_double: (ncid: number, varid: number, name: string, length: number) => {
+                const value = getAttributes(varid)?.[name];
+                return value === undefined ? { result: -1 } : {
+                    result: NC_CONSTANTS.NC_NOERR, data: Array.isArray(value) ? value : [value]
+                };
+            },
+            nc_inq_var_chunking: (ncid: number, varid: number) => getVariable(varid)
+                ? { result: NC_CONSTANTS.NC_NOERR, chunking: NC_CONSTANTS.NC_CONTIGUOUS }
+                : { result: -1 },
             nc_put_var_double: (ncid: number, varid: number, data: Float64Array) => {
                 // Store data in mock file - try to map varid to variable name
                 if (this.filename && mockFiles[this.filename]) {

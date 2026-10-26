@@ -230,8 +230,7 @@ export function getFullMetadata(
     const metas = []
     for (const varid of varIds) {
         const varMeta = getVariableInfo(module, workingNcid, varid)
-        const {attributes, ...varDeets} = varMeta
-        metas.push({...varDeets, ...attributes})
+        metas.push(varMeta)
     }
     return metas
 }
