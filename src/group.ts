@@ -135,6 +135,7 @@ export class Group {
             const dataset = this.netcdf as any;
             if (mockFiles && dataset.filename && mockFiles[dataset.filename]) {
                 mockFiles[dataset.filename].variables[name] = {
+                    ...mockFiles[dataset.filename].variables[name],
                     datatype: datatype,
                     dimensions: dimensions,
                     data: new Float64Array(0),
