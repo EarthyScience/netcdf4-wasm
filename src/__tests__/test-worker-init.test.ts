@@ -20,6 +20,8 @@ class FakeWorker extends EventTarget {
             ? FakeWorker.initEvent
             : new MessageEvent('message', { data: { id, success: true, result: 1 } })));
     }
+
+    terminate() {}
 }
 
 function expectNoInitListeners() {

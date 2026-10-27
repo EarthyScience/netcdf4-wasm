@@ -38,7 +38,7 @@ export const FileLoader = ({
       <Field>
         <ButtonGroup className="w-full">
           <Input
-            placeholder="http://, https://, s3://, gs:// or ftp://"
+            placeholder="http:// or https://"
             value={url}
             onChange={(e) => onUrlChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && onUrlFetch()}
@@ -54,9 +54,6 @@ export const FileLoader = ({
             Fetch
           </Button>
         </ButtonGroup>
-        <p className="text-xs text-muted-foreground mt-1 text-right">
-          🆘 Help wanted: no support for remote files yet!
-        </p>
 
         {isLoading && (
           <div className="flex items-center gap-2 mt-2">

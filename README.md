@@ -46,6 +46,27 @@ const dt = new DataTree(ds);
 await dt.buildTree();
 ```
 
+### Remote files
+
+`NetCDF4.fromUrl` opens a file over HTTP(S) without downloading it: a Web Worker
+fetches only the byte ranges netCDF-C reads, and keeps them in a block cache.
+`Dataset(url)` and `NetCDF4.Dataset(url)` do the same for `http(s)://` strings and `URL` objects.
+
+```typescript
+const ds = await NetCDF4.fromUrl('https://example.org/data.nc', {
+    headers: { Authorization: 'Bearer TOKEN' }, // sent with every request
+    withCredentials: false,                      // send cookies cross-origin
+});
+try {
+    const values = await ds.getSlicedVariableArray('temperature', [0, 0], [1, 10]);
+} finally {
+    await ds.close();
+}
+```
+
+Remote files are read-only. The server must allow CORS and should support `Range`
+requests; if it ignores them, the whole file is downloaded once.
+
 ## API Reference
 
 The API closely follows [netcdf4-python](https://unidata.github.io/netcdf4-python) conventions, making it intuitive for scientists familiar with Python.

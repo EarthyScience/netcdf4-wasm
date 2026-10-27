@@ -176,13 +176,24 @@ export interface DatasetOptions extends NetCDF4WasmOptions {
     memory?: ArrayBuffer;
 }
 
+export interface RemoteFileOptions {
+    blockSize?: number;
+    cacheSize?: number;
+    headers?: Record<string, string>;
+    withCredentials?: boolean;
+}
+
+export interface RemoteDatasetOptions extends DatasetOptions, RemoteFileOptions {
+    signal?: AbortSignal;
+}
+
 export interface MemoryDatasetSource {
     data: ArrayBuffer | Uint8Array;
     filename?: string;
 }
 
 // Union type for polymorphic Dataset constructor
-export type DatasetSource = string | Blob | ArrayBuffer | Uint8Array;
+export type DatasetSource = string | URL | Blob | ArrayBuffer | Uint8Array;
 
 export interface VariableOptions {
     zlib?: boolean;

@@ -19,24 +19,26 @@ export type {
     DatasetOptions,
     VariableOptions,
     MemoryDatasetSource,
-    DatasetSource
+    DatasetSource,
+    RemoteFileOptions,
+    RemoteDatasetOptions
 } from './types.js';
 
 // Re-export NetCDF4 as default for backwards compatibility
 export { NetCDF4 as default } from './netcdf4.js';
 
-// Polymorphic Dataset constructor - accepts filename, Blob, ArrayBuffer, or Uint8Array
+// Polymorphic Dataset constructor - accepts filename, URL, Blob, ArrayBuffer, or Uint8Array
 import { NetCDF4 } from './netcdf4.js';
-import type { DatasetOptions, DatasetSource } from './types.js';
+import type { DatasetOptions, DatasetSource, RemoteDatasetOptions } from './types.js';
 
 export async function Dataset(
     source: DatasetSource,
     mode: string = 'r',
-    options: DatasetOptions = {}
+    options: RemoteDatasetOptions = {}
 ): Promise<NetCDF4> {
     // Type detection and routing
-    if (typeof source === 'string') {
-        // File path
+    if (typeof source === 'string' || source instanceof URL) {
+        // File path, or http(s) URL read lazily over Range requests
         return await NetCDF4.Dataset(source, mode, options);
     } else if (source instanceof Blob) {
         // Blob object
@@ -48,7 +50,7 @@ export async function Dataset(
         // Uint8Array
         return await NetCDF4.fromMemory(source, mode, options);
     } else {
-        throw new Error('Invalid source type. Expected string, Blob, ArrayBuffer, or Uint8Array.');
+        throw new Error('Invalid source type. Expected string, URL, Blob, ArrayBuffer, or Uint8Array.');
     }
 }
 
