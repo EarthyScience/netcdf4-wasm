@@ -776,18 +776,30 @@ export class NetCDF4 extends Group {
         }
 
         this.workerReady = new Promise((resolve, reject) => {
-            // Use a named function so we can remove the listener later
+            // Use named functions so we can remove the listeners later
+            const cleanup = () => {
+                this.worker!.removeEventListener('message', initHandler);
+                this.worker!.removeEventListener('error', errorHandler);
+            };
+
             const initHandler = (e: MessageEvent) => {
+                cleanup();
                 if (e.data.success) {
-                    this.worker!.removeEventListener('message', initHandler);
                     resolve();
                 } else {
-                    this.worker!.removeEventListener('message', initHandler);
-                    reject(new Error(e.data.message));
+                    reject(new Error(e.data.error));
                 }
             };
 
+            // Fires if the worker script fails to load or throws at top level,
+            // in which case no 'message' would ever arrive
+            const errorHandler = (e: ErrorEvent) => {
+                cleanup();
+                reject(new Error(`Worker failed to start: ${e.message || 'unknown error'}`));
+            };
+
             this.worker!.addEventListener('message', initHandler);
+            this.worker!.addEventListener('error', errorHandler);
 
             // 3. Send the initialization message
             this.worker!.postMessage({
