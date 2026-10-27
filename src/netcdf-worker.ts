@@ -6,8 +6,10 @@ import { NC_CONSTANTS } from "./constants.js";
 let netcdfModule: EmscriptenModule;
 let mod: NetCDF4Module;
 
-// Wait for runtime initialization
-const waitForModule = new Promise<EmscriptenModule>(async (resolve) => {
+// Wait for runtime initialization.
+// An async IIFE (rather than `new Promise(async ...)`) so that a failed
+// import or WASM load rejects this promise instead of leaving it pending.
+const waitForModule: Promise<EmscriptenModule> = (async () => {
     const netcdf4Module = await import('./netcdf4-wasm.js');
     const createNetCDF4Module =
         netcdf4Module.default as (options?: any) => Promise<EmscriptenModule>;
@@ -23,8 +25,8 @@ const waitForModule = new Promise<EmscriptenModule>(async (resolve) => {
         }
     });
 
-    resolve(netcdfModule);
-});
+    return netcdfModule;
+})();
 
 // @ts-ignore worker scope
 self.onmessage = async (e: MessageEvent) => {
