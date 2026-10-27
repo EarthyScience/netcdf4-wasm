@@ -783,7 +783,7 @@ export class NetCDF4 extends Group {
                     resolve();
                 } else {
                     this.worker!.removeEventListener('message', initHandler);
-                    reject(new Error(e.data.message));
+                    reject(new Error(e.data.error));
                 }
             };
 
