@@ -71,6 +71,10 @@ To prevent large full downloads, set `maxFullDownload` to a size limit in bytes.
 ignores `Range` and the file is larger than this limit (or its size is unknown), opening fails
 with an error instead. Set it to `0` to always require `Range` support.
 
+If a file is too large to open this way, download it and open it from disk with
+`NetCDF4.fromBlobLazy` instead, which reads only the parts it needs from the local file.
+
+
 ## API Reference
 
 The API closely follows [netcdf4-python](https://unidata.github.io/netcdf4-python) conventions, making it intuitive for scientists familiar with Python.
