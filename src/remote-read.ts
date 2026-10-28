@@ -25,6 +25,43 @@ export function cacheSizes(options: Pick<RemoteFileOptions, 'blockSize' | 'cache
     return { blockSize, cacheSize };
 }
 
+/**
+ * With maxFullDownload set, fail before any data is downloaded if the server
+ * ignores Range requests and the whole file is larger than the limit.
+ * A synchronous XHR would download the whole body before we could look at the
+ * status, so this probe uses fetch and cancels the body after the headers.
+ */
+export async function checkRangeSupport(url: string, options: RemoteFileOptions = {}): Promise<void> {
+    const { maxFullDownload } = options;
+    if (maxFullDownload === undefined) return;
+    if (!Number.isSafeInteger(maxFullDownload) || maxFullDownload < 0) {
+        throw new Error(`maxFullDownload must be a non-negative integer, got ${maxFullDownload}`);
+    }
+
+    let response: Response;
+    try {
+        response = await fetch(url, {
+            headers: { ...options.headers, Range: 'bytes=0-0' },
+            credentials: options.withCredentials ? 'include' : 'same-origin',
+        });
+    } catch (err: any) {
+        throw new Error(`Request to ${url} failed (network error or blocked by CORS): ${err?.message ?? err}`);
+    }
+    await response.body?.cancel();
+
+    if (response.status === 206) return;
+    if (response.status !== 200) {
+        throw new Error(`Request to ${url} failed: HTTP ${response.status} ${response.statusText}`);
+    }
+    // Range was ignored. Without a Content-Length the size is unknown, so the limit can't be met.
+    const header = response.headers.get('Content-Length');
+    const length = header === null ? NaN : Number(header);
+    if (!(length <= maxFullDownload)) {
+        const size = Number.isNaN(length) ? 'of unknown size' : `${length} bytes`;
+        throw new Error(`${url} does not support range requests, and the whole file (${size}) exceeds maxFullDownload (${maxFullDownload} bytes)`);
+    }
+}
+
 /** A random-access byte source with a known length. */
 export interface RangeSource {
     readonly length: number;

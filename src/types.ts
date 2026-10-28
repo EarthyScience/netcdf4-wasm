@@ -181,6 +181,7 @@ export interface RemoteFileOptions {
     cacheSize?: number;
     headers?: Record<string, string>;
     withCredentials?: boolean;
+    maxFullDownload?: number;
 }
 
 export interface RemoteDatasetOptions extends DatasetOptions, RemoteFileOptions {

@@ -67,6 +67,10 @@ try {
 Remote files are read-only. The server must allow CORS and should support `Range`
 requests; if it ignores them, the whole file is downloaded once.
 
+To prevent large full downloads, set `maxFullDownload` to a size limit in bytes. If the server
+ignores `Range` and the file is larger than this limit (or its size is unknown), opening fails
+with an error instead. Set it to `0` to always require `Range` support.
+
 ## API Reference
 
 The API closely follows [netcdf4-python](https://unidata.github.io/netcdf4-python) conventions, making it intuitive for scientists familiar with Python.

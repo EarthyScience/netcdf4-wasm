@@ -187,7 +187,7 @@ export const useViewerState = () => {
     if (!validateUrl(url)) return;
     try {
       setIsLoading(true);
-      const ds = await NetCDF4.Dataset(url);
+      const ds = await NetCDF4.Dataset(url, "r",{ maxFullDownload: 4 * 1024 * 1024 * 1024 }); // 4 GB
       const dt = new DataTree(ds);
       await dt.buildTree();
       setDataset(ds);

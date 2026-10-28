@@ -18,7 +18,6 @@ export class NetCDF4 extends Group {
     private workerReady?: Promise<void>;
     // Set once the worker is terminated; later worker calls reject with it
     private workerError?: Error;
-    // Worker requests still waiting for a reply, by request id; terminateWorker rejects them all
     private pendingRequests = new Map<number, (error: Error) => void>();
     private removeAbortListener?: () => void;
 
@@ -155,7 +154,7 @@ export class NetCDF4 extends Group {
         url: string | URL,
         options: RemoteDatasetOptions = {}
     ): Promise<NetCDF4> {
-        const { blockSize, cacheSize, headers, withCredentials, signal } = options;
+        const { blockSize, cacheSize, headers, withCredentials, maxFullDownload, signal } = options;
 
         // The worker resolves relative URLs against its own script, so resolve here
         let resolved: URL;
@@ -178,7 +177,7 @@ export class NetCDF4 extends Group {
         const dataset = new NetCDF4(fullPath, 'r', options);
         dataset.workerSource = {
             url: resolved.href,
-            remote: { blockSize, cacheSize, headers, withCredentials },
+            remote: { blockSize, cacheSize, headers, withCredentials, maxFullDownload },
             filename: fullPath,
         };
         if (signal) {

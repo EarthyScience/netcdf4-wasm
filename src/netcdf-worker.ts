@@ -2,7 +2,7 @@ import type { NetCDF4Module, EmscriptenModule } from "./types.js";
 import * as NCGet from './netcdf-getters.js';
 import { WasmModuleLoader } from "./wasm-module.js";
 import { NC_CONSTANTS } from "./constants.js";
-import { RemoteFile, XhrRangeSource, createRemoteFileNode } from "./remote-read.js";
+import { RemoteFile, XhrRangeSource, checkRangeSupport, createRemoteFileNode } from "./remote-read.js";
 
 let netcdfModule: EmscriptenModule;
 let mod: NetCDF4Module;
@@ -43,6 +43,7 @@ self.onmessage = async (e: MessageEvent) => {
             const { blob, url, remote, filename } = data;
 
             if (url) {
+                await checkRangeSupport(url, remote);
                 remoteFile = new RemoteFile(new XhrRangeSource(url, remote), remote);
                 createRemoteFileNode(mod.FS, filename, remoteFile);
                 self.postMessage({ id, success: true });

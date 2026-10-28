@@ -1,7 +1,7 @@
 // Remote reads: range requests, the block cache, and the Emscripten FS node
 
 import { jest } from '@jest/globals';
-import { RemoteFile, XhrRangeSource, cacheSizes, createRemoteFileNode } from '../remote-read.js';
+import { RemoteFile, XhrRangeSource, cacheSizes, checkRangeSupport, createRemoteFileNode } from '../remote-read.js';
 
 const GiB = 1024 ** 3;
 const URL_ = 'https://example.org/data.nc';
@@ -202,6 +202,64 @@ describe('RemoteFile', () => {
         expect(() => cacheSizes({ blockSize: 1.5 })).toThrow('blockSize');
         expect(() => cacheSizes({ blockSize: 16, cacheSize: 8 })).toThrow('cacheSize');
         expect(() => new RemoteFile(source(10), { blockSize: -1 })).toThrow('blockSize');
+    });
+});
+
+describe('checkRangeSupport', () => {
+    const originalFetch = globalThis.fetch;
+    let fetchMock: jest.Mock<typeof fetch>;
+
+    function reply(status: number, headers: Record<string, string> = {}) {
+        fetchMock.mockResolvedValue(new Response(status === 206 ? 'x' : 'whole file', { status, headers }));
+    }
+
+    beforeEach(() => {
+        fetchMock = jest.fn<typeof fetch>();
+        Object.assign(globalThis, { fetch: fetchMock });
+    });
+
+    afterEach(() => {
+        Object.assign(globalThis, { fetch: originalFetch });
+    });
+
+    test('sends nothing without maxFullDownload', async () => {
+        await checkRangeSupport(URL_);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    test('validates maxFullDownload', async () => {
+        await expect(checkRangeSupport(URL_, { maxFullDownload: -1 })).rejects.toThrow('maxFullDownload must be a non-negative integer');
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    test('passes when the server honors Range', async () => {
+        reply(206);
+        await checkRangeSupport(URL_, { maxFullDownload: 0, headers: { Authorization: 'Bearer token' }, withCredentials: true });
+        expect(fetchMock).toHaveBeenCalledWith(URL_, {
+            headers: { Authorization: 'Bearer token', Range: 'bytes=0-0' },
+            credentials: 'include',
+        });
+    });
+
+    test('allows a full download up to maxFullDownload', async () => {
+        reply(200, { 'Content-Length': '1000' });
+        await expect(checkRangeSupport(URL_, { maxFullDownload: 1000 })).resolves.toBeUndefined();
+    });
+
+    test('rejects a full download above maxFullDownload or of unknown size', async () => {
+        reply(200, { 'Content-Length': '1001' });
+        await expect(checkRangeSupport(URL_, { maxFullDownload: 1000 })).rejects.toThrow('the whole file (1001 bytes) exceeds maxFullDownload (1000 bytes)');
+
+        reply(200);
+        await expect(checkRangeSupport(URL_, { maxFullDownload: 1000 })).rejects.toThrow('of unknown size');
+    });
+
+    test('reports HTTP and network errors', async () => {
+        reply(403);
+        await expect(checkRangeSupport(URL_, { maxFullDownload: 0 })).rejects.toThrow('HTTP 403');
+
+        fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+        await expect(checkRangeSupport(URL_, { maxFullDownload: 0 })).rejects.toThrow('network error or blocked by CORS');
     });
 });
 
