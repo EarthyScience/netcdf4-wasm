@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.2.5] - 2026-10-28
+## [0.3.0] - 2026-10-28
 - **Breaking:** `getFullMetadata` now nests each variable's attributes under `attributes` instead of merging them into the variable object [#61](https://github.com/EarthyScience/netcdf4-wasm/pull/61)
 - Worker initialization failures now reject with the actual error instead of hanging [#62](https://github.com/EarthyScience/netcdf4-wasm/pull/62)
 - Added read-only access to remote files over HTTP(S) via `NetCDF4.fromUrl` / `Dataset(url)` [#63](https://github.com/EarthyScience/netcdf4-wasm/pull/63)
