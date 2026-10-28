@@ -1,6 +1,7 @@
 'use client';
 import { ChangeEvent, useState, useEffect, useCallback } from 'react';
 import { NetCDF4, DataTree } from '@earthyscience/netcdf4-wasm';
+import type { RemoteFileOptions } from '@earthyscience/netcdf4-wasm';
 import { VariableData, VariableInfo, VariableArrayData, Dimension } from './types';
 import { SliceSelectionState, defaultSelection, buildSelection } from './SliceTester';
 
@@ -182,12 +183,12 @@ export const useViewerState = () => {
     }
   };
 
-  const handleUrlFetch = async () => {
+  const handleUrlFetch = async (options: RemoteFileOptions = {}) => {
     setError(null);
     if (!validateUrl(url)) return;
     try {
       setIsLoading(true);
-      const ds = await NetCDF4.Dataset(url);
+      const ds = await NetCDF4.Dataset(url, "r",{ ...options, maxFullDownload: 4 * 1024 * 1024 * 1024 }); // 4 GB
       const dt = new DataTree(ds);
       await dt.buildTree();
       setDataset(ds);

@@ -3,7 +3,7 @@
 import { Group } from './group.js';
 import { WasmModuleLoader } from './wasm-module.js';
 import { NC_CONSTANTS } from './constants.js';
-import type { NetCDF4Module, DatasetOptions, MemoryDatasetSource } from './types.js';
+import type { NetCDF4Module, DatasetOptions, MemoryDatasetSource, RemoteDatasetOptions, RemoteFileOptions } from './types.js';
 import * as NCGet from './netcdf-getters.js'
 import { DimSelection } from './slice.js';
 
@@ -13,9 +13,13 @@ export class NetCDF4 extends Group {
     private ncid: number = -1;
     private _isOpen = false;
     private memorySource?: MemoryDatasetSource;
-    private workerSource?: { blob: Blob; filename: string };
+    private workerSource?: { blob?: Blob; url?: string; remote?: RemoteFileOptions; filename: string };
     private worker?: Worker;
     private workerReady?: Promise<void>;
+    // Set once the worker is terminated; later worker calls reject with it
+    private workerError?: Error;
+    private pendingRequests = new Map<number, (error: Error) => void>();
+    private removeAbortListener?: () => void;
 
     constructor(
         private filename?: string,
@@ -61,10 +65,16 @@ export class NetCDF4 extends Group {
 
     // Python-like factory method
     static async Dataset(
-        filename: string,
+        filename: string | URL,
         mode: string = 'r',
-        options: DatasetOptions = {}
+        options: RemoteDatasetOptions = {}
     ): Promise<NetCDF4> {
+        if (filename instanceof URL || /^https?:\/\//i.test(filename)) {
+            if (mode !== 'r') {
+                throw new Error(`Remote files can only be opened read-only (mode 'r'), got '${mode}'`);
+            }
+            return NetCDF4.fromUrl(filename, options);
+        }
         const dataset = new NetCDF4(filename, mode, options);
         await dataset.initialize();
         return dataset;
@@ -135,6 +145,54 @@ export class NetCDF4 extends Group {
     
         // After worker is set up, open the file
         await dataset.open();
+
+        return dataset;
+    }
+
+    // Remote file over HTTP Range requests (read-only, only the blocks netCDF-C touches are fetched)
+    static async fromUrl(
+        url: string | URL,
+        options: RemoteDatasetOptions = {}
+    ): Promise<NetCDF4> {
+        const { blockSize, cacheSize, headers, withCredentials, maxFullDownload, signal } = options;
+
+        // The worker resolves relative URLs against its own script, so resolve here
+        let resolved: URL;
+        try {
+            resolved = new URL(url, globalThis.location?.href);
+        } catch {
+            throw new Error(`Invalid URL: '${url}'`);
+        }
+        if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') {
+            throw new Error(`Remote files must be served over HTTP(S), got '${resolved.href}'`);
+        }
+        if (typeof Worker === 'undefined') {
+            throw new Error('Remote files require Web Worker support');
+        }
+        signal?.throwIfAborted();
+
+        const baseName = resolved.pathname.split('/').pop() || 'remote.nc';
+        const fullPath = `/remote/${baseName}`;
+
+        const dataset = new NetCDF4(fullPath, 'r', options);
+        dataset.workerSource = {
+            url: resolved.href,
+            remote: { blockSize, cacheSize, headers, withCredentials, maxFullDownload },
+            filename: fullPath,
+        };
+        if (signal) {
+            // Reads are synchronous inside the worker, so terminating it is the only way to cancel one
+            const abort = () => dataset.terminateWorker(signal.reason);
+            signal.addEventListener('abort', abort, { once: true });
+            dataset.removeAbortListener = () => signal.removeEventListener('abort', abort);
+        }
+        try {
+            await dataset.initialize();
+            await dataset.open();
+        } catch (error) {
+            dataset.terminateWorker(error instanceof Error ? error : new Error(String(error)));
+            throw error;
+        }
 
         return dataset;
     }
@@ -223,10 +281,15 @@ export class NetCDF4 extends Group {
 
     // Close method
     async close(): Promise<void> {
-        if (this._isOpen && this.ncid >= 0) {
-            await this.closeFile(this.ncid);
-            this._isOpen = false;
-            this.ncid = -1;
+        try {
+            if (this._isOpen && this.ncid >= 0) {
+                await this.closeFile(this.ncid);
+                this._isOpen = false;
+                this.ncid = -1;
+            }
+        } finally {
+            // Nothing can reopen a worker's file, so free the worker (and any remote block cache)
+            if (this.worker) this.terminateWorker(new Error('Dataset is closed'));
         }
     }
 
@@ -275,7 +338,7 @@ export class NetCDF4 extends Group {
 
     async closeFile(ncid: number): Promise<void> {
         if (this.worker) {
-            this.callWorker('close')
+            await this.callWorker('close');
         } else {
             const module = this.module;
             if (!module) throw new Error("Failed to load module. Ensure module is initialized before calling methods")
@@ -290,33 +353,57 @@ export class NetCDF4 extends Group {
     private requestId = 0;
 
     private async callWorker(type: string, payload: any = {}): Promise<any> {
+        if (this.workerError) throw this.workerError;
         if (!this.worker) throw new Error("Worker not initialized");
-        
+
+        return this.requestWorker({ type, ncid: this.ncid, ...payload });
+    }
+
+    // Post a message to the worker and wait for the reply carrying the same id.
+    // With startup set, a worker 'error' event also rejects, since a worker that
+    // fails to load never replies.
+    private requestWorker(message: { type: string; [key: string]: any }, { startup = false } = {}): Promise<any> {
+        const worker = this.worker!;
         const id = ++this.requestId;
-        
+
         return new Promise((resolve, reject) => {
-            const handler = (e: MessageEvent) => {
-                // Only handle messages that match our request ID
-                if (e.data.id !== id) return;
-                
-                if (e.data.success) {
-                    resolve(e.data.result);
-                } else {
-                    reject(new Error(e.data.error || `Worker error in ${type}`));
-                }
-                
-                this.worker!.removeEventListener('message', handler);
+            // Aborting it removes every listener this request added
+            const listeners = new AbortController();
+
+            // Every way the request can end goes through here: reply, error event or terminateWorker
+            const finish = (error?: Error, result?: unknown) => {
+                listeners.abort();
+                this.pendingRequests.delete(id);
+                if (error) reject(error);
+                else resolve(result);
             };
 
-            this.worker!.addEventListener('message', handler);
+            worker.addEventListener('message', (e: MessageEvent) => {
+                if (e.data.id !== id) return;
+                if (e.data.success) finish(undefined, e.data.result);
+                else finish(new Error(e.data.error || `Worker error in ${message.type}`));
+            }, { signal: listeners.signal });
 
-            this.worker!.postMessage({
-                id,  // Include the ID in the request
-                type,
-                ncid: this.ncid,
-                ...payload
-            });
+            if (startup) {
+                worker.addEventListener('error', (e: ErrorEvent) => {
+                    finish(new Error(`Worker failed to start: ${e.message || 'unknown error'}`));
+                }, { signal: listeners.signal });
+            }
+
+            this.pendingRequests.set(id, finish);
+            worker.postMessage({ id, ...message });
         });
+    }
+
+    // Stop the worker for good: in-flight and later worker calls reject with error
+    private terminateWorker(error: Error): void {
+        this.workerError ??= error;
+        for (const fail of this.pendingRequests.values()) fail(this.workerError);
+        this.removeAbortListener?.();
+        this.removeAbortListener = undefined;
+        this.worker?.terminate();
+        this._isOpen = false;
+        this.ncid = -1;
     }
 
     async getGlobalAttributes(groupPath?: string): Promise<Record<string, any>> {
@@ -775,39 +862,8 @@ export class NetCDF4 extends Group {
             );
         }
 
-        this.workerReady = new Promise((resolve, reject) => {
-            // Use named functions so we can remove the listeners later
-            const cleanup = () => {
-                this.worker!.removeEventListener('message', initHandler);
-                this.worker!.removeEventListener('error', errorHandler);
-            };
-
-            const initHandler = (e: MessageEvent) => {
-                cleanup();
-                if (e.data.success) {
-                    resolve();
-                } else {
-                    reject(new Error(e.data.error));
-                }
-            };
-
-            // Fires if the worker script fails to load or throws at top level,
-            // in which case no 'message' would ever arrive
-            const errorHandler = (e: ErrorEvent) => {
-                cleanup();
-                reject(new Error(`Worker failed to start: ${e.message || 'unknown error'}`));
-            };
-
-            this.worker!.addEventListener('message', initHandler);
-            this.worker!.addEventListener('error', errorHandler);
-
-            // 3. Send the initialization message
-            this.worker!.postMessage({
-                type: 'init',
-                blob: this.workerSource!.blob,
-                filename: this.workerSource!.filename
-            });
-        });
+        // 2. Send the initialization message
+        this.workerReady = this.requestWorker({ type: 'init', ...this.workerSource }, { startup: true });
 
         return this.workerReady;
     }

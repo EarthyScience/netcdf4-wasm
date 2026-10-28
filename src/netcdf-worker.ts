@@ -2,9 +2,11 @@ import type { NetCDF4Module, EmscriptenModule } from "./types.js";
 import * as NCGet from './netcdf-getters.js';
 import { WasmModuleLoader } from "./wasm-module.js";
 import { NC_CONSTANTS } from "./constants.js";
+import { RemoteFile, XhrRangeSource, checkRangeSupport, createRemoteFileNode } from "./remote-read.js";
 
 let netcdfModule: EmscriptenModule;
 let mod: NetCDF4Module;
+let remoteFile: RemoteFile | undefined;
 
 // Wait for runtime initialization.
 // An async IIFE (rather than `new Promise(async ...)`) so that a failed
@@ -38,7 +40,16 @@ self.onmessage = async (e: MessageEvent) => {
         if (type === 'init') {
             mod = WasmModuleLoader.wrapModule(await waitForModule);
 
-            const { blob, filename } = data;
+            const { blob, url, remote, filename } = data;
+
+            if (url) {
+                await checkRangeSupport(url, remote);
+                remoteFile = new RemoteFile(new XhrRangeSource(url, remote), remote);
+                createRemoteFileNode(mod.FS, filename, remoteFile);
+                self.postMessage({ id, success: true });
+                return;
+            }
+
             const pathParts = filename.split('/');
             const baseName = pathParts.pop();
             const mountPoint = pathParts.join('/') || '/';
@@ -64,6 +75,8 @@ self.onmessage = async (e: MessageEvent) => {
         if (!mod) {
             mod = WasmModuleLoader.wrapModule(await waitForModule);
         }
+        // Only report read errors raised by this request
+        if (remoteFile) remoteFile.lastError = undefined;
 
         let result;
 
@@ -199,7 +212,12 @@ self.onmessage = async (e: MessageEvent) => {
 
         self.postMessage({ id, success: true, result });
     } catch (err: any) {
+        // netCDF-C only sees EIO for a failed remote read; attach the actual cause
+        let message = err.message;
+        if (remoteFile?.lastError) {
+            message += ` (${remoteFile.lastError.message})`;
+        }
         console.error(`Worker Error [${type}]:`, err);
-        self.postMessage({ id, success: false, error: err.message });
+        self.postMessage({ id, success: false, error: message });
     }
 };
