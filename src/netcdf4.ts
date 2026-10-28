@@ -18,8 +18,8 @@ export class NetCDF4 extends Group {
     private workerReady?: Promise<void>;
     // Set once the worker is terminated; later worker calls reject with it
     private workerError?: Error;
-    // Rejecters of in-flight worker requests, so terminating the worker settles them
-    private pendingRequests = new Set<(error: Error) => void>();
+    // Worker requests still waiting for a reply, by request id; terminateWorker rejects them all
+    private pendingRequests = new Map<number, (error: Error) => void>();
     private removeAbortListener?: () => void;
 
     constructor(
@@ -356,47 +356,50 @@ export class NetCDF4 extends Group {
     private async callWorker(type: string, payload: any = {}): Promise<any> {
         if (this.workerError) throw this.workerError;
         if (!this.worker) throw new Error("Worker not initialized");
-        
+
+        return this.requestWorker({ type, ncid: this.ncid, ...payload });
+    }
+
+    // Post a message to the worker and wait for the reply carrying the same id.
+    // With startup set, a worker 'error' event also rejects, since a worker that
+    // fails to load never replies.
+    private requestWorker(message: { type: string; [key: string]: any }, { startup = false } = {}): Promise<any> {
+        const worker = this.worker!;
         const id = ++this.requestId;
-        
+
         return new Promise((resolve, reject) => {
-            // Lets terminateWorker settle this request
-            const fail = (error: Error) => {
-                this.worker!.removeEventListener('message', handler);
-                this.pendingRequests.delete(fail);
-                reject(error);
+            // Aborting it removes every listener this request added
+            const listeners = new AbortController();
+
+            // Every way the request can end goes through here: reply, error event or terminateWorker
+            const finish = (error?: Error, result?: unknown) => {
+                listeners.abort();
+                this.pendingRequests.delete(id);
+                if (error) reject(error);
+                else resolve(result);
             };
 
-            const handler = (e: MessageEvent) => {
-                // Only handle messages that match our request ID
+            worker.addEventListener('message', (e: MessageEvent) => {
                 if (e.data.id !== id) return;
-                
-                if (e.data.success) {
-                    resolve(e.data.result);
-                } else {
-                    reject(new Error(e.data.error || `Worker error in ${type}`));
-                }
-                
-                this.worker!.removeEventListener('message', handler);
-                this.pendingRequests.delete(fail);
-            };
+                if (e.data.success) finish(undefined, e.data.result);
+                else finish(new Error(e.data.error || `Worker error in ${message.type}`));
+            }, { signal: listeners.signal });
 
-            this.worker!.addEventListener('message', handler);
-            this.pendingRequests.add(fail);
+            if (startup) {
+                worker.addEventListener('error', (e: ErrorEvent) => {
+                    finish(new Error(`Worker failed to start: ${e.message || 'unknown error'}`));
+                }, { signal: listeners.signal });
+            }
 
-            this.worker!.postMessage({
-                id,  // Include the ID in the request
-                type,
-                ncid: this.ncid,
-                ...payload
-            });
+            this.pendingRequests.set(id, finish);
+            worker.postMessage({ id, ...message });
         });
     }
 
     // Stop the worker for good: in-flight and later worker calls reject with error
     private terminateWorker(error: Error): void {
         this.workerError ??= error;
-        for (const fail of this.pendingRequests) fail(this.workerError);
+        for (const fail of this.pendingRequests.values()) fail(this.workerError);
         this.removeAbortListener?.();
         this.removeAbortListener = undefined;
         this.worker?.terminate();
@@ -860,44 +863,8 @@ export class NetCDF4 extends Group {
             );
         }
 
-        this.workerReady = new Promise((resolve, reject) => {
-            // Use named functions so we can remove the listeners later
-            const cleanup = () => {
-                this.worker!.removeEventListener('message', initHandler);
-                this.worker!.removeEventListener('error', errorHandler);
-                this.pendingRequests.delete(fail);
-            };
-            const fail = (error: Error) => {
-                cleanup();
-                reject(error);
-            };
-
-            const initHandler = (e: MessageEvent) => {
-                cleanup();
-                if (e.data.success) {
-                    resolve();
-                } else {
-                    reject(new Error(e.data.error));
-                }
-            };
-
-            // Fires if the worker script fails to load or throws at top level,
-            // in which case no 'message' would ever arrive
-            const errorHandler = (e: ErrorEvent) => {
-                cleanup();
-                reject(new Error(`Worker failed to start: ${e.message || 'unknown error'}`));
-            };
-
-            this.worker!.addEventListener('message', initHandler);
-            this.worker!.addEventListener('error', errorHandler);
-            this.pendingRequests.add(fail);
-
-            // 3. Send the initialization message
-            this.worker!.postMessage({
-                type: 'init',
-                ...this.workerSource
-            });
-        });
+        // 2. Send the initialization message
+        this.workerReady = this.requestWorker({ type: 'init', ...this.workerSource }, { startup: true });
 
         return this.workerReady;
     }

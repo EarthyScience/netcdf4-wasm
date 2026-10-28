@@ -5,20 +5,22 @@ import { getEventListeners } from 'node:events';
 import { NetCDF4 } from '../index.js';
 
 // Minimal stand-in for the browser Worker. Answers 'init' with
-// FakeWorker.initEvent and every other request with success.
+// FakeWorker.initReply (reply data, or an event dispatched as is)
+// and every other request with success.
 class FakeWorker extends EventTarget {
     static currentWorker: FakeWorker;
-    static initEvent: Event;
+    static initReply: Record<string, unknown> | Event;
 
     constructor() {
         super();
         FakeWorker.currentWorker = this;
     }
 
-    postMessage({ type, id }: { type: string; id?: number }) {
-        queueMicrotask(() => this.dispatchEvent(type === 'init'
-            ? FakeWorker.initEvent
-            : new MessageEvent('message', { data: { id, success: true, result: 1 } })));
+    postMessage({ type, id }: { type: string; id: number }) {
+        const reply = type === 'init' ? FakeWorker.initReply : { success: true, result: 1 };
+        queueMicrotask(() => this.dispatchEvent(reply instanceof Event
+            ? reply
+            : new MessageEvent('message', { data: { id, ...reply } })));
     }
 
     terminate() {}
@@ -36,7 +38,7 @@ describe('Worker Initialization', () => {
         });
 
         test('should open dataset when worker reports success', async () => {
-            FakeWorker.initEvent = new MessageEvent('message', { data: { success: true } });
+            FakeWorker.initReply = { success: true };
 
             const dataset = await NetCDF4.fromBlobLazy(new Blob([]));
 
@@ -47,23 +49,21 @@ describe('Worker Initialization', () => {
         });
 
         test('should reject with the error sent by the worker', async () => {
-            FakeWorker.initEvent = new MessageEvent('message', {
-                data: { success: false, error: 'wasm fetch failed' },
-            });
+            FakeWorker.initReply = { success: false, error: 'wasm fetch failed' };
 
             await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow('wasm fetch failed');
             expectNoInitListeners();
         });
 
         test('should reject when worker script fails to load', async () => {
-            FakeWorker.initEvent = Object.assign(new Event('error'), { message: 'Script error' });
+            FakeWorker.initReply = Object.assign(new Event('error'), { message: 'Script error' });
 
             await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow('Worker failed to start: Script error');
             expectNoInitListeners();
         });
 
         test('should use fallback message when error event has none', async () => {
-            FakeWorker.initEvent = new Event('error');
+            FakeWorker.initReply = new Event('error');
 
             await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow('Worker failed to start: unknown error');
             expectNoInitListeners();
