@@ -21,12 +21,16 @@ INSTALL_DIR="$BUILD_DIR/install"
 
 # Versions
 ZLIB_VERSION="1.3.2"
-HDF5_VERSION="1.14.3"
-NETCDF_VERSION="4.9.2"
+HDF5_VERSION="2.2.0"
+ZSTD_VERSION="1.5.7"
+BLOSC_VERSION="1.21.6"
+NETCDF_VERSION="4.10.1"
 
 # Download URLs
 ZLIB_URL="https://zlib.net/zlib-${ZLIB_VERSION}.tar.gz"
-HDF5_URL="https://github.com/HDFGroup/hdf5/archive/refs/tags/hdf5-${HDF5_VERSION//./_}.tar.gz"
+HDF5_URL="https://github.com/HDFGroup/hdf5/archive/refs/tags/${HDF5_VERSION}.tar.gz"
+ZSTD_URL="https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/zstd-${ZSTD_VERSION}.tar.gz"
+BLOSC_URL="https://github.com/Blosc/c-blosc/archive/refs/tags/v${BLOSC_VERSION}.tar.gz"
 NETCDF_URL="https://github.com/Unidata/netcdf-c/archive/refs/tags/v${NETCDF_VERSION}.tar.gz"
 
 # Function to log with timestamp
@@ -47,68 +51,15 @@ check_command() {
     fi
 }
 
-# Function to apply config.h patches for NetCDF4 Emscripten compatibility
-apply_config_patches() {
-    local config_file="$1"
-
-    if [ ! -f "$config_file" ]; then
-        error_exit "config.h not found at $config_file"
-    fi
-
-    log "Patching config.h for Emscripten compatibility..."
-
-    # Determine correct sed -i syntax for the platform
-    local SED_INPLACE
-    if sed --version >/dev/null 2>&1; then
-        # GNU sed
-        SED_INPLACE=(-i)
+# Function to download a URL to a file with wget or curl
+download() {
+    if command -v wget &> /dev/null; then
+        check_command wget -v "$1" -O "$2"
+    elif command -v curl &> /dev/null; then
+        check_command curl -L "$1" -o "$2"
     else
-        # BSD/macOS sed
-        SED_INPLACE=(-i '')
+        error_exit "Neither wget nor curl available for downloading"
     fi
-
-    # Fix SIZEOF definitions for WebAssembly (32-bit target)
-    sed "${SED_INPLACE[@]}" \
-        -e 's|/\* #undef SIZEOF_DOUBLE \*/|#define SIZEOF_DOUBLE 8|' \
-        -e 's|/\* #undef SIZEOF_FLOAT \*/|#define SIZEOF_FLOAT 4|' \
-        -e 's|/\* #undef SIZEOF_INT \*/|#define SIZEOF_INT 4|' \
-        -e 's|/\* #undef SIZEOF_LONG \*/|#define SIZEOF_LONG 4|' \
-        -e 's|/\* #undef SIZEOF_LONG_LONG \*/|#define SIZEOF_LONG_LONG 8|' \
-        -e 's|/\* #undef SIZEOF_SHORT \*/|#define SIZEOF_SHORT 2|' \
-        -e 's|/\* #undef SIZEOF_SIZE_T \*/|#define SIZEOF_SIZE_T 4|' \
-        -e 's|/\* #undef SIZEOF_CHAR \*/|#define SIZEOF_CHAR 1|' \
-        -e 's|/\* #undef SIZEOF_UCHAR \*/|#define SIZEOF_UCHAR 1|' \
-        -e 's|/\* #undef SIZEOF_OFF_T \*/|#define SIZEOF_OFF_T 4|' \
-        -e 's|/\* #undef SIZEOF_OFF64_T \*/|#define SIZEOF_OFF64_T 8|' \
-        -e 's|/\* #undef SIZEOF_ULONGLONG \*/|#define SIZEOF_ULONGLONG 8|' \
-        -e 's|/\* #undef SIZEOF_UINT \*/|#define SIZEOF_UINT 4|' \
-        -e 's|/\* #undef SIZEOF_USHORT \*/|#define SIZEOF_USHORT 2|' \
-        -e 's|/\* #undef SIZEOF___INT64 \*/|#define SIZEOF___INT64 8\n#define SIZEOF_UINT64_T 8\n#define SIZEOF_UINT64 8|' \
-        "$config_file"
-
-    # Fix endianness
-    sed "${SED_INPLACE[@]}" 's|#define WORDS_BIGENDIAN 1|/* #undef WORDS_BIGENDIAN */|' "$config_file"
-
-    # Disable Windows-specific features
-    sed "${SED_INPLACE[@]}" 's|#define HAVE_FILE_LENGTH_I64 1|/* #undef HAVE_FILE_LENGTH_I64 */|' "$config_file"
-
-    # Add ssize_t definition guard (BSD/macOS safe)
-    if command -v perl >/dev/null 2>&1; then
-        # Use Perl for cross-platform multi-line insertion
-        perl -i -pe '
-            if (/^#define SIZEOF_SIZE_T/) {
-                $_ .= "/* Define to 1 if you have the `ssize_t` type. */\n#define HAVE_SSIZE_T 1\n";
-            }
-        ' "$config_file"
-    else
-        # fallback: warn
-        log "Skipping ssize_t patch: perl not found, may fail on macOS"
-    fi
-
-    # Disable HDF5 collective metadata operations for non-parallel build
-    sed "${SED_INPLACE[@]}" 's|#define HDF5_HAS_COLL_METADATA_OPS 1|/* #undef HDF5_HAS_COLL_METADATA_OPS */|' "$config_file"
-
-    log "config.h patches applied"
 }
 
 log "Building NetCDF4 for WebAssembly..."
@@ -131,6 +82,28 @@ fi
 
 EMCC_VERSION=$(emcc --version | head -n1)
 log "Using Emscripten: $EMCC_VERSION"
+
+# Print the version an installed header records (sed -E expression in $2), or nothing if it is missing
+installed_version() {
+    local header="$INSTALL_DIR/include/$1"
+    if [ -f "$header" ]; then
+        sed -nE "$2" "$header" | paste -sd. -
+    fi
+}
+
+# Start from an empty install directory when a dependency is missing or from
+# a different version, since everything above it was built against it
+REQUIRED_VERSIONS="zlib $ZLIB_VERSION, HDF5 $HDF5_VERSION, zstd $ZSTD_VERSION, c-blosc $BLOSC_VERSION"
+if [ -d "$INSTALL_DIR/include" ]; then
+    INSTALLED_VERSIONS="zlib $(installed_version zlib.h 's/^#define ZLIB_VERSION +"(.*)"/\1/p')"
+    INSTALLED_VERSIONS+=", HDF5 $(installed_version H5public.h 's/^#define H5_VERS_(MAJOR|MINOR|RELEASE) +([0-9]+).*/\2/p')"
+    INSTALLED_VERSIONS+=", zstd $(installed_version zstd.h 's/^#define ZSTD_VERSION_(MAJOR|MINOR|RELEASE) +([0-9]+).*/\2/p')"
+    INSTALLED_VERSIONS+=", c-blosc $(installed_version blosc.h 's/^#define BLOSC_VERSION_STRING +"([^"]*)".*/\1/p')"
+    if [ "$INSTALLED_VERSIONS" != "$REQUIRED_VERSIONS" ]; then
+        log "Installed dependencies ($INSTALLED_VERSIONS) differ from $REQUIRED_VERSIONS, clearing $INSTALL_DIR..."
+        rm -rf "$INSTALL_DIR"
+    fi
+fi
 
 # Create directories
 log "Creating build directories..."
@@ -219,7 +192,7 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
     if [ ! -d "hdf5-$HDF5_VERSION" ]; then
         log "Downloading HDF5-$HDF5_VERSION..."
         
-        HDF5_DOWNLOAD_NAME="hdf5-${HDF5_VERSION//./_}.tar.gz"
+        HDF5_DOWNLOAD_NAME="hdf5-$HDF5_VERSION.tar.gz"
         if command -v wget &> /dev/null; then
             log "Using wget to download HDF5..."
             check_command wget -v "$HDF5_URL" -O "$HDF5_DOWNLOAD_NAME"
@@ -231,10 +204,8 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
         fi
         
         log "Extracting HDF5 archive..."
-        # The downloaded file has underscores, but we extract to dots
-        HDF5_DOWNLOAD_NAME="hdf5-${HDF5_VERSION//./_}.tar.gz"
+        # HDF5 2.x tags are plain versions, so the archive extracts to hdf5-$HDF5_VERSION
         check_command tar -xzf "$HDF5_DOWNLOAD_NAME"
-        check_command mv "hdf5-hdf5-${HDF5_VERSION//./_}" "hdf5-$HDF5_VERSION"
         log "HDF5 extracted successfully"
     else
         log "HDF5 source directory already exists"
@@ -242,6 +213,7 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
     
     cd "hdf5-$HDF5_VERSION"
     log "Configuring HDF5 in directory: $(pwd)"
+    rm -rf build
     mkdir -p build && cd build
     
     log "Running emcmake cmake for HDF5 with FILTER SUPPORT..."
@@ -257,22 +229,20 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
         -DCMAKE_PREFIX_PATH="$INSTALL_DIR" \
         -DCMAKE_FIND_ROOT_PATH="$INSTALL_DIR" \
         -DBUILD_SHARED_LIBS=OFF \
+        -DBUILD_STATIC_LIBS=ON \
         -DHDF5_ENABLE_THREADSAFE=OFF \
         -DHDF5_ENABLE_PARALLEL=OFF \
         -DHDF5_BUILD_HL_LIB=ON \
         -DHDF5_BUILD_TOOLS=OFF \
         -DHDF5_BUILD_EXAMPLES=OFF \
-        -DHDF5_BUILD_TESTS=OFF \
         -DBUILD_TESTING=OFF \
         -DCMAKE_C_BYTE_ORDER=LITTLE_ENDIAN \
-        -DHDF5_DISABLE_COMPILER_WARNINGS=ON \
-        -DHDF5_ENABLE_Z_LIB_SUPPORT=ON \
+        -DHDF5_ENABLE_ZLIB_SUPPORT=ON \
+        -DHDF5_USE_ZLIB_STATIC=ON \
         -DHDF5_ENABLE_SZIP_SUPPORT=OFF \
-        -DALLOW_UNSUPPORTED=ON \
-        -DH5_ZLIB_HEADER="zlib.h" \
+        -DZLIB_ROOT="$INSTALL_DIR" \
         -DZLIB_INCLUDE_DIR="$INSTALL_DIR/include" \
         -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a" \
-        -DZLIB_USE_STATIC_LIBS=ON \
         -DBUILD_STATIC_EXECS=OFF
     
     log "Building HDF5 with emmake..."
@@ -300,10 +270,107 @@ else
     log "HDF5 already built and installed"
 fi
 
+# Build zstd (for the Zstandard filter, and used by c-blosc)
+log "Starting zstd build process..."
+if [ ! -f "$INSTALL_DIR/lib/libzstd.a" ]; then
+    log "zstd not found, building from source..."
+    cd "$DEPS_DIR"
+
+    if [ ! -d "zstd-$ZSTD_VERSION" ]; then
+        log "Downloading zstd-$ZSTD_VERSION..."
+        download "$ZSTD_URL" "zstd-$ZSTD_VERSION.tar.gz"
+        check_command tar -xzf "zstd-$ZSTD_VERSION.tar.gz"
+    fi
+
+    cd "zstd-$ZSTD_VERSION"
+    rm -rf build-wasm
+    mkdir -p build-wasm && cd build-wasm
+
+    log "Running emcmake cmake for zstd..."
+    check_command emcmake cmake ../build/cmake \
+        -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DZSTD_BUILD_STATIC=ON \
+        -DZSTD_BUILD_SHARED=OFF \
+        -DZSTD_BUILD_PROGRAMS=OFF \
+        -DZSTD_BUILD_TESTS=OFF \
+        -DZSTD_MULTITHREAD_SUPPORT=OFF \
+        -DZSTD_LEGACY_SUPPORT=OFF
+
+    log "Building zstd with emmake..."
+    check_command emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
+    check_command emmake make install
+
+    if [ ! -f "$INSTALL_DIR/lib/libzstd.a" ]; then
+        error_exit "zstd library not found after installation"
+    fi
+    log "zstd built and installed successfully"
+else
+    log "zstd already built and installed"
+fi
+
+# Build c-blosc (for the Blosc filter)
+log "Starting c-blosc build process..."
+if [ ! -f "$INSTALL_DIR/lib/libblosc.a" ]; then
+    log "c-blosc not found, building from source..."
+    cd "$DEPS_DIR"
+
+    if [ ! -d "c-blosc-$BLOSC_VERSION" ]; then
+        log "Downloading c-blosc-$BLOSC_VERSION..."
+        download "$BLOSC_URL" "c-blosc-$BLOSC_VERSION.tar.gz"
+        check_command tar -xzf "c-blosc-$BLOSC_VERSION.tar.gz"
+    fi
+
+    cd "c-blosc-$BLOSC_VERSION"
+    rm -rf build
+    mkdir -p build && cd build
+
+    # Use the zlib and zstd built above (LZ4 is bundled with c-blosc). The x86
+    # SIMD code paths don't apply to WebAssembly. CMAKE_POLICY_VERSION_MINIMUM
+    # lets CMake 4 accept c-blosc's old cmake_minimum_required.
+    log "Running emcmake cmake for c-blosc..."
+    check_command emcmake cmake .. \
+        -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_PREFIX_PATH="$INSTALL_DIR" \
+        -DCMAKE_FIND_ROOT_PATH="$INSTALL_DIR" \
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+        -DBUILD_STATIC=ON \
+        -DBUILD_SHARED=OFF \
+        -DBUILD_TESTS=OFF \
+        -DBUILD_FUZZERS=OFF \
+        -DBUILD_BENCHMARKS=OFF \
+        -DDEACTIVATE_SSE2=ON \
+        -DDEACTIVATE_AVX2=ON \
+        -DPREFER_EXTERNAL_ZLIB=ON \
+        -DPREFER_EXTERNAL_ZSTD=ON \
+        -DZLIB_INCLUDE_DIR="$INSTALL_DIR/include" \
+        -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a" \
+        -DZSTD_INCLUDE_DIR="$INSTALL_DIR/include" \
+        -DZSTD_LIBRARY="$INSTALL_DIR/lib/libzstd.a"
+
+    log "Building c-blosc with emmake..."
+    check_command emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
+    check_command emmake make install
+
+    if [ ! -f "$INSTALL_DIR/lib/libblosc.a" ]; then
+        error_exit "c-blosc library not found after installation"
+    fi
+    log "c-blosc built and installed successfully"
+else
+    log "c-blosc already built and installed"
+fi
+
 # Build NetCDF4
 log "Starting NetCDF4 build process..."
-if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
-    log "NetCDF4 not found, building from source..."
+# Rebuild when the installed libraries are missing or from a different NetCDF version
+INSTALLED_NETCDF_VERSION=""
+if [ -f "$INSTALL_DIR/include/netcdf_meta.h" ]; then
+    INSTALLED_NETCDF_VERSION=$(sed -n 's/^#define NC_VERSION *"\(.*\)"/\1/p' "$INSTALL_DIR/include/netcdf_meta.h")
+fi
+if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ] || [ ! -f "$INSTALL_DIR/lib/libh5filters.a" ] ||
+   [ "$INSTALLED_NETCDF_VERSION" != "$NETCDF_VERSION" ]; then
+    log "NetCDF4 $NETCDF_VERSION not found (installed: ${INSTALLED_NETCDF_VERSION:-none}), building from source..."
     cd "$DEPS_DIR"
     log "Changed to deps directory: $(pwd)"
     
@@ -329,85 +396,79 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
     
     cd "netcdf-c-$NETCDF_VERSION"
     log "Configuring NetCDF4 in directory: $(pwd)"
-    
-    # Apply CMakeLists.txt patches before CMake configuration
-    log "Patching CMakeLists.txt to bypass CHECK_LIBRARY_EXISTS calls..."
 
-    # Determine sed syntax for in-place editing
-    if sed --version >/dev/null 2>&1; then
-        # GNU sed (Linux)
-        SED_INPLACE=(-i)
-    else
-        # BSD sed (macOS)
-        SED_INPLACE=(-i '')
-    fi
-
-    # Comment out all CHECK_LIBRARY_EXISTS calls that cause issues in Emscripten
-    sed "${SED_INPLACE[@]}" '933s/^/  # /' CMakeLists.txt || error_exit "Failed to patch CHECK_LIBRARY_EXISTS H5Pget_fapl_mpio"
-    sed "${SED_INPLACE[@]}" '941s/^/  # /' CMakeLists.txt || error_exit "Failed to comment CHECK_LIBRARY_EXISTS H5Pset_all_coll_metadata_ops"
-    sed "${SED_INPLACE[@]}" '950s/^/  # /' CMakeLists.txt || error_exit "Failed to comment CHECK_LIBRARY_EXISTS H5Dread_chunk"
-    sed "${SED_INPLACE[@]}" '953s/^/  # /' CMakeLists.txt || error_exit "Failed to comment CHECK_LIBRARY_EXISTS H5Pset_fapl_ros3"
-
-    # Set bypass variables for the features
-    sed "${SED_INPLACE[@]}" '943s/SET(HDF5_HAS_COLL_METADATA_OPS ON)/SET(HDF5_HAS_COLL_METADATA_OPS OFF)/' CMakeLists.txt || error_exit "Failed to set HDF5_HAS_COLL_METADATA_OPS to OFF"
-    sed "${SED_INPLACE[@]}" '950a\
-    # Set HAS_READCHUNKS to OFF for Emscripten\
-    SET(HAS_READCHUNKS OFF)' CMakeLists.txt || error_exit "Failed to set HAS_READCHUNKS"
-    sed "${SED_INPLACE[@]}" '953a\
-    # Set HAS_HDF5_ROS3 to OFF for Emscripten\
-    SET(HAS_HDF5_ROS3 OFF)' CMakeLists.txt || error_exit "Failed to set HAS_HDF5_ROS3"
-
-    log "CMakeLists.txt patches applied"
-    
+    # Start from a clean build directory so no stale CMake cache is reused
+    rm -rf build
     mkdir -p build && cd build
-    
-    log "Running emcmake cmake for NetCDF4 with COMPREHENSIVE FILTER SUPPORT..."
+
+    # HDF5 2.x's exported targets link against ZLIB::ZLIB, but NetCDF's bundled
+    # FindZLIB.cmake doesn't define that target, so provide it before NetCDF's
+    # own CMake code runs
+    cat > zlib-target.cmake << EOF
+if(NOT TARGET ZLIB::ZLIB)
+  add_library(ZLIB::ZLIB STATIC IMPORTED GLOBAL)
+  set_target_properties(ZLIB::ZLIB PROPERTIES
+    IMPORTED_LOCATION "$INSTALL_DIR/lib/libz.a"
+    INTERFACE_INCLUDE_DIRECTORIES "$INSTALL_DIR/include")
+endif()
+EOF
+
+    # HDF5 and its zlib dependency are located through the hdf5-config.cmake
+    # installed above; type sizes and endianness are detected by Emscripten's
+    # CMake modules, so no patching of CMakeLists.txt or config.h is needed.
+    # Emscripten ships <sys/xattr.h> without getxattr/listxattr, so turn off
+    # the xattr and getfattr probes NetCDF uses to detect DAOS containers.
+    log "Running emcmake cmake for NetCDF4..."
     check_command emcmake cmake .. \
+        -DCMAKE_PROJECT_INCLUDE="$(pwd)/zlib-target.cmake" \
         -DCMAKE_INSTALL_PREFIX="$INSTALL_DIR" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DENABLE_FILEMAP=OFF \
-        -DCMAKE_BINARY_DIR="$BUILD_DIR/deps/netcdf-c-$NETCDF_VERSION/build" \
+        -DCMAKE_PREFIX_PATH="$INSTALL_DIR" \
+        -DCMAKE_FIND_ROOT_PATH="$INSTALL_DIR" \
         -DBUILD_SHARED_LIBS=OFF \
-        -DENABLE_NETCDF_4=ON \
-        -DENABLE_HDF5=ON \
-        -DENABLE_DAP=OFF \
-        -DENABLE_BYTERANGE=OFF \
-        -DBUILD_UTILITIES=OFF \
         -DBUILD_TESTING=OFF \
-        -DENABLE_TESTS=OFF \
-        -DCMAKE_C_BYTE_ORDER=LITTLE_ENDIAN \
-        -DWORDS_BIGENDIAN=OFF \
+        -DNETCDF_ENABLE_TESTS=OFF \
+        -DNETCDF_BUILD_UTILITIES=OFF \
+        -DNETCDF_ENABLE_HDF5=ON \
         -DHDF5_USE_STATIC_LIBRARIES=ON \
-        -DHDF5_PREFER_PARALLEL=OFF \
-        -DHDF5_FIND_QUIETLY=ON \
-        -DHDF5_INCLUDE_DIR="$INSTALL_DIR/include" \
-        -DHDF5_C_INCLUDE_DIR="$INSTALL_DIR/include" \
-        -DHDF5_C_LIBRARY="$INSTALL_DIR/lib/libhdf5.a;$INSTALL_DIR/lib/libz.a" \
-        -DHDF5_C_LIBRARY_hdf5="$INSTALL_DIR/lib/libhdf5.a" \
-        -DHDF5_HL_LIBRARY="$INSTALL_DIR/lib/libhdf5_hl.a;$INSTALL_DIR/lib/libz.a" \
-        -DHDF5_VERSION="$HDF5_VERSION" \
-        -DHDF5_VERSION_STRING="$HDF5_VERSION" \
-        -DHAVE_HDF5_H="$INSTALL_DIR/include" \
-        -DHAVE_HDF5_ZLIB=ON \
-        -DHDF5_IS_PARALLEL_MPIO=OFF \
-        -DHDF5_PARALLEL=OFF \
-        -DUSE_HDF5_SZIP=OFF \
+        -DNETCDF_ENABLE_DAP=OFF \
+        -DNETCDF_ENABLE_BYTERANGE=OFF \
+        -DNETCDF_ENABLE_NCZARR=ON \
+        -DHAVE_SYS_XATTR_H=OFF \
+        -DGETFATTR=GETFATTR-NOTFOUND \
+        -DBlosc_ROOT="$INSTALL_DIR" \
+        -DZstd_ROOT="$INSTALL_DIR" \
         -DZLIB_INCLUDE_DIR="$INSTALL_DIR/include" \
-        -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a" \
-        -DENABLE_NCZARR=ON \
-        -DENABLE_NCZARR_FILTERS=ON \
-        -DPLUGIN_INSTALL_DIR="$INSTALL_DIR/lib/netcdf/plugins"
-    
-    # Apply config.h patches after CMake configuration
-    apply_config_patches "$(pwd)/config.h"
-    
+        -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a"
+
     log "Building NetCDF4 with emmake..."
     check_command emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
     
     log "Installing NetCDF4..."
     check_command emmake make install
-    
+
     log "NetCDF4 built and installed successfully"
+
+    # NetCDF ships the Blosc, Zstandard and bzip2 HDF5 filters as plugins for
+    # HDF5 to load at runtime, which WebAssembly can't do. Compile them into a
+    # static library instead; the WASM module registers them on startup. Each
+    # plugin defines the same H5PLget_plugin_* entry points, so rename those.
+    log "Building HDF5 compression filters (Blosc, Zstandard, bzip2)..."
+    FILTER_OBJ_DIR="$(pwd)/h5filters"
+    mkdir -p "$FILTER_OBJ_DIR"
+    FILTER_CFLAGS=(-O2 -DHAVE_CONFIG_H -I"$(pwd)" -I"$(pwd)/include" -I../include -I../plugins -I"$INSTALL_DIR/include")
+    for filter in blosc zstd bzip2; do
+        check_command emcc "${FILTER_CFLAGS[@]}" \
+            -DH5PLget_plugin_type="${filter}_plugin_type" \
+            -DH5PLget_plugin_info="${filter}_plugin_info" \
+            -c "../plugins/H5Z$filter.c" -o "$FILTER_OBJ_DIR/H5Z$filter.o"
+    done
+    # bzip2 itself is bundled with the NetCDF sources
+    for source in blocksort bzlib compress crctable decompress huffman randtable; do
+        check_command emcc "${FILTER_CFLAGS[@]}" -c "../plugins/$source.c" -o "$FILTER_OBJ_DIR/$source.o"
+    done
+    rm -f "$INSTALL_DIR/lib/libh5filters.a"
+    check_command emar rcs "$INSTALL_DIR/lib/libh5filters.a" "$FILTER_OBJ_DIR"/*.o
     
     # Verify installation
     if [ -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
@@ -438,18 +499,33 @@ fi
 log "Starting WASM module creation..."
 log "Filter support configuration complete:"
 log "  - HDF5 built-in filters: shuffle, fletcher32, deflate (via zlib)"
+log "  - Statically linked filters: Blosc (32001), Zstandard (32015), bzip2 (307)"
 log "  - HDF5 High-Level library: ENABLED (required for NetCDF)"
-log "  - NCZarr filter support: ENABLED"
-log "  - Plugin directory: $INSTALL_DIR/lib/netcdf/plugins"
+log "  - Dynamically loaded filter plugins: NOT SUPPORTED (static build)"
 log ""
-log "Important notes: https://docs.unidata.ucar.edu/netcdf-c/4.9.2/filters.html"
-log "  - Shuffle, fletcher32, deflate are HDF5 built-ins (no plugins needed)"
-log "  - For plugin filters (bzip2, zstandard, etc.), set HDF5_PLUGIN_PATH at runtime"
-log "  - Built-in filters will work automatically for files that use them"
+log "Important notes: https://docs.unidata.ucar.edu/netcdf-c/$NETCDF_VERSION/filters.html"
 # Create a simple C wrapper that exposes NetCDF functions
 cat > netcdf_wrapper.c << 'EOF'
 #include <netcdf.h>
+#include <hdf5.h>
 #include <emscripten.h>
+
+// =========================
+// Compression Filters
+// =========================
+// Defined in libh5filters.a, built from NetCDF's filter plugins
+extern const H5Z_class2_t blosc_H5Filter[1];
+extern const H5Z_class2_t H5Z_ZSTD[1];
+extern const H5Z_class2_t H5Z_BZIP2[1];
+
+// HDF5 would look for these filters as plugins to load at runtime, which
+// WebAssembly can't do, so register the statically linked ones on startup
+__attribute__((constructor))
+static void register_filters(void) {
+    H5Zregister(blosc_H5Filter);
+    H5Zregister(H5Z_ZSTD);
+    H5Zregister(H5Z_BZIP2);
+}
 
 // =========================
 // NetCDF File Operations
@@ -1222,7 +1298,7 @@ log "Compiling WASM module with emcc..."
 check_command emcc netcdf_wrapper.c \
     -I"$INSTALL_DIR/include" \
     -L"$INSTALL_DIR/lib" \
-    -lnetcdf -lhdf5 -lhdf5_hl -lz \
+    -lnetcdf -lh5filters -lhdf5 -lhdf5_hl -lblosc -lzstd -lz \
     -lworkerfs.js \
     -s WASM=1 \
     -s MODULARIZE=1 \

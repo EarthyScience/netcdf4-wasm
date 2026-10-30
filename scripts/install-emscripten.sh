@@ -24,12 +24,12 @@ cd emsdk
 echo "Updating Emscripten SDK..."
 git pull || true
 
-# Install and activate 5.0.1 version
-EMSDK_VERSION=5.0.1
-echo "Installing 5.0.1 Emscripten..."
+# Install and activate a pinned version
+EMSDK_VERSION=6.0.13
+echo "Installing Emscripten $EMSDK_VERSION..."
 ./emsdk install $EMSDK_VERSION
 
-echo "Activating 5.0.1 Emscripten..."
+echo "Activating Emscripten $EMSDK_VERSION..."
 ./emsdk activate $EMSDK_VERSION
 
 # Source the environment

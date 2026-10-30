@@ -5,7 +5,7 @@
 [![NetCDF4](https://img.shields.io/badge/NetCDF4-Compatible-008B8B)](https://www.unidata.ucar.edu/software/netcdf/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6)](https://www.typescriptlang.org/)
 [![WebAssembly](https://img.shields.io/badge/WebAssembly-654FF0)](https://webassembly.org/)
-[![Emscripten](https://img.shields.io/badge/Emscripten-4.0.23-0000)](https://emscripten.org/)
+[![Emscripten](https://img.shields.io/badge/Emscripten-6.0.13-0000)](https://emscripten.org/)
 [![Jest](https://img.shields.io/badge/Jest-29.x-C21325)](https://jestjs.io/)
 [![ts-jest](https://img.shields.io/badge/ts--jest-29.x-3178c6)](https://kulshekhar.github.io/ts-jest/)
 
