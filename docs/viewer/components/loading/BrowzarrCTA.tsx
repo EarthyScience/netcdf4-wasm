@@ -1,5 +1,5 @@
-import React from "react";
 import Link from "next/link";
+import React from "react";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -17,26 +17,26 @@ export default function BrowzarrCTA({
   buttonText = "Try browzarr.io",
 }: BrowzarrCTAProps) {
   return (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              aria-label="browzarr.io"
-              href="https://browzarr.io/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button
-                size="sm"
-                className="bg-gradient-to-tr from-pink-500 to-yellow-500 text-white shadow-lg hover:shadow-xl transition-shadow hover:scale-95 transition-transform duration-100 ease-out cursor-pointer"
-              >
-                {buttonText}
-              </Button>
-            </Link>
-          </TooltipTrigger>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link
+          aria-label="browzarr.io"
+          href="https://browzarr.io/"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <Button
+            size="sm"
+            className="bg-gradient-to-tr from-pink-500 to-yellow-500 text-white shadow-lg hover:shadow-xl transition-shadow hover:scale-95 transition-transform duration-100 ease-out cursor-pointer"
+          >
+            {buttonText}
+          </Button>
+        </Link>
+      </TooltipTrigger>
 
-          <TooltipContent className="max-w-xs" align="end">
-            {message}
-          </TooltipContent>
-        </Tooltip>
+      <TooltipContent className="max-w-xs" align="end">
+        {message}
+      </TooltipContent>
+    </Tooltip>
   );
 }

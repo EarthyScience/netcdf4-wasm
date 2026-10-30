@@ -6,20 +6,20 @@ If you have questions, ideas, or just want to chat, please reach out to us anyti
 
 ## How You Can Contribute
 
-* **Report bugs or suggest features:** [Open a GitHub issue](https://github.com/EarthyScience/netcdf4-wasm/issues/new/) to let us know about problems or ideas.
-* **Start or join a discussion:** [Create a GitHub discussion](https://github.com/EarthyScience/netcdf4-wasm/discussions/new/choose) to ask questions, share experiences, or brainstorm.
-* **Improve documentation:** Help us make our docs clearer and more helpful for everyone.
-* **Write code:** Fix bugs, add features, or improve performance.
-* **Add examples:** Create usage examples or tutorials showing how to use `netcdf4-wasm` in different scenarios.
+- **Report bugs or suggest features:** [Open a GitHub issue](https://github.com/EarthyScience/netcdf4-wasm/issues/new/) to let us know about problems or ideas.
+- **Start or join a discussion:** [Create a GitHub discussion](https://github.com/EarthyScience/netcdf4-wasm/discussions/new/choose) to ask questions, share experiences, or brainstorm.
+- **Improve documentation:** Help us make our docs clearer and more helpful for everyone.
+- **Write code:** Fix bugs, add features, or improve performance.
+- **Add examples:** Create usage examples or tutorials showing how to use `netcdf4-wasm` in different scenarios.
 
 ### Tips for Creating Issues
 
 The most helpful bug reports:
 
-* Include a clear code snippet (not just a link) that shows the problem in the latest version of `netcdf4-wasm`. A ["minimal working example"](https://en.wikipedia.org/wiki/Minimal_working_example) is ideal.
-* Paste the full error message you received, even if it's long.
-* Use triple backticks (```` ``` ````) for code, and [markdown formatting](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax) to keep things readable.
-* Share your `netcdf4-wasm` version, Node.js/browser version, and details about your environment (OS, browser, etc.).
+- Include a clear code snippet (not just a link) that shows the problem in the latest version of `netcdf4-wasm`. A ["minimal working example"](https://en.wikipedia.org/wiki/Minimal_working_example) is ideal.
+- Paste the full error message you received, even if it's long.
+- Use triple backticks (` ``` `) for code, and [markdown formatting](https://docs.github.com/en/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax) to keep things readable.
+- Share your `netcdf4-wasm` version, Node.js/browser version, and details about your environment (OS, browser, etc.).
 
 Discussions are great for questions about usage, implementation, WebAssembly compilation, NetCDF formats, or anything else.
 
@@ -33,18 +33,22 @@ To start developing `netcdf4-wasm`:
 ```bash
    npm install
 ```
+
 4. Check that you have all build dependencies:
 ```bash
    npm run check-deps
 ```
+
 5. If you need Emscripten for building WASM:
 ```bash
    npm run install-emscripten
 ```
+
 6. Build the project:
 ```bash
    npm run build
 ```
+
 7. Run tests to ensure everything works:
 ```bash
    npm test
@@ -106,12 +110,12 @@ netcdf4-wasm/
 
 ## Good First Steps
 
-* Try out `netcdf4-wasm` using the examples in our documentation. If you hit any problems or have questions, please open an issue!
-* Write an example or tutorial showing how to use `netcdf4-wasm` for reading/writing NetCDF files in the browser or Node.js.
-* Suggest improvements to documentation or code comments.
-* Work on issues labeled `good first issue` or `help wanted`.
-* Improve TypeScript type definitions for better developer experience.
-* Add or improve test coverage.
+- Try out `netcdf4-wasm` using the examples in our documentation. If you hit any problems or have questions, please open an issue!
+- Write an example or tutorial showing how to use `netcdf4-wasm` for reading/writing NetCDF files in the browser or Node.js.
+- Suggest improvements to documentation or code comments.
+- Work on issues labeled `good first issue` or `help wanted`.
+- Improve TypeScript type definitions for better developer experience.
+- Add or improve test coverage.
 
 If you want to work on something, let us know by commenting on an issue or opening a new one. This helps us coordinate and support you.
 
@@ -153,8 +157,8 @@ We are committed to providing a welcoming and inclusive environment. Please be r
 
 ## Getting Help
 
-* **Questions about usage?** Open a [GitHub discussion](https://github.com/EarthyScience/netcdf4-wasm/discussions)
-* **Found a bug?** Open an [issue](https://github.com/EarthyScience/netcdf4-wasm/issues)
-* **Want to chat?** Reach out to the maintainers
+- **Questions about usage?** Open a [GitHub discussion](https://github.com/EarthyScience/netcdf4-wasm/discussions)
+- **Found a bug?** Open an [issue](https://github.com/EarthyScience/netcdf4-wasm/issues)
+- **Want to chat?** Reach out to the maintainers
 
 We're excited to have you join our community. Thank you for helping make `netcdf4-wasm` better!

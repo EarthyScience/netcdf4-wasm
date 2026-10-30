@@ -1,8 +1,8 @@
-'use client';
-import React from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { FileText, Search } from 'lucide-react';
+"use client";
+import { FileText, Search } from "lucide-react";
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface SearchResult {
   name: string;
@@ -62,7 +62,9 @@ export const SearchBar = ({
                     <div className="flex items-start gap-2">
                       <FileText className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
                       <div className="flex-1 min-w-0">
-                        <div className="font-mono text-sm break-all">{result.name}</div>
+                        <div className="font-mono text-sm break-all">
+                          {result.name}
+                        </div>
                         <div className="text-xs text-muted-foreground mt-0.5 break-all">
                           {result.groupPath}
                         </div>

@@ -1,6 +1,5 @@
 # netcdf4-wasm [![viewer](https://img.shields.io/badge/Viewer-Online-654FF0)](https://earthyscience.github.io/netcdf4-wasm/viewer/)
 
-
 [![npm version](https://img.shields.io/npm/v/@earthyscience/netcdf4-wasm.svg)](https://www.npmjs.com/package/@earthyscience/netcdf4-wasm)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/EarthyScience/netcdf4-wasm/blob/main/LICENSE)
 [![NetCDF4](https://img.shields.io/badge/NetCDF4-Compatible-008B8B)](https://www.unidata.ucar.edu/software/netcdf/)
@@ -38,7 +37,7 @@ npm install @earthyscience/netcdf4-wasm
 ## Quick Start
 
 ```typescript
-import { NetCDF4, DataTree } from '@earthyscience/netcdf4-wasm';
+import { NetCDF4, DataTree } from "@earthyscience/netcdf4-wasm";
 
 // Open existing file
 const ds = await NetCDF4.fromBlobLazy(file);
@@ -53,14 +52,18 @@ fetches only the byte ranges netCDF-C reads, and keeps them in a block cache.
 `Dataset(url)` and `NetCDF4.Dataset(url)` do the same for `http(s)://` strings and `URL` objects.
 
 ```typescript
-const ds = await NetCDF4.fromUrl('https://example.org/data.nc', {
-    headers: { Authorization: 'Bearer TOKEN' }, // sent with every request
-    withCredentials: false,                      // send cookies cross-origin
+const ds = await NetCDF4.fromUrl("https://example.org/data.nc", {
+  headers: { Authorization: "Bearer TOKEN" }, // sent with every request
+  withCredentials: false, // send cookies cross-origin
 });
 try {
-    const values = await ds.getSlicedVariableArray('temperature', [0, 0], [1, 10]);
+  const values = await ds.getSlicedVariableArray(
+    "temperature",
+    [0, 0],
+    [1, 10],
+  );
 } finally {
-    await ds.close();
+  await ds.close();
 }
 ```
 

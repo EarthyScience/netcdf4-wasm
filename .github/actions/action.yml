@@ -24,8 +24,8 @@ runs:
     - name: Cache Emscripten SDK
       uses: actions/cache@v4
       with:
-          path: build/
-          key: emsdk-${{ runner.os }}-5.0.1
+        path: build/
+        key: emsdk-${{ runner.os }}-5.0.1
 
     - name: Install npm dependencies
       shell: bash

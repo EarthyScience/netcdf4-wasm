@@ -1,7 +1,7 @@
-'use client';
-import React from 'react';
-import { Info, ChevronRight, ChevronDown } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+"use client";
+import { ChevronDown, ChevronRight, Info } from "lucide-react";
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface AttributesCardProps {
   attributes: Record<string, unknown>;
@@ -9,7 +9,11 @@ interface AttributesCardProps {
   onToggle: () => void;
 }
 
-export const AttributesCard = ({ attributes, expanded, onToggle }: AttributesCardProps) => {
+export const AttributesCard = ({
+  attributes,
+  expanded,
+  onToggle,
+}: AttributesCardProps) => {
   if (Object.keys(attributes).length === 0) return null;
 
   return (
@@ -19,7 +23,9 @@ export const AttributesCard = ({ attributes, expanded, onToggle }: AttributesCar
           <CardTitle className="text-base flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <Info className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate">Attributes ({Object.keys(attributes).length})</span>
+              <span className="truncate">
+                Attributes ({Object.keys(attributes).length})
+              </span>
             </div>
             {expanded ? (
               <ChevronDown className="h-4 w-4 flex-shrink-0" />
@@ -38,11 +44,13 @@ export const AttributesCard = ({ attributes, expanded, onToggle }: AttributesCar
                 key={k}
                 className="flex flex-col sm:grid sm:grid-cols-[minmax(100px,auto)_1fr] gap-0.5 sm:gap-2 min-w-0"
               >
-                <span className="font-mono text-muted-foreground break-words">{k}:</span>
+                <span className="font-mono text-muted-foreground break-words">
+                  {k}:
+                </span>
                 <span className="font-mono break-all pl-4 sm:pl-0">
-                  {typeof v === 'object'
+                  {typeof v === "object"
                     ? JSON.stringify(v, (_k, val) =>
-                        typeof val === 'bigint' ? Number(val) : val
+                        typeof val === "bigint" ? Number(val) : val,
                       )
                     : String(v)}
                 </span>

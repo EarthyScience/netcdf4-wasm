@@ -1,8 +1,8 @@
-'use client';
-import React from 'react';
-import { Info, ChevronRight, ChevronDown } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dimension } from './types';
+"use client";
+import { ChevronDown, ChevronRight, Info } from "lucide-react";
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dimension } from "./types";
 
 interface DimensionsCardProps {
   dimensions: Record<string, Dimension>;
@@ -10,7 +10,11 @@ interface DimensionsCardProps {
   onToggle: () => void;
 }
 
-export const DimensionsCard = ({ dimensions, expanded, onToggle }: DimensionsCardProps) => {
+export const DimensionsCard = ({
+  dimensions,
+  expanded,
+  onToggle,
+}: DimensionsCardProps) => {
   if (Object.keys(dimensions).length === 0) return null;
 
   return (
@@ -20,7 +24,9 @@ export const DimensionsCard = ({ dimensions, expanded, onToggle }: DimensionsCar
           <CardTitle className="text-base flex items-center justify-between">
             <div className="flex items-center gap-2 min-w-0">
               <Info className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate">Dimensions ({Object.keys(dimensions).length})</span>
+              <span className="truncate">
+                Dimensions ({Object.keys(dimensions).length})
+              </span>
             </div>
             {expanded ? (
               <ChevronDown className="h-4 w-4 flex-shrink-0" />
@@ -41,7 +47,7 @@ export const DimensionsCard = ({ dimensions, expanded, onToggle }: DimensionsCar
               >
                 <span className="font-mono text-muted-foreground">{name}:</span>
                 <span className="font-mono break-all pl-4 sm:pl-0">
-                  {dim.size || dim.len || dim.length || 'unlimited'}
+                  {dim.size || dim.len || dim.length || "unlimited"}
                 </span>
               </div>
             ))}

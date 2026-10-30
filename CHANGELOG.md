@@ -1,17 +1,21 @@
 # Changelog
 
 ## [0.3.0] - 2026-10-28
+
 - **Breaking:** `getFullMetadata` now nests each variable's attributes under `attributes` instead of merging them into the variable object [#61](https://github.com/EarthyScience/netcdf4-wasm/pull/61)
 - Worker initialization failures now reject with the actual error instead of hanging [#62](https://github.com/EarthyScience/netcdf4-wasm/pull/62)
 - Added read-only access to remote files over HTTP(S) via `NetCDF4.fromUrl` / `Dataset(url)` [#63](https://github.com/EarthyScience/netcdf4-wasm/pull/63)
 
 ## [0.2.4] - 2026-03-05
+
 - Added stride read support and a new convenience method, `get` see [#57](https://github.com/EarthyScience/netcdf4-wasm/pull/57)
 
 ## [0.2.3] - 2026-02-21
+
 - Removed leading slash if not root to match how zarrita handles groups [#55](https://github.com/EarthyScience/netcdf4-wasm/pull/55)
 
 ## [0.2.2] - 2026-02-27
+
 - Fixed pointer sizes for memory allocation [#53](https://github.com/EarthyScience/netcdf4-wasm/pull/53)
 
 ## [0.2.1] - 2026-02-21
@@ -19,6 +23,7 @@
 - Added support for EnumTypes. [#46](https://github.com/EarthyScience/netcdf4-wasm/pull/46)
 
 ## [0.2.0] - 2026-02-15
+
 - Added support for NetCDF groups, enabling hierarchical data organization.
 - Introduced the DataTree class to explore the complete dataset structure.
 - Updated the documentation UI with group browsing and variable search capabilities. [#37](https://github.com/EarthyScience/netcdf4-wasm/pull/37)
@@ -29,17 +34,17 @@
 -  `package-lock.json` was removed because trying to develop this locally will fail otherwise, (same reason in CI)
 - in macOS is necessary to be explicit with `emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib`
 - in newer versions `_malloc` and `_free` need to be exported functions and not runtime methods.
-   -  `post.js` was updated accordingly. 
+  -  `post.js` was updated accordingly.
 - `sed -i ''` is required in macOS, hence a check was added to account for that.
 - Use Perl for cross-platform multi-line insertion, `perl -i -pe ...`
-- a lot of new functionality by adding new functions. 
-   -  additional built flags were added. 
-- more types 
+- a lot of new functionality by adding new functions.
+  -  additional built flags were added.
+- more types
 - CI via GitHub Actions, making sure the full workflow from building to tests works.
 -  removed the `global` **Module** definition. Now things should work with the standard `import` statement.
-   - tests were updated accordingly. 
+   - tests were updated accordingly.
 - `netcdf-workers.ts` implementation was added so that lazy reading works!
-- Online demo showing functionality. 
+- Online demo showing functionality.
 - Legacy examples and docs were removed, content should be added back once is properly tested.
 
 # Legacy from init project
@@ -47,12 +52,14 @@
 ## [0.1.0] - 2024-12-17
 
 ### Added
+
 - Initial implementation of NetCDF4 WASM bindings
 - Python netcdf4-python compatible API
 - Complete TypeScript interface with proper typing
 - Modular code structure for maintainability
 
 ### Features
+
 - NetCDF4 C library compilation to WASM via Emscripten
 - Support for HDF5 and zlib dependencies
 - Python-like Dataset, Variable, Dimension, and Group classes
@@ -61,6 +68,7 @@
 - NPM packaging configuration
 
 ### API Structure
+
 - `src/index.ts` - Main exports and convenience functions
 - `src/netcdf4.ts` - Main NetCDF4 class (equivalent to Python's Dataset)
 - `src/variable.ts` - Variable class with attribute support
@@ -71,12 +79,14 @@
 - `src/wasm-module.ts` - WASM module loading and wrapping
 
 ### Build System
+
 - Automated dependency building (zlib, HDF5, NetCDF4)
 - Emscripten toolchain integration
 - Cross-platform build scripts
 - Development dependency checking
 
 ### Documentation
+
 - Comprehensive README with Python-like examples
 - API reference documentation
 - Build and development instructions

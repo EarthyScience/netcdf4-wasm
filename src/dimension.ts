@@ -4,7 +4,7 @@ export class Dimension {
     constructor(
         public readonly name: string,
         public readonly size: number,
-        public readonly isUnlimited: boolean = false
+        public readonly isUnlimited: boolean = false,
     ) {}
 
     __len__(): number {
@@ -12,7 +12,7 @@ export class Dimension {
     }
 
     toString(): string {
-        const sizeStr = this.isUnlimited ? 'unlimited' : this.size.toString();
+        const sizeStr = this.isUnlimited ? "unlimited" : this.size.toString();
         return `<netCDF4.Dimension '${this.name}': size = ${sizeStr}>`;
     }
 }

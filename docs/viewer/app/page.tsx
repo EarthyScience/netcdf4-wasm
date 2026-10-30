@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { NetCDFViewer } from '@/components/loading/netcdf'
+import { NetCDFViewer } from "@/components/loading/netcdf";
 import TopNav from "@/components/loading/TopNav";
 
 export default function Home() {
@@ -54,10 +54,9 @@ export default function Home() {
             className="text-[color:var(--accent-foreground)] hover:text-[#644FF0] transition-colors"
           >
             Jeran Poehls
-            </a>
+          </a>
         </p>
       </footer>
-
     </div>
   );
 }

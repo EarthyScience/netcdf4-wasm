@@ -1,13 +1,19 @@
-import { NC_CONSTANTS, DATA_TYPE_SIZE, CONSTANT_DTYPE_MAP } from './constants.js';
-import type { NetCDF4Module } from './types.js';
-import { DimSelection, ResolvedDim, resolveDim } from "./slice.js";
+import {
+    CONSTANT_DTYPE_MAP,
+    DATA_TYPE_SIZE,
+    NC_CONSTANTS,
+} from "./constants.js";
+import { type DimSelection, type ResolvedDim, resolveDim } from "./slice.js";
+import type { NetCDF4Module } from "./types.js";
 
 export function getGroupVariables(
     module: NetCDF4Module,
     ncid: number,
-    groupPath?: string
+    groupPath?: string,
 ): Record<string, any> {
-    const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
+    const workingNcid = groupPath
+        ? getGroupNCID(module, ncid, groupPath)
+        : ncid;
 
     const variables: Record<string, any> = {};
     const varCount = getVarCount(module, workingNcid);
@@ -16,7 +22,7 @@ export function getGroupVariables(
         const nameResult = module.nc_inq_varname(workingNcid, varid);
         if (nameResult.result !== NC_CONSTANTS.NC_NOERR || !nameResult.name) {
             console.warn(
-                `Failed to get variable name for varid ${varid} (error: ${nameResult.result})`
+                `Failed to get variable name for varid ${varid} (error: ${nameResult.result})`,
             );
             continue;
         }
@@ -24,36 +30,34 @@ export function getGroupVariables(
         const isCoordinate = findDimInHierarchy(
             module,
             workingNcid,
-            nameResult.name
+            nameResult.name,
         );
         if (isCoordinate) continue;
 
         variables[nameResult.name] = {
             id: varid,
-            ncid: workingNcid  // CRITICAL: Store the ncid where this variable lives!
+            ncid: workingNcid, // CRITICAL: Store the ncid where this variable lives!
         };
     }
     return variables;
 }
 
-export function getVarCount(
-    module: NetCDF4Module,
-    ncid: number
-): number {    
+export function getVarCount(module: NetCDF4Module, ncid: number): number {
     const result = module.nc_inq_nvars(ncid);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
-        throw new Error(`Failed to get number of variables (error: ${result.result})`);
+        throw new Error(
+            `Failed to get number of variables (error: ${result.result})`,
+        );
     }
     return result.nvars || 0;
 }
 
-export function getDimCount(
-    module: NetCDF4Module,
-    ncid: number
-): number {    
+export function getDimCount(module: NetCDF4Module, ncid: number): number {
     const result = module.nc_inq_ndims(ncid);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
-        throw new Error(`Failed to get number of dimensions (error: ${result.result})`);
+        throw new Error(
+            `Failed to get number of dimensions (error: ${result.result})`,
+        );
     }
     return result.ndims || 0;
 }
@@ -61,30 +65,34 @@ export function getDimCount(
 export function getDims(
     module: NetCDF4Module,
     ncid: number,
-    groupPath?: string
+    groupPath?: string,
 ): Record<string, any> {
-    const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
+    const workingNcid = groupPath
+        ? getGroupNCID(module, ncid, groupPath)
+        : ncid;
     const dimIDs = getDimIDs(module, workingNcid);
     const dims: Record<string, any> = {};
     for (const dimid of dimIDs) {
-        const dim = getDim(module, workingNcid, dimid)
+        const dim = getDim(module, workingNcid, dimid);
         dims[dim.name] = {
             size: dim.len,
             units: dim.units ?? null,
-            id: dim.id
-        }
+            id: dim.id,
+        };
     }
-    return dims
+    return dims;
 }
 
 export function getDimIDs(
     module: NetCDF4Module,
     ncid: number,
-    includeParents: boolean = false
-): number[] | Int32Array {    
+    includeParents: boolean = false,
+): number[] | Int32Array {
     const result = module.nc_inq_dimids(ncid, includeParents ? 1 : 0);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
-        throw new Error(`Failed to get dimension IDs (error: ${result.result})`);
+        throw new Error(
+            `Failed to get dimension IDs (error: ${result.result})`,
+        );
     }
     return result.dimids ?? [];
 }
@@ -92,9 +100,8 @@ export function getDimIDs(
 function findCoordinateVariable(
     module: NetCDF4Module,
     startNcid: number,
-    name: string
+    name: string,
 ): { ncid: number; varid: number } | null {
-
     let current: number | null = startNcid;
 
     while (current !== null) {
@@ -102,7 +109,7 @@ function findCoordinateVariable(
         if (result.result === NC_CONSTANTS.NC_NOERR) {
             return {
                 ncid: current,
-                varid: result.varid as number
+                varid: result.varid as number,
             };
         }
         current = getGroupParent(module, current);
@@ -114,7 +121,7 @@ function findCoordinateVariable(
 export function getDim(
     module: NetCDF4Module,
     ncid: number,
-    dimid: number
+    dimid: number,
 ): Record<string, any> {
     const result = module.nc_inq_dim(ncid, dimid);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
@@ -140,7 +147,7 @@ export function getDim(
         ...dim,
         id: varID,
         units,
-        coordNcid   // useful for debugging
+        coordNcid, // useful for debugging
     };
 }
 
@@ -148,19 +155,29 @@ export function getAttributeValues(
     module: NetCDF4Module,
     ncid: number,
     varid: number,
-    attname: string
+    attname: string,
 ): any {
     const attInfo = module.nc_inq_att(ncid, varid, attname);
     if (attInfo.result !== NC_CONSTANTS.NC_NOERR) {
-        console.warn(`Failed to get attribute info for ${attname} (error: ${attInfo.result})`);
+        console.warn(
+            `Failed to get attribute info for ${attname} (error: ${attInfo.result})`,
+        );
         return null;
     }
 
     const attType = attInfo.type;
-    if (!attType) throw new Error("Failed to allocate memory for attribute type.");
+    if (!attType)
+        throw new Error("Failed to allocate memory for attribute type.");
 
     // Dispatch table: maps NetCDF type -> module getter
-    const getterMap: { [key: number]: (ncid: number, varid: number, name: string, length: number) => { result: number; data?: any } } = {
+    const getterMap: {
+        [key: number]: (
+            ncid: number,
+            varid: number,
+            name: string,
+            length: number,
+        ) => { result: number; data?: any };
+    } = {
         [NC_CONSTANTS.NC_CHAR]: module.nc_get_att_text,
         [NC_CONSTANTS.NC_SHORT]: module.nc_get_att_short,
         [NC_CONSTANTS.NC_INT]: module.nc_get_att_int,
@@ -172,7 +189,7 @@ export function getAttributeValues(
         [NC_CONSTANTS.NC_USHORT]: module.nc_get_att_ushort,
         [NC_CONSTANTS.NC_LONGLONG]: module.nc_get_att_longlong,
         [NC_CONSTANTS.NC_UINT64]: module.nc_get_att_ulonglong,
-        [NC_CONSTANTS.NC_STRING]: module.nc_get_att_string
+        [NC_CONSTANTS.NC_STRING]: module.nc_get_att_string,
     };
 
     const getter = getterMap[attType];
@@ -185,60 +202,76 @@ export function getAttributeValues(
 export function getGlobalAttributes(
     module: NetCDF4Module,
     ncid: number,
-    groupPath?: string
+    groupPath?: string,
 ): Record<string, any> {
-    const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
+    const workingNcid = groupPath
+        ? getGroupNCID(module, ncid, groupPath)
+        : ncid;
     const attributes: Record<string, any> = {};
     const nattsResult = module.nc_inq_natts(workingNcid);
     if (nattsResult.result !== NC_CONSTANTS.NC_NOERR) {
-        throw new Error(`Failed to get number of global attributes (error: ${nattsResult.result})`);
+        throw new Error(
+            `Failed to get number of global attributes (error: ${nattsResult.result})`,
+        );
     }
-    const nAtts = nattsResult.natts as number
-    const attNames = []
+    const nAtts = nattsResult.natts as number;
+    const attNames = [];
     for (let i = 0; i < nAtts; i++) {
-        const name = getAttributeName(module, workingNcid, NC_CONSTANTS.NC_GLOBAL, i)
-        attNames.push(name)
+        const name = getAttributeName(
+            module,
+            workingNcid,
+            NC_CONSTANTS.NC_GLOBAL,
+            i,
+        );
+        attNames.push(name);
     }
-    if (attNames.length === 0) return attributes
+    if (attNames.length === 0) return attributes;
     for (const attname of attNames) {
         if (!attname) continue;
-        attributes[attname] = getAttributeValues(module, workingNcid, NC_CONSTANTS.NC_GLOBAL, attname)
+        attributes[attname] = getAttributeValues(
+            module,
+            workingNcid,
+            NC_CONSTANTS.NC_GLOBAL,
+            attname,
+        );
     }
-    return attributes
+    return attributes;
 }
 
 export function getAttributeName(
     module: NetCDF4Module,
     ncid: number,
-    varid: number, 
-    attId: number
+    varid: number,
+    attId: number,
 ): string | undefined {
     const result = module.nc_inq_attname(ncid, varid, attId);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
         throw new Error(`Failed to get attribute (error: ${result.result})`);
     }
-    return result.name
+    return result.name;
 }
 
 export function getFullMetadata(
     module: NetCDF4Module,
     ncid: number,
-    groupPath?: string
+    groupPath?: string,
 ): Record<string, any>[] {
-    const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
-    const varIds = getVarIDs(module, workingNcid)
-    const metas = []
+    const workingNcid = groupPath
+        ? getGroupNCID(module, ncid, groupPath)
+        : ncid;
+    const varIds = getVarIDs(module, workingNcid);
+    const metas = [];
     for (const varid of varIds) {
-        const varMeta = getVariableInfo(module, workingNcid, varid)
-        metas.push(varMeta)
+        const varMeta = getVariableInfo(module, workingNcid, varid);
+        metas.push(varMeta);
     }
-    return metas
+    return metas;
 }
 
 export function getVarIDs(
     module: NetCDF4Module,
-    ncid: number
-): number[] | Int32Array {    
+    ncid: number,
+): number[] | Int32Array {
     const result = module.nc_inq_varids(ncid);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
         throw new Error(`Failed to get variable IDs (error: ${result.result})`);
@@ -265,55 +298,69 @@ interface EnumType extends EnumInfo {
 export function getEnumType(
     module: NetCDF4Module,
     ncid: number,
-    xtype: number
+    xtype: number,
 ): EnumType {
     // Get basic enum info
-    const { result: infoResult, name, baseType, baseSize, numMembers } = module.nc_inq_enum(ncid, xtype);
-    if (infoResult !== NC_CONSTANTS.NC_NOERR || !name || baseType === undefined || numMembers === undefined) {
+    const {
+        result: infoResult,
+        name,
+        baseType,
+        baseSize,
+        numMembers,
+    } = module.nc_inq_enum(ncid, xtype);
+    if (
+        infoResult !== NC_CONSTANTS.NC_NOERR ||
+        !name ||
+        baseType === undefined ||
+        numMembers === undefined
+    ) {
         throw new Error(`Failed to get enum info (error: ${infoResult})`);
     }
-    
+
     // Get all members
     const members: EnumMember[] = [];
     for (let i = 0; i < numMembers; i++) {
-        const { result, name: memberName, value } = module.nc_inq_enum_member(
-            ncid, 
-            xtype, 
-            i, 
-            baseType
-        );
-        if (result === NC_CONSTANTS.NC_NOERR && memberName !== undefined && value !== undefined) {
+        const {
+            result,
+            name: memberName,
+            value,
+        } = module.nc_inq_enum_member(ncid, xtype, i, baseType);
+        if (
+            result === NC_CONSTANTS.NC_NOERR &&
+            memberName !== undefined &&
+            value !== undefined
+        ) {
             members.push({ name: memberName, value });
         }
     }
-    
+
     return {
         name,
         baseType,
         baseSize: baseSize!,
         numMembers,
-        members
+        members,
     };
 }
 
 export function getTypeClass(
     module: NetCDF4Module,
     ncid: number,
-    xtype: number
+    xtype: number,
 ): number {
-    
     // Atomic types return themselves as the class
-    if (xtype < 13) { // Below NC_VLEN
+    if (xtype < 13) {
+        // Below NC_VLEN
         return xtype;
     }
-    
+
     // For user-defined types, query the class
     const { result, typeClass } = module.nc_inq_user_type(ncid, xtype);
-    
+
     if (result === NC_CONSTANTS.NC_NOERR && typeClass !== undefined) {
         return typeClass;
     }
-    
+
     return xtype;
 }
 
@@ -321,29 +368,42 @@ function buildEnumDict(
     module: NetCDF4Module,
     ncid: number,
     enumTypeId: number,
-    enumBaseType: number
+    enumBaseType: number,
 ): Record<number, string> {
-
-    const enumInqResult = module.nc_inq_enum(ncid, enumTypeId);    
+    const enumInqResult = module.nc_inq_enum(ncid, enumTypeId);
     const { result: enumResult, numMembers } = enumInqResult;
 
     if (enumResult !== NC_CONSTANTS.NC_NOERR || numMembers === undefined) {
         throw new Error(`Failed to get enum info (error: ${enumResult})`);
     }
-        
+
     const enumDict: Record<number, string> = {};
     for (let i = 0; i < numMembers; i++) {
-        
-        const memberResult = module.nc_inq_enum_member(ncid, enumTypeId, i, enumBaseType);        
-        const { result: memberResultCode, name: memberName, value } = memberResult;
-        
-        if (memberResultCode === NC_CONSTANTS.NC_NOERR && memberName !== undefined && value !== undefined) {
+        const memberResult = module.nc_inq_enum_member(
+            ncid,
+            enumTypeId,
+            i,
+            enumBaseType,
+        );
+        const {
+            result: memberResultCode,
+            name: memberName,
+            value,
+        } = memberResult;
+
+        if (
+            memberResultCode === NC_CONSTANTS.NC_NOERR &&
+            memberName !== undefined &&
+            value !== undefined
+        ) {
             // Note: bigint values exceeding Number.MAX_SAFE_INTEGER will lose precision.
             // In practice enum values are small named constants so this is acceptable.
-            const numValue = typeof value === 'bigint' ? Number(value) : value;
+            const numValue = typeof value === "bigint" ? Number(value) : value;
             enumDict[numValue] = memberName;
         } else {
-            console.warn(`[buildEnumDict] Skipping member ${i}: result=${memberResultCode}, name=${memberName}, value=${value}`);
+            console.warn(
+                `[buildEnumDict] Skipping member ${i}: result=${memberResultCode}, name=${memberName}, value=${value}`,
+            );
         }
     }
 
@@ -359,14 +419,18 @@ interface EnumContext {
 function resolveEnumContext(
     module: NetCDF4Module,
     ncid: number,
-    varType: number
+    varType: number,
 ): EnumContext {
     const typeClass = getTypeClass(module, ncid, varType);
 
-    if (typeClass === NC_CONSTANTS.NC_VLEN ||
+    if (
+        typeClass === NC_CONSTANTS.NC_VLEN ||
         typeClass === NC_CONSTANTS.NC_OPAQUE ||
-        typeClass === NC_CONSTANTS.NC_COMPOUND) {
-        throw new Error(`Unsupported type class: ${typeClass} (VLEN, OPAQUE, and COMPOUND not yet implemented)`);
+        typeClass === NC_CONSTANTS.NC_COMPOUND
+    ) {
+        throw new Error(
+            `Unsupported type class: ${typeClass} (VLEN, OPAQUE, and COMPOUND not yet implemented)`,
+        );
     }
 
     if (typeClass !== NC_CONSTANTS.NC_ENUM) {
@@ -385,15 +449,20 @@ function resolveEnumContext(
 function resolveVariableType(
     module: NetCDF4Module,
     ncid: number,
-    varid: number
+    varid: number,
 ): { nctype: number; size: number; enumCtx: EnumContext } {
     const result = module.nc_inq_var(ncid, varid);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
-        throw new Error(`Failed to get variable info (error: ${result.result})`);
+        throw new Error(
+            `Failed to get variable info (error: ${result.result})`,
+        );
     }
 
     const dimids: number[] = result.dimids ? Array.from(result.dimids) : [];
-    const size = dimids.reduce((acc, dimid) => acc * getDim(module, ncid, dimid).len, 1);
+    const size = dimids.reduce(
+        (acc, dimid) => acc * getDim(module, ncid, dimid).len,
+        1,
+    );
 
     const nctype = result.type as number;
     const enumCtx = resolveEnumContext(module, ncid, nctype);
@@ -405,20 +474,24 @@ export function getVariableInfo(
     module: NetCDF4Module,
     ncid: number,
     variable: number | string,
-    groupPath?: string
+    groupPath?: string,
 ): Record<string, any> {
-    const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
-    const info: Record<string, any> = {}
-    const isId = typeof variable === "number"
-    let varid = variable
+    const workingNcid = groupPath
+        ? getGroupNCID(module, ncid, groupPath)
+        : ncid;
+    const info: Record<string, any> = {};
+    const isId = typeof variable === "number";
+    let varid = variable;
     if (!isId) {
-        const result = module.nc_inq_varid(workingNcid, variable)
-        varid = result.varid as number
+        const result = module.nc_inq_varid(workingNcid, variable);
+        varid = result.varid as number;
     }
 
     const result = module.nc_inq_var(workingNcid, varid as number);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
-        throw new Error(`Failed to get variable info (error: ${result.result})`);
+        throw new Error(
+            `Failed to get variable info (error: ${result.result})`,
+        );
     }
 
     const varType = result.type as number;
@@ -427,61 +500,75 @@ export function getVariableInfo(
     const typeMultiplier = DATA_TYPE_SIZE[actualType];
 
     // Dim Info
-    const dimids = result.dimids
-    const dims = []
-    const shape = []
-    const dimensions: string[] = []
-    let size = 1
+    const dimids = result.dimids;
+    const dims = [];
+    const shape = [];
+    const dimensions: string[] = [];
+    let size = 1;
 
     if (dimids) {
         for (let i = 0; i < dimids.length; i++) {
-            const dimid = dimids[i]
-            const dim = getDim(module, workingNcid, dimid)
-            size *= dim.len
-            dims.push(dim)
-            shape.push(dim.len)
-            dimensions.push(dim.name)
+            const dimid = dimids[i];
+            const dim = getDim(module, workingNcid, dimid);
+            size *= dim.len;
+            dims.push(dim);
+            shape.push(dim.len);
+            dimensions.push(dim.name);
         }
     }
 
     // Attribute Info
-    const attNames = []
+    const attNames = [];
     if (result.natts) {
         for (let i = 0; i < result.natts; i++) {
-            attNames.push(getAttributeName(module, workingNcid, varid as number, i))
+            attNames.push(
+                getAttributeName(module, workingNcid, varid as number, i),
+            );
         }
     }
-    const atts: Record<string, any> = {}
+    const atts: Record<string, any> = {};
     for (const attname of attNames) {
         if (!attname) continue;
-        atts[attname] = getAttributeValues(module, workingNcid, varid as number, attname)
+        atts[attname] = getAttributeValues(
+            module,
+            workingNcid,
+            varid as number,
+            attname,
+        );
     }
 
     // Chunking Info
-    const chunkResult = module.nc_inq_var_chunking(workingNcid, varid as number);
-    const isChunked = chunkResult.chunking === NC_CONSTANTS.NC_CHUNKED
-    const chunks: number[] = isChunked ? chunkResult.chunkSizes as number[] : shape
-    const chunkElements = chunks.reduce((a: number, b: number) => a * b, 1)
+    const chunkResult = module.nc_inq_var_chunking(
+        workingNcid,
+        varid as number,
+    );
+    const isChunked = chunkResult.chunking === NC_CONSTANTS.NC_CHUNKED;
+    const chunks: number[] = isChunked
+        ? (chunkResult.chunkSizes as number[])
+        : shape;
+    const chunkElements = chunks.reduce((a: number, b: number) => a * b, 1);
 
     // Output
-    info["name"]        = result.name
-    info["dtype"]       = enumCtx.isEnum ? `enum(${CONSTANT_DTYPE_MAP[actualType]})` : CONSTANT_DTYPE_MAP[actualType]
-    info["dtype_base"]  = CONSTANT_DTYPE_MAP[actualType]
-    info["nctype"]      = varType
-    info["nctype_base"] = actualType
-    info["shape"]       = shape
-    info["dims"]        = dims
-    info["dimensions"]  = dimensions
-    info["size"]        = size
-    info["totalSize"]   = size * typeMultiplier
-    info["attributes"]  = atts
-    info["chunked"]     = isChunked
-    info["chunks"]      = chunks
-    info["chunkSize"]   = chunkElements * typeMultiplier
+    info["name"] = result.name;
+    info["dtype"] = enumCtx.isEnum
+        ? `enum(${CONSTANT_DTYPE_MAP[actualType]})`
+        : CONSTANT_DTYPE_MAP[actualType];
+    info["dtype_base"] = CONSTANT_DTYPE_MAP[actualType];
+    info["nctype"] = varType;
+    info["nctype_base"] = actualType;
+    info["shape"] = shape;
+    info["dims"] = dims;
+    info["dimensions"] = dimensions;
+    info["size"] = size;
+    info["totalSize"] = size * typeMultiplier;
+    info["attributes"] = atts;
+    info["chunked"] = isChunked;
+    info["chunks"] = chunks;
+    info["chunkSize"] = chunkElements * typeMultiplier;
 
     if (enumCtx.isEnum) {
-        info["enum"]     = enumCtx.enumDict
-        info["enumType"] = { name: result.name, baseType: actualType }
+        info["enum"] = enumCtx.enumDict;
+        info["enumType"] = { name: result.name, baseType: actualType };
     }
 
     return info;
@@ -490,12 +577,13 @@ export function getVariableInfo(
 // Helper function to convert enum values to names
 function convertEnumValuesToNames(
     data: any,
-    enumDict: Record<number, string>
+    enumDict: Record<number, string>,
 ): string[] {
     const enumNames: string[] = [];
     for (let i = 0; i < data.length; i++) {
         const value = data[i];
-        const numValue = typeof value === 'bigint' ? Number(value) : Number(value);
+        const numValue =
+            typeof value === "bigint" ? Number(value) : Number(value);
         enumNames.push(enumDict[numValue] ?? `Unknown(${numValue})`);
     }
     return enumNames;
@@ -506,9 +594,22 @@ export function getVariableArray(
     ncid: number,
     variable: number | string,
     groupPath?: string,
-    options?: { convertEnumsToNames?: boolean }
-): Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array | string[] {
-    const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
+    options?: { convertEnumsToNames?: boolean },
+):
+    | Int8Array
+    | Uint8Array
+    | Int16Array
+    | Uint16Array
+    | Int32Array
+    | Uint32Array
+    | Float32Array
+    | Float64Array
+    | BigInt64Array
+    | BigUint64Array
+    | string[] {
+    const workingNcid = groupPath
+        ? getGroupNCID(module, ncid, groupPath)
+        : ncid;
 
     let varid: number;
     if (typeof variable === "number") {
@@ -516,43 +617,62 @@ export function getVariableArray(
     } else {
         const result = module.nc_inq_varid(workingNcid, variable);
         if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get variable id for '${variable}' (error: ${result.result})`);
+            throw new Error(
+                `Failed to get variable id for '${variable}' (error: ${result.result})`,
+            );
         }
         varid = result.varid as number;
     }
 
-    
-    const { size: arraySize, enumCtx } = resolveVariableType(module, workingNcid, varid);
+    const { size: arraySize, enumCtx } = resolveVariableType(
+        module,
+        workingNcid,
+        varid,
+    );
     const arrayType = enumCtx.baseType;
 
     type VarArgs = [number, number, number];
     type VarResult = { result: number; data?: any };
 
     const readers: Record<number, (...args: VarArgs) => VarResult> = {
-        [NC_CONSTANTS.NC_CHAR]:      (...args) => module.nc_get_var_text(...args),
-        [NC_CONSTANTS.NC_BYTE]:      (...args) => module.nc_get_var_schar(...args),
-        [NC_CONSTANTS.NC_UBYTE]:     (...args) => module.nc_get_var_uchar(...args),
-        [NC_CONSTANTS.NC_SHORT]:     (...args) => module.nc_get_var_short(...args),
-        [NC_CONSTANTS.NC_USHORT]:    (...args) => module.nc_get_var_ushort(...args),
-        [NC_CONSTANTS.NC_INT]:       (...args) => module.nc_get_var_int(...args),
-        [NC_CONSTANTS.NC_UINT]:      (...args) => module.nc_get_var_uint(...args),
-        [NC_CONSTANTS.NC_FLOAT]:     (...args) => module.nc_get_var_float(...args),
-        [NC_CONSTANTS.NC_DOUBLE]:    (...args) => module.nc_get_var_double(...args),
-        [NC_CONSTANTS.NC_INT64]:     (...args) => module.nc_get_var_longlong(...args),
-        [NC_CONSTANTS.NC_LONGLONG]:  (...args) => module.nc_get_var_longlong(...args),
-        [NC_CONSTANTS.NC_UINT64]:    (...args) => module.nc_get_var_ulonglong(...args),
-        [NC_CONSTANTS.NC_ULONGLONG]: (...args) => module.nc_get_var_ulonglong(...args),
-        [NC_CONSTANTS.NC_STRING]:    (...args) => module.nc_get_var_string(...args),
+        [NC_CONSTANTS.NC_CHAR]: (...args) => module.nc_get_var_text(...args),
+        [NC_CONSTANTS.NC_BYTE]: (...args) => module.nc_get_var_schar(...args),
+        [NC_CONSTANTS.NC_UBYTE]: (...args) => module.nc_get_var_uchar(...args),
+        [NC_CONSTANTS.NC_SHORT]: (...args) => module.nc_get_var_short(...args),
+        [NC_CONSTANTS.NC_USHORT]: (...args) =>
+            module.nc_get_var_ushort(...args),
+        [NC_CONSTANTS.NC_INT]: (...args) => module.nc_get_var_int(...args),
+        [NC_CONSTANTS.NC_UINT]: (...args) => module.nc_get_var_uint(...args),
+        [NC_CONSTANTS.NC_FLOAT]: (...args) => module.nc_get_var_float(...args),
+        [NC_CONSTANTS.NC_DOUBLE]: (...args) =>
+            module.nc_get_var_double(...args),
+        [NC_CONSTANTS.NC_INT64]: (...args) =>
+            module.nc_get_var_longlong(...args),
+        [NC_CONSTANTS.NC_LONGLONG]: (...args) =>
+            module.nc_get_var_longlong(...args),
+        [NC_CONSTANTS.NC_UINT64]: (...args) =>
+            module.nc_get_var_ulonglong(...args),
+        [NC_CONSTANTS.NC_ULONGLONG]: (...args) =>
+            module.nc_get_var_ulonglong(...args),
+        [NC_CONSTANTS.NC_STRING]: (...args) =>
+            module.nc_get_var_string(...args),
     };
 
     let arrayData: VarResult;
 
     if (enumCtx.isEnum) {
-        arrayData = module.nc_get_var_generic(workingNcid, varid, arraySize, arrayType);
+        arrayData = module.nc_get_var_generic(
+            workingNcid,
+            varid,
+            arraySize,
+            arrayType,
+        );
     } else {
         const reader = readers[arrayType];
         if (!reader) {
-            console.warn(`Unknown NetCDF type ${arrayType}, falling back to double`);
+            console.warn(
+                `Unknown NetCDF type ${arrayType}, falling back to double`,
+            );
             arrayData = module.nc_get_var_double(workingNcid, varid, arraySize);
         } else {
             arrayData = reader(workingNcid, varid, arraySize);
@@ -560,7 +680,9 @@ export function getVariableArray(
     }
 
     if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
-        throw new Error(`Failed to read array data (error: ${arrayData.result})`);
+        throw new Error(
+            `Failed to read array data (error: ${arrayData.result})`,
+        );
     }
 
     if (!arrayData.data) {
@@ -581,9 +703,22 @@ export function getSlicedVariableArray(
     start: number[],
     count: number[],
     groupPath?: string,
-    options?: { convertEnumsToNames?: boolean }
-): Int8Array | Uint8Array | Int16Array | Uint16Array | Int32Array | Uint32Array | Float32Array | Float64Array | BigInt64Array | BigUint64Array | string[] {
-    const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
+    options?: { convertEnumsToNames?: boolean },
+):
+    | Int8Array
+    | Uint8Array
+    | Int16Array
+    | Uint16Array
+    | Int32Array
+    | Uint32Array
+    | Float32Array
+    | Float64Array
+    | BigInt64Array
+    | BigUint64Array
+    | string[] {
+    const workingNcid = groupPath
+        ? getGroupNCID(module, ncid, groupPath)
+        : ncid;
 
     let varid: number;
     if (typeof variable === "number") {
@@ -591,47 +726,69 @@ export function getSlicedVariableArray(
     } else {
         const result = module.nc_inq_varid(workingNcid, variable);
         if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get variable id for '${variable}' (error: ${result.result})`);
+            throw new Error(
+                `Failed to get variable id for '${variable}' (error: ${result.result})`,
+            );
         }
         varid = result.varid as number;
     }
 
     const { enumCtx } = resolveVariableType(module, workingNcid, varid);
-    const arrayType = enumCtx.baseType; 
+    const arrayType = enumCtx.baseType;
 
     type VaraArgs = [number, number, number[], number[]];
     type VaraResult = { result: number; data?: any };
 
     const readers: Record<number, (...args: VaraArgs) => VaraResult> = {
-        [NC_CONSTANTS.NC_BYTE]:   (...args) => module.nc_get_vara_schar(...args),
-        [NC_CONSTANTS.NC_UBYTE]:  (...args) => module.nc_get_vara_uchar(...args),
-        [NC_CONSTANTS.NC_SHORT]:  (...args) => module.nc_get_vara_short(...args),
-        [NC_CONSTANTS.NC_USHORT]: (...args) => module.nc_get_vara_ushort(...args),
-        [NC_CONSTANTS.NC_INT]:    (...args) => module.nc_get_vara_int(...args),
-        [NC_CONSTANTS.NC_UINT]:   (...args) => module.nc_get_vara_uint(...args),
-        [NC_CONSTANTS.NC_FLOAT]:  (...args) => module.nc_get_vara_float(...args),
-        [NC_CONSTANTS.NC_DOUBLE]: (...args) => module.nc_get_vara_double(...args),
-        [NC_CONSTANTS.NC_INT64]:  (...args) => module.nc_get_vara_longlong(...args),
-        [NC_CONSTANTS.NC_UINT64]: (...args) => module.nc_get_vara_ulonglong(...args),
-        [NC_CONSTANTS.NC_STRING]: (...args) => module.nc_get_vara_string(...args),
+        [NC_CONSTANTS.NC_BYTE]: (...args) => module.nc_get_vara_schar(...args),
+        [NC_CONSTANTS.NC_UBYTE]: (...args) => module.nc_get_vara_uchar(...args),
+        [NC_CONSTANTS.NC_SHORT]: (...args) => module.nc_get_vara_short(...args),
+        [NC_CONSTANTS.NC_USHORT]: (...args) =>
+            module.nc_get_vara_ushort(...args),
+        [NC_CONSTANTS.NC_INT]: (...args) => module.nc_get_vara_int(...args),
+        [NC_CONSTANTS.NC_UINT]: (...args) => module.nc_get_vara_uint(...args),
+        [NC_CONSTANTS.NC_FLOAT]: (...args) => module.nc_get_vara_float(...args),
+        [NC_CONSTANTS.NC_DOUBLE]: (...args) =>
+            module.nc_get_vara_double(...args),
+        [NC_CONSTANTS.NC_INT64]: (...args) =>
+            module.nc_get_vara_longlong(...args),
+        [NC_CONSTANTS.NC_UINT64]: (...args) =>
+            module.nc_get_vara_ulonglong(...args),
+        [NC_CONSTANTS.NC_STRING]: (...args) =>
+            module.nc_get_vara_string(...args),
     };
 
     let arrayData: VaraResult;
 
     if (enumCtx.isEnum) {
-        arrayData = module.nc_get_vara_generic(workingNcid, varid, start, count, arrayType);
+        arrayData = module.nc_get_vara_generic(
+            workingNcid,
+            varid,
+            start,
+            count,
+            arrayType,
+        );
     } else {
         const reader = readers[arrayType];
         if (!reader) {
-            console.warn(`Unknown NetCDF type ${arrayType}, falling back to double`);
-            arrayData = module.nc_get_vara_double(workingNcid, varid, start, count);
+            console.warn(
+                `Unknown NetCDF type ${arrayType}, falling back to double`,
+            );
+            arrayData = module.nc_get_vara_double(
+                workingNcid,
+                varid,
+                start,
+                count,
+            );
         } else {
             arrayData = reader(workingNcid, varid, start, count);
         }
     }
 
     if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
-        throw new Error(`Failed to read sliced array data (error: ${arrayData.result})`);
+        throw new Error(
+            `Failed to read sliced array data (error: ${arrayData.result})`,
+        );
     }
 
     if (!arrayData.data) {
@@ -646,11 +803,16 @@ export function getSlicedVariableArray(
 }
 
 type AnyTypedArray =
-    | Int8Array    | Uint8Array
-    | Int16Array   | Uint16Array
-    | Int32Array   | Uint32Array
-    | Float32Array | Float64Array
-    | BigInt64Array | BigUint64Array
+    | Int8Array
+    | Uint8Array
+    | Int16Array
+    | Uint16Array
+    | Int32Array
+    | Uint32Array
+    | Float32Array
+    | Float64Array
+    | BigInt64Array
+    | BigUint64Array
     | string[];
 
 export function getVariableArrayWithSelection(
@@ -659,9 +821,11 @@ export function getVariableArrayWithSelection(
     variable: number | string,
     selection: DimSelection[],
     groupPath?: string,
-    options?: { convertEnumsToNames?: boolean }
+    options?: { convertEnumsToNames?: boolean },
 ): AnyTypedArray {
-    const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
+    const workingNcid = groupPath
+        ? getGroupNCID(module, ncid, groupPath)
+        : ncid;
 
     // Resolve varid
     let varid: number;
@@ -670,7 +834,9 @@ export function getVariableArrayWithSelection(
     } else {
         const r = module.nc_inq_varid(workingNcid, variable);
         if (r.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to get variable id for '${variable}' (error: ${r.result})`);
+            throw new Error(
+                `Failed to get variable id for '${variable}' (error: ${r.result})`,
+            );
         }
         varid = r.varid as number;
     }
@@ -678,7 +844,9 @@ export function getVariableArrayWithSelection(
     // Query variable dimensions
     const varInfo = module.nc_inq_var(workingNcid, varid);
     if (varInfo.result !== NC_CONSTANTS.NC_NOERR) {
-        throw new Error(`Failed to query variable info (error: ${varInfo.result})`);
+        throw new Error(
+            `Failed to query variable info (error: ${varInfo.result})`,
+        );
     }
 
     const dimids: number[] = Array.from(varInfo.dimids ?? []);
@@ -686,7 +854,7 @@ export function getVariableArrayWithSelection(
 
     if (selection.length !== ndim) {
         throw new Error(
-            `Selection has ${selection.length} dimension(s) but variable has ${ndim}`
+            `Selection has ${selection.length} dimension(s) but variable has ${ndim}`,
         );
     }
 
@@ -694,26 +862,28 @@ export function getVariableArrayWithSelection(
     const dimSizes = dimids.map((dimid: number) => {
         const r = module.nc_inq_dimlen(workingNcid, dimid);
         if (r.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(`Failed to query dim length for dimid ${dimid} (error: ${r.result})`);
+            throw new Error(
+                `Failed to query dim length for dimid ${dimid} (error: ${r.result})`,
+            );
         }
         return r.len as number | bigint;
     });
 
     // Resolve each selection
     const resolved: ResolvedDim[] = selection.map((sel, i) =>
-        resolveDim(sel, dimSizes[i])
+        resolveDim(sel, dimSizes[i]),
     );
 
-    const start  = resolved.map(d => d.start);
-    const count  = resolved.map(d => d.count);
-    const stride = resolved.map(d => d.step);
+    const start = resolved.map((d) => d.start);
+    const count = resolved.map((d) => d.count);
+    const stride = resolved.map((d) => d.step);
 
     // Validate parameters against dimension sizes
     for (let i = 0; i < start.length; i++) {
         const dimSize = Number(dimSizes[i]);
         if (start[i] < 0 || start[i] >= dimSize) {
             throw new Error(
-                `Invalid start[${i}] = ${start[i]} for dimension size ${dimSize}`
+                `Invalid start[${i}] = ${start[i]} for dimension size ${dimSize}`,
             );
         }
         if (count[i] === 0) continue; // valid empty slice — skip further checks
@@ -721,7 +891,7 @@ export function getVariableArrayWithSelection(
         if (lastIdx >= dimSize) {
             throw new Error(
                 `Stride read would exceed dimension bounds: start[${i}]=${start[i]}, ` +
-                `count[${i}]=${count[i]}, stride[${i}]=${stride[i]}, last_idx=${lastIdx}, dimSize=${dimSize}`
+                    `count[${i}]=${count[i]}, stride[${i}]=${stride[i]}, last_idx=${lastIdx}, dimSize=${dimSize}`,
             );
         }
     }
@@ -731,7 +901,7 @@ export function getVariableArrayWithSelection(
     const totalElements = count.reduce((acc, c) => acc * c, 1);
     if (totalElements > 2 ** 31 - 1) {
         throw new Error(
-            `Selection would read ${totalElements} elements, exceeding the safe limit of 2^31 - 1`
+            `Selection would read ${totalElements} elements, exceeding the safe limit of 2^31 - 1`,
         );
     }
 
@@ -740,21 +910,21 @@ export function getVariableArrayWithSelection(
     const arrayType = enumCtx.baseType;
 
     // Return appropriately typed empty array if any dimension has count 0
-    if (count.some(c => c === 0)) {
+    if (count.some((c) => c === 0)) {
         const emptyReaders: Record<number, () => AnyTypedArray> = {
-            [NC_CONSTANTS.NC_BYTE]:      () => new Int8Array(0),
-            [NC_CONSTANTS.NC_UBYTE]:     () => new Uint8Array(0),
-            [NC_CONSTANTS.NC_SHORT]:     () => new Int16Array(0),
-            [NC_CONSTANTS.NC_USHORT]:    () => new Uint16Array(0),
-            [NC_CONSTANTS.NC_INT]:       () => new Int32Array(0),
-            [NC_CONSTANTS.NC_UINT]:      () => new Uint32Array(0),
-            [NC_CONSTANTS.NC_FLOAT]:     () => new Float32Array(0),
-            [NC_CONSTANTS.NC_DOUBLE]:    () => new Float64Array(0),
-            [NC_CONSTANTS.NC_INT64]:     () => new BigInt64Array(0),
-            [NC_CONSTANTS.NC_LONGLONG]:  () => new BigInt64Array(0),
-            [NC_CONSTANTS.NC_UINT64]:    () => new BigUint64Array(0),
+            [NC_CONSTANTS.NC_BYTE]: () => new Int8Array(0),
+            [NC_CONSTANTS.NC_UBYTE]: () => new Uint8Array(0),
+            [NC_CONSTANTS.NC_SHORT]: () => new Int16Array(0),
+            [NC_CONSTANTS.NC_USHORT]: () => new Uint16Array(0),
+            [NC_CONSTANTS.NC_INT]: () => new Int32Array(0),
+            [NC_CONSTANTS.NC_UINT]: () => new Uint32Array(0),
+            [NC_CONSTANTS.NC_FLOAT]: () => new Float32Array(0),
+            [NC_CONSTANTS.NC_DOUBLE]: () => new Float64Array(0),
+            [NC_CONSTANTS.NC_INT64]: () => new BigInt64Array(0),
+            [NC_CONSTANTS.NC_LONGLONG]: () => new BigInt64Array(0),
+            [NC_CONSTANTS.NC_UINT64]: () => new BigUint64Array(0),
             [NC_CONSTANTS.NC_ULONGLONG]: () => new BigUint64Array(0),
-            [NC_CONSTANTS.NC_STRING]:    () => [],
+            [NC_CONSTANTS.NC_STRING]: () => [],
         };
         return (emptyReaders[arrayType] ?? (() => new Float64Array(0)))();
     }
@@ -762,38 +932,66 @@ export function getVariableArrayWithSelection(
     let arrayData: { result: number; data?: any };
 
     if (enumCtx.isEnum) {
-        arrayData = module.nc_get_vars_generic(workingNcid, varid, start, count, stride, arrayType);
+        arrayData = module.nc_get_vars_generic(
+            workingNcid,
+            varid,
+            start,
+            count,
+            stride,
+            arrayType,
+        );
     } else {
         type VarsArgs = [number, number, number[], number[], number[]];
         type VarsResult = { result: number; data?: any };
 
         const readers: Record<number, (...args: VarsArgs) => VarsResult> = {
-            [NC_CONSTANTS.NC_CHAR]:      (...args) => module.nc_get_vars_text(...args),
-            [NC_CONSTANTS.NC_BYTE]:      (...args) => module.nc_get_vars_schar(...args),
-            [NC_CONSTANTS.NC_UBYTE]:     (...args) => module.nc_get_vars_uchar(...args),
-            [NC_CONSTANTS.NC_SHORT]:     (...args) => module.nc_get_vars_short(...args),
-            [NC_CONSTANTS.NC_USHORT]:    (...args) => module.nc_get_vars_ushort(...args),
-            [NC_CONSTANTS.NC_INT]:       (...args) => module.nc_get_vars_int(...args),
-            [NC_CONSTANTS.NC_UINT]:      (...args) => module.nc_get_vars_uint(...args),
-            [NC_CONSTANTS.NC_FLOAT]:     (...args) => module.nc_get_vars_float(...args),
-            [NC_CONSTANTS.NC_DOUBLE]:    (...args) => module.nc_get_vars_double(...args),
-            [NC_CONSTANTS.NC_INT64]:     (...args) => module.nc_get_vars_longlong(...args),
-            [NC_CONSTANTS.NC_LONGLONG]:  (...args) => module.nc_get_vars_longlong(...args),
-            [NC_CONSTANTS.NC_UINT64]:    (...args) => module.nc_get_vars_ulonglong(...args),
-            [NC_CONSTANTS.NC_ULONGLONG]: (...args) => module.nc_get_vars_ulonglong(...args),
-            [NC_CONSTANTS.NC_STRING]:    (...args) => module.nc_get_vars_string(...args),
+            [NC_CONSTANTS.NC_CHAR]: (...args) =>
+                module.nc_get_vars_text(...args),
+            [NC_CONSTANTS.NC_BYTE]: (...args) =>
+                module.nc_get_vars_schar(...args),
+            [NC_CONSTANTS.NC_UBYTE]: (...args) =>
+                module.nc_get_vars_uchar(...args),
+            [NC_CONSTANTS.NC_SHORT]: (...args) =>
+                module.nc_get_vars_short(...args),
+            [NC_CONSTANTS.NC_USHORT]: (...args) =>
+                module.nc_get_vars_ushort(...args),
+            [NC_CONSTANTS.NC_INT]: (...args) => module.nc_get_vars_int(...args),
+            [NC_CONSTANTS.NC_UINT]: (...args) =>
+                module.nc_get_vars_uint(...args),
+            [NC_CONSTANTS.NC_FLOAT]: (...args) =>
+                module.nc_get_vars_float(...args),
+            [NC_CONSTANTS.NC_DOUBLE]: (...args) =>
+                module.nc_get_vars_double(...args),
+            [NC_CONSTANTS.NC_INT64]: (...args) =>
+                module.nc_get_vars_longlong(...args),
+            [NC_CONSTANTS.NC_LONGLONG]: (...args) =>
+                module.nc_get_vars_longlong(...args),
+            [NC_CONSTANTS.NC_UINT64]: (...args) =>
+                module.nc_get_vars_ulonglong(...args),
+            [NC_CONSTANTS.NC_ULONGLONG]: (...args) =>
+                module.nc_get_vars_ulonglong(...args),
+            [NC_CONSTANTS.NC_STRING]: (...args) =>
+                module.nc_get_vars_string(...args),
         };
 
         const reader = readers[arrayType];
         if (!reader) {
-            arrayData = module.nc_get_vars_double(workingNcid, varid, start, count, stride);
+            arrayData = module.nc_get_vars_double(
+                workingNcid,
+                varid,
+                start,
+                count,
+                stride,
+            );
         } else {
             arrayData = reader(workingNcid, varid, start, count, stride);
         }
     }
 
     if (arrayData.result !== NC_CONSTANTS.NC_NOERR) {
-        throw new Error(`Failed to read array data (error: ${arrayData.result})`);
+        throw new Error(
+            `Failed to read array data (error: ${arrayData.result})`,
+        );
     }
     if (!arrayData.data) {
         throw new Error("nc_get_vars returned no data");
@@ -821,42 +1019,42 @@ export function getVariableArrayWithSelection(
 export function getGroupNCID(
     module: NetCDF4Module,
     ncid: number,
-    groupPath: string
+    groupPath: string,
 ): number {
     // Optimization: if path is root, return the ncid
-    if (groupPath === '/' || groupPath === '') {
+    if (groupPath === "/" || groupPath === "") {
         return ncid;
     }
-    
+
     // Try using nc_inq_grp_full_ncid for absolute paths (more efficient)
-    if (groupPath.startsWith('/')) {
+    if (groupPath.startsWith("/")) {
         const result = module.nc_inq_grp_full_ncid(ncid, groupPath);
         if (result.result === NC_CONSTANTS.NC_NOERR) {
             return result.grp_ncid as number;
         }
-        
+
         // Get current path for better error message
         const currentPath = getGroupPath(module, ncid);
         throw new Error(
-            `Failed to find group '${groupPath}' from '${currentPath}' (error: ${result.result})`
+            `Failed to find group '${groupPath}' from '${currentPath}' (error: ${result.result})`,
         );
     }
-    
+
     // Manual traversal for relative paths
-    const parts = groupPath.split('/').filter(p => p.length > 0);
+    const parts = groupPath.split("/").filter((p) => p.length > 0);
     let currentNcid = ncid;
-    
+
     for (const part of parts) {
         const result = module.nc_inq_grp_ncid(currentNcid, part);
         if (result.result !== NC_CONSTANTS.NC_NOERR) {
             const currentPath = getGroupPath(module, currentNcid);
             throw new Error(
-                `Failed to get group ncid for '${part}' in path '${groupPath}' from '${currentPath}' (error: ${result.result})`
+                `Failed to get group ncid for '${part}' in path '${groupPath}' from '${currentPath}' (error: ${result.result})`,
             );
         }
         currentNcid = result.grp_ncid as number;
     }
-    
+
     return currentNcid;
 }
 
@@ -877,23 +1075,23 @@ export const getNCID = getGroupNCID;
  */
 export function getGroups(
     module: NetCDF4Module,
-    ncid: number
+    ncid: number,
 ): Record<string, number> {
     const result = module.nc_inq_grps(ncid);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
         throw new Error(`Failed to get groups (error: ${result.result})`);
     }
-    
+
     const groups: Record<string, number> = {};
     const grpids = result.grpids || [];
-    
+
     for (const grpid of grpids) {
         const nameResult = module.nc_inq_grpname(grpid);
         if (nameResult.result === NC_CONSTANTS.NC_NOERR && nameResult.name) {
             groups[nameResult.name] = grpid;
         }
     }
-    
+
     return groups;
 }
 
@@ -905,26 +1103,26 @@ export function getGroups(
  */
 export function getGroupsRecursive(
     module: NetCDF4Module,
-    ncid: number
+    ncid: number,
 ): Record<string, any> {
     const result = module.nc_inq_grps(ncid);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
         throw new Error(`Failed to get groups (error: ${result.result})`);
     }
-    
+
     const groups: Record<string, any> = {};
     const grpids = result.grpids || [];
-    
+
     for (const grpid of grpids) {
         const nameResult = module.nc_inq_grpname(grpid);
         if (nameResult.result === NC_CONSTANTS.NC_NOERR && nameResult.name) {
             groups[nameResult.name] = {
                 ncid: grpid,
-                subgroups: getGroupsRecursive(module, grpid) // Recursive call
+                subgroups: getGroupsRecursive(module, grpid), // Recursive call
             };
         }
     }
-    
+
     return groups;
 }
 
@@ -934,15 +1132,12 @@ export function getGroupsRecursive(
  * @param ncid - Group ncid
  * @returns Group name
  */
-export function getGroupName(
-    module: NetCDF4Module,
-    ncid: number
-): string {
+export function getGroupName(module: NetCDF4Module, ncid: number): string {
     const result = module.nc_inq_grpname(ncid);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
         throw new Error(`Failed to get group name (error: ${result.result})`);
     }
-    return result.name || '';
+    return result.name || "";
 }
 
 /**
@@ -952,17 +1147,16 @@ export function getGroupName(
  * @param ncid - Group ncid
  * @returns Full path like "/group1/subgroup"
  */
-export function getGroupPath(
-    module: NetCDF4Module,
-    ncid: number
-): string {
+export function getGroupPath(module: NetCDF4Module, ncid: number): string {
     // Use nc_inq_grpname_full to get the complete path efficiently
     const result = module.nc_inq_grpname_full(ncid);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
-        throw new Error(`Failed to get group full name (error: ${result.result})`);
+        throw new Error(
+            `Failed to get group full name (error: ${result.result})`,
+        );
     }
-    
-    return result.full_name || '/';
+
+    return result.full_name || "/";
 }
 
 /**
@@ -973,11 +1167,13 @@ export function getGroupPath(
  */
 export function getGroupPathLength(
     module: NetCDF4Module,
-    ncid: number
+    ncid: number,
 ): number {
     const result = module.nc_inq_grpname_len(ncid);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
-        throw new Error(`Failed to get group name length (error: ${result.result})`);
+        throw new Error(
+            `Failed to get group name length (error: ${result.result})`,
+        );
     }
     return result.lenp || 0;
 }
@@ -990,7 +1186,7 @@ export function getGroupPathLength(
  */
 export function getGroupParent(
     module: NetCDF4Module,
-    ncid: number
+    ncid: number,
 ): number | null {
     const result = module.nc_inq_grp_parent(ncid);
     if (result.result !== NC_CONSTANTS.NC_NOERR) {
@@ -1001,9 +1197,8 @@ export function getGroupParent(
 function findDimInHierarchy(
     module: NetCDF4Module,
     startNcid: number,
-    name: string
+    name: string,
 ): boolean {
-
     let current: number | null = startNcid;
 
     while (current !== null) {
@@ -1030,16 +1225,18 @@ export function getCompleteHierarchy(
     module: NetCDF4Module,
     ncid: number,
     groupPath?: string,
-    includeParentDims: boolean = false
+    includeParentDims: boolean = false,
 ): Record<string, any> {
-    const workingNcid = groupPath ? getGroupNCID(module, ncid, groupPath) : ncid;
-    
+    const workingNcid = groupPath
+        ? getGroupNCID(module, ncid, groupPath)
+        : ncid;
+
     // Get variables at this level (now includes ncid)
     const variables = getGroupVariables(module, workingNcid);
-    
+
     // Get dimensions at this level
     const dimensions = getDims(module, workingNcid);
-    
+
     // If includeParentDims is true, also get parent dimensions
     if (includeParentDims) {
         const result = module.nc_inq_dimids(workingNcid, 1);
@@ -1053,7 +1250,7 @@ export function getCompleteHierarchy(
                         size: dim.len,
                         units: dim.units ?? null,
                         id: dim.id,
-                        inherited: true
+                        inherited: true,
                     };
                 }
             }
@@ -1061,39 +1258,42 @@ export function getCompleteHierarchy(
             Object.assign(dimensions, parentDims);
         }
     }
-    
+
     // Get attributes at this level
     const attributes = getGlobalAttributes(module, workingNcid);
-    
+
     // Get the full path for this group
     const fullPath = getGroupPath(module, workingNcid);
-    
+
     // Get subgroups and recurse
     const groupsResult = module.nc_inq_grps(workingNcid);
     const subgroups: Record<string, any> = {};
-    
+
     if (groupsResult.result === NC_CONSTANTS.NC_NOERR && groupsResult.grpids) {
         for (const grpid of groupsResult.grpids) {
             const nameResult = module.nc_inq_grpname(grpid);
-            if (nameResult.result === NC_CONSTANTS.NC_NOERR && nameResult.name) {
+            if (
+                nameResult.result === NC_CONSTANTS.NC_NOERR &&
+                nameResult.name
+            ) {
                 // Recursively get the complete hierarchy for this subgroup
                 subgroups[nameResult.name] = getCompleteHierarchy(
-                    module, 
-                    grpid, 
-                    undefined, 
-                    includeParentDims
+                    module,
+                    grpid,
+                    undefined,
+                    includeParentDims,
                 );
             }
         }
     }
-    
+
     return {
-        ncid: workingNcid,  // Include the ncid at this level
-        path: fullPath,      // Include the full path
+        ncid: workingNcid, // Include the ncid at this level
+        path: fullPath, // Include the full path
         variables,
         dimensions,
         attributes,
-        groups: subgroups
+        groups: subgroups,
     };
 }
 
@@ -1108,32 +1308,38 @@ export function getCompleteHierarchy(
 export function getVariables(
     module: NetCDF4Module,
     ncid: number,
-    currentPath?: string
+    currentPath?: string,
 ): Record<string, any> {
     const allVars: Record<string, any> = {};
-    
+
     // Get the actual path if not provided
     const path = currentPath || getGroupPath(module, ncid);
-    
+
     // Get variables at current level
     const vars = getGroupVariables(module, ncid);
     for (const [name, varData] of Object.entries(vars)) {
-        const fullPath = path === '/' ? name : `${path}/${name}`;
+        const fullPath = path === "/" ? name : `${path}/${name}`;
         allVars[fullPath] = { ...varData, path, ncid };
     }
-    
+
     // Recurse into subgroups
     const groupsResult = module.nc_inq_grps(ncid);
     if (groupsResult.result === NC_CONSTANTS.NC_NOERR && groupsResult.grpids) {
         for (const grpid of groupsResult.grpids) {
             const nameResult = module.nc_inq_grpname(grpid);
-            if (nameResult.result === NC_CONSTANTS.NC_NOERR && nameResult.name) {
-                const newPath = path === '/' ? nameResult.name : `${path}/${nameResult.name}`;
+            if (
+                nameResult.result === NC_CONSTANTS.NC_NOERR &&
+                nameResult.name
+            ) {
+                const newPath =
+                    path === "/"
+                        ? nameResult.name
+                        : `${path}/${nameResult.name}`;
                 const subVars = getVariables(module, grpid, newPath);
                 Object.assign(allVars, subVars);
             }
         }
     }
-    
+
     return allVars;
 }

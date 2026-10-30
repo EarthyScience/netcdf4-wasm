@@ -6,12 +6,12 @@ Module.preRun = Module.preRun || [];
 Module.postRun = Module.postRun || [];
 
 // Memory and filesystem setup
-Module.preRun.push(function() {
-    console.log('NetCDF4 WASM: Initializing...');
+Module.preRun.push(function () {
+  console.log("NetCDF4 WASM: Initializing...");
 });
 
-Module.postRun.push(function() {
-    console.log('NetCDF4 WASM: Ready');
+Module.postRun.push(function () {
+  console.log("NetCDF4 WASM: Ready");
 });
 
 // Note: When using EXPORT_ES6=1, Emscripten handles the module export

@@ -1,10 +1,10 @@
 // Group class for hierarchical data organization
 
-import type { NetCDF4 } from './netcdf4.js';
-import { Dimension } from './dimension.js';
-import { Variable } from './variable.js';
-import { NC_CONSTANTS, DATA_TYPE_MAP } from './constants.js';
-import type { VariableOptions } from './types.js';
+import { DATA_TYPE_MAP, NC_CONSTANTS } from "./constants.js";
+import { Dimension } from "./dimension.js";
+import type { NetCDF4 } from "./netcdf4.js";
+import type { VariableOptions } from "./types.js";
+import { Variable } from "./variable.js";
 
 export class Group {
     public readonly dimensions: { [name: string]: Dimension } = {};
@@ -16,15 +16,15 @@ export class Group {
         protected netcdf: NetCDF4,
         public readonly name: string,
         protected groupId: number,
-        protected parent?: Group
+        protected parent?: Group,
     ) {}
 
     // Attribute methods
     setAttr(name: string, value: any): void {
         this._attributes[name] = value;
-        
+
         // Store in mock file system if in test mode
-        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
             const mockFiles = (global as any).__netcdf4_mock_files;
             const dataset = this.netcdf as any;
             if (mockFiles && dataset.filename && mockFiles[dataset.filename]) {
@@ -36,7 +36,7 @@ export class Group {
 
     getAttr(name: string): any {
         // Check mock file system first if in test mode
-        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
             const mockFiles = (global as any).__netcdf4_mock_files;
             const dataset = this.netcdf as any;
             if (mockFiles && dataset.filename && mockFiles[dataset.filename]) {
@@ -54,20 +54,31 @@ export class Group {
         return Object.keys(this._attributes);
     }
 
-    async createDimension(name: string, size: number | null): Promise<Dimension> {
+    async createDimension(
+        name: string,
+        size: number | null,
+    ): Promise<Dimension> {
         // Check for duplicate dimension name
         if (this.dimensions[name]) {
             throw new Error(`Dimension '${name}' already exists`);
         }
         // Check for invalid size values
         if (size !== null && size < 0) {
-            throw new Error(`Invalid dimension size: ${size}. Size must be non-negative or null for unlimited.`);
+            throw new Error(
+                `Invalid dimension size: ${size}. Size must be non-negative or null for unlimited.`,
+            );
         }
         // Handle unlimited dimension (null only — size=0 is a valid finite dimension)
         const isUnlimited = size === null;
-        const ncSize = isUnlimited ? 0 : size as number; // Use 0 for unlimited in the actual NetCDF API
-        const dimid = await this.netcdf.defineDimension(this.groupId, name, ncSize);
-        const actualSize = isUnlimited ? NC_CONSTANTS.NC_UNLIMITED : size as number;
+        const ncSize = isUnlimited ? 0 : (size as number); // Use 0 for unlimited in the actual NetCDF API
+        const dimid = await this.netcdf.defineDimension(
+            this.groupId,
+            name,
+            ncSize,
+        );
+        const actualSize = isUnlimited
+            ? NC_CONSTANTS.NC_UNLIMITED
+            : (size as number);
         const dimension = new Dimension(name, actualSize, isUnlimited);
         this.dimensions[name] = dimension;
         return dimension;
@@ -75,26 +86,39 @@ export class Group {
 
     // Load dimensions and variables from mock storage when in test mode
     public loadMockDimensions(): void {
-        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
             const mockFiles = (global as any).__netcdf4_mock_files;
             const dataset = this.netcdf as any;
             if (mockFiles && dataset.filename && mockFiles[dataset.filename]) {
                 // Load dimensions
                 const mockDims = mockFiles[dataset.filename].dimensions;
                 for (const [name, dimData] of Object.entries(mockDims as any)) {
-                    const dimension = new Dimension(name, (dimData as any).size, (dimData as any).unlimited);
+                    const dimension = new Dimension(
+                        name,
+                        (dimData as any).size,
+                        (dimData as any).unlimited,
+                    );
                     this.dimensions[name] = dimension;
                 }
-                
+
                 // Load variables
                 const mockVars = mockFiles[dataset.filename].variables;
                 for (const [name, varData] of Object.entries(mockVars as any)) {
                     const varInfo = varData as any;
                     // Reconstruct variable - for now, assume double datatype and no dimensions for simplicity
-                    const variable = new Variable(this.netcdf, name, varInfo.datatype || 'f8', varInfo.dimensions || [], 1, this.groupId);
+                    const variable = new Variable(
+                        this.netcdf,
+                        name,
+                        varInfo.datatype || "f8",
+                        varInfo.dimensions || [],
+                        1,
+                        this.groupId,
+                    );
                     // Restore variable attributes
                     if (varInfo.attributes) {
-                        for (const [attrName, attrValue] of Object.entries(varInfo.attributes)) {
+                        for (const [attrName, attrValue] of Object.entries(
+                            varInfo.attributes,
+                        )) {
                             variable.setAttr(attrName, attrValue);
                         }
                     }
@@ -105,10 +129,10 @@ export class Group {
     }
 
     async createVariable(
-        name: string, 
-        datatype: string, 
+        name: string,
+        datatype: string,
         dimensions: string[] = [],
-        options: VariableOptions = {}
+        options: VariableOptions = {},
     ): Promise<Variable> {
         const ncType = DATA_TYPE_MAP[datatype];
         if (ncType === undefined) {
@@ -116,7 +140,7 @@ export class Group {
         }
 
         // Get dimension IDs
-        const dimIds = dimensions.map(dimName => {
+        const dimIds = dimensions.map((dimName) => {
             const dim = this.dimensions[dimName];
             if (!dim) {
                 throw new Error(`Dimension '${dimName}' not found`);
@@ -125,12 +149,24 @@ export class Group {
             return Object.keys(this.dimensions).indexOf(dimName);
         });
 
-        const varid = await this.netcdf.defineVariable(this.groupId, name, ncType, dimIds);
-        const variable = new Variable(this.netcdf, name, datatype, dimensions, varid, this.groupId);
+        const varid = await this.netcdf.defineVariable(
+            this.groupId,
+            name,
+            ncType,
+            dimIds,
+        );
+        const variable = new Variable(
+            this.netcdf,
+            name,
+            datatype,
+            dimensions,
+            varid,
+            this.groupId,
+        );
         this.variables[name] = variable;
-        
+
         // Store variable metadata in mock storage if in test mode
-        if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
             const mockFiles = (global as any).__netcdf4_mock_files;
             const dataset = this.netcdf as any;
             if (mockFiles && dataset.filename && mockFiles[dataset.filename]) {
@@ -139,11 +175,11 @@ export class Group {
                     datatype: datatype,
                     dimensions: dimensions,
                     data: new Float64Array(0),
-                    attributes: {}
+                    attributes: {},
                 };
             }
         }
-        
+
         return variable;
     }
 
@@ -161,16 +197,18 @@ export class Group {
 
     // Get group path (Python-like)
     get path(): string {
-        if (!this.parent) return '/';
+        if (!this.parent) return "/";
         const parentPath = this.parent.path;
-        return parentPath === '/' ? `/${this.name}` : `${parentPath}/${this.name}`;
+        return parentPath === "/"
+            ? `/${this.name}`
+            : `${parentPath}/${this.name}`;
     }
 
     async load(): Promise<void> {
         // 1. Dimensions
         const dims = await this.netcdf.getDims(this.path);
         for (const key in this.dimensions) delete this.dimensions[key];
-        
+
         for (const [name, d] of Object.entries(dims)) {
             this.dimensions[name] = new Dimension(name, d.size, false);
         }
@@ -182,16 +220,16 @@ export class Group {
         for (const [name, v] of Object.entries(vars)) {
             const info = await this.netcdf.getVariableInfo(v.id, this.path);
             const dimNames = info.dims.map((d: any) => d.name);
-            
+
             const variable = new Variable(
                 this.netcdf,
                 name,
                 info.dtype,
                 dimNames,
                 v.id,
-                this.groupId
+                this.groupId,
             );
-            
+
             if (info.attributes) {
                 for (const [k, val] of Object.entries(info.attributes)) {
                     variable.setAttr(k, val);
@@ -209,7 +247,7 @@ export class Group {
             await group.load();
             this.groups[name] = group;
         }
-        
+
         // 4. Attributes
         const attrs = await this.netcdf.getGlobalAttributes(this.path);
         for (const [k, v] of Object.entries(attrs)) {

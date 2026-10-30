@@ -1,11 +1,16 @@
-'use client';
-import React from 'react';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { Spinner } from '@/components/ui/spinner';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Card, CardContent } from '@/components/ui/card';
-import { VariableData, VariableArrayData } from './types';
+"use client";
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Spinner } from "@/components/ui/spinner";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { VariableArrayData, VariableData } from "./types";
 
 type ArrayElement = number | bigint | string;
 
@@ -20,16 +25,24 @@ interface VariableDataLoaderProps {
 }
 
 const isIntegerDtype = (dtype: string) =>
-  /^(int|uint|i|u)\d+$|^(int8|int16|int32|int64|uint8|uint16|uint32|uint64|byte|ubyte|short|ushort)$/i.test(dtype);
+  /^(int|uint|i|u)\d+$|^(int8|int16|int32|int64|uint8|uint16|uint32|uint64|byte|ubyte|short|ushort)$/i.test(
+    dtype,
+  );
 
 const formatValue = (v: ArrayElement, integer: boolean): string => {
-  if (typeof v === 'number') return integer ? String(Math.trunc(v)) : v.toFixed(2);
-  if (typeof v === 'bigint') return String(v);
+  if (typeof v === "number")
+    return integer ? String(Math.trunc(v)) : v.toFixed(2);
+  if (typeof v === "bigint") return String(v);
   return String(v);
 };
 
-const formatDataPreview = (data: VariableArrayData, dtype: string, baseType?: string, maxItems = 20): string => {
-  if (!data) return 'No data';
+const formatDataPreview = (
+  data: VariableArrayData,
+  dtype: string,
+  baseType?: string,
+  maxItems = 20,
+): string => {
+  if (!data) return "No data";
   const effectiveDtype = baseType ?? dtype;
   const integer = isIntegerDtype(effectiveDtype);
   const len = data.length ?? 0;
@@ -38,8 +51,8 @@ const formatDataPreview = (data: VariableArrayData, dtype: string, baseType?: st
   for (let i = 0; i < count; i++) {
     preview.push(formatValue(data[i] as ArrayElement, integer));
   }
-  const suffix = len > maxItems ? `, ... (${len} total)` : '';
-  return `[${preview.join(', ')}${suffix}]`;
+  const suffix = len > maxItems ? `, ... (${len} total)` : "";
+  return `[${preview.join(", ")}${suffix}]`;
 };
 
 export const VariableDataLoader = ({
@@ -51,14 +64,13 @@ export const VariableDataLoader = ({
 }: VariableDataLoaderProps) => {
   const info = variable.info;
   const isLoading = loadingVariable === variableName;
-  const isStringType = ['S1', 'char'].includes(info?.dtype ?? '');
+  const isStringType = ["S1", "char"].includes(info?.dtype ?? "");
 
   if (!info) return null;
 
   return (
     <Card className="border-0 py-1">
       <CardContent className="space-y-3 p-2 sm:p-3">
-
         {/* Load controls */}
         <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-end">
           {!isStringType && (
@@ -67,7 +79,12 @@ export const VariableDataLoader = ({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => onLoadSlice(variableName, Math.min(DEFAULT_SLICE_SIZE, info.size))}
+                  onClick={() =>
+                    onLoadSlice(
+                      variableName,
+                      Math.min(DEFAULT_SLICE_SIZE, info.size),
+                    )
+                  }
                   disabled={isLoading}
                   className="flex-1 sm:flex-initial cursor-pointer"
                 >
@@ -87,7 +104,10 @@ export const VariableDataLoader = ({
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Loading all data may be slow or crash for large variables.</p>
+                      <p>
+                        Loading all data may be slow or crash for large
+                        variables.
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
@@ -129,13 +149,14 @@ export const VariableDataLoader = ({
         {/* Data preview */}
         {variable.data && (
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Data Preview:</Label>
+            <Label className="text-xs text-muted-foreground">
+              Data Preview:
+            </Label>
             <pre className="bg-muted p-3 rounded font-mono text-xs overflow-x-auto max-w-full whitespace-pre-wrap break-all">
               {formatDataPreview(variable.data, info.dtype, info.dtype_base)}
             </pre>
           </div>
         )}
-
       </CardContent>
     </Card>
   );

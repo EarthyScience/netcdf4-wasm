@@ -1,8 +1,8 @@
-'use client';
-import React from 'react';
-import { ChevronRight, ChevronDown } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { VariableData } from './types';
+"use client";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import React from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { VariableData } from "./types";
 
 interface VariableDetailsProps {
   variable: VariableData;
@@ -30,7 +30,6 @@ export const VariableDetails = ({
     <Card className="border-0 py-1">
       <CardContent className="space-y-3 p-2 sm:p-3">
         <div className="space-y-2">
-
           {/* Variable Info */}
           <div className="border-[0.1px] rounded-lg overflow-hidden">
             <button
@@ -49,19 +48,35 @@ export const VariableDetails = ({
               <div className="max-h-[300px] overflow-y-auto px-3 pb-3 space-y-2 sm:space-y-1 text-xs overflow-x-auto">
                 {(
                   [
-                    ['name', info.name],
-                    ['dtype', info.dtype],
-                    ...(info.nctype !== undefined ? [['nctype', info.nctype]] : []),
-                    ['shape', `[${info.shape.join(', ')}]`],
-                    ['dimensions', `[${info.dimensions?.join(', ') || 'N/A'}]`],
-                    ['size', info.size.toLocaleString()],
-                    ...(info.totalSize !== undefined
-                      ? [['totalSize', `${info.totalSize.toLocaleString()} bytes`]]
+                    ["name", info.name],
+                    ["dtype", info.dtype],
+                    ...(info.nctype !== undefined
+                      ? [["nctype", info.nctype]]
                       : []),
-                    ...(info.chunked !== undefined ? [['chunked', String(info.chunked)]] : []),
-                    ...(info.chunks ? [['chunks', `[${info.chunks.join(', ')}]`]] : []),
+                    ["shape", `[${info.shape.join(", ")}]`],
+                    ["dimensions", `[${info.dimensions?.join(", ") || "N/A"}]`],
+                    ["size", info.size.toLocaleString()],
+                    ...(info.totalSize !== undefined
+                      ? [
+                          [
+                            "totalSize",
+                            `${info.totalSize.toLocaleString()} bytes`,
+                          ],
+                        ]
+                      : []),
+                    ...(info.chunked !== undefined
+                      ? [["chunked", String(info.chunked)]]
+                      : []),
+                    ...(info.chunks
+                      ? [["chunks", `[${info.chunks.join(", ")}]`]]
+                      : []),
                     ...(info.chunkSize !== undefined
-                      ? [['chunkSize', `${info.chunkSize.toLocaleString()} bytes`]]
+                      ? [
+                          [
+                            "chunkSize",
+                            `${info.chunkSize.toLocaleString()} bytes`,
+                          ],
+                        ]
                       : []),
                   ] as [string, string][]
                 ).map(([label, value]) => (
@@ -69,8 +84,12 @@ export const VariableDetails = ({
                     key={label}
                     className="flex flex-col sm:grid sm:grid-cols-[150px_1fr] gap-0.5 sm:gap-2 min-w-0"
                   >
-                    <span className="font-mono text-muted-foreground">{label}:</span>
-                    <span className="font-mono break-all pl-4 sm:pl-0">{value}</span>
+                    <span className="font-mono text-muted-foreground">
+                      {label}:
+                    </span>
+                    <span className="font-mono break-all pl-4 sm:pl-0">
+                      {value}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -109,7 +128,9 @@ export const VariableDetails = ({
                           <span className="font-mono text-muted-foreground text-right">
                             {value}:
                           </span>
-                          <span className="font-mono break-all">{String(label)}</span>
+                          <span className="font-mono break-all">
+                            {String(label)}
+                          </span>
                         </React.Fragment>
                       ))}
                   </div>
@@ -118,7 +139,8 @@ export const VariableDetails = ({
                       <div className="flex items-center gap-2 text-xs">
                         <span>Base Type:</span>
                         <span className="font-mono">
-                          {info.dtype_base || `NC_TYPE_${info.enumType.baseType}`}
+                          {info.dtype_base ||
+                            `NC_TYPE_${info.enumType.baseType}`}
                         </span>
                       </div>
                     </div>
@@ -152,11 +174,13 @@ export const VariableDetails = ({
                       key={k}
                       className="flex flex-col sm:grid sm:grid-cols-[minmax(100px,auto)_1fr] gap-0.5 sm:gap-2 min-w-0"
                     >
-                      <span className="font-mono text-muted-foreground">{k}:</span>
+                      <span className="font-mono text-muted-foreground">
+                        {k}:
+                      </span>
                       <span className="font-mono break-all pl-4 sm:pl-0">
-                        {typeof v === 'object'
+                        {typeof v === "object"
                           ? JSON.stringify(v, (_k, val) =>
-                              typeof val === 'bigint' ? Number(val) : val
+                              typeof val === "bigint" ? Number(val) : val,
                             )
                           : String(v)}
                       </span>
@@ -166,7 +190,6 @@ export const VariableDetails = ({
               )}
             </div>
           )}
-
         </div>
       </CardContent>
     </Card>

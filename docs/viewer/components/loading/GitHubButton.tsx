@@ -1,15 +1,24 @@
 "use client";
 
-import { FaGithub } from "react-icons/fa";
 import Link from "next/link";
+import { FaGithub } from "react-icons/fa";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function GithubButton() {
   return (
     <Tooltip delayDuration={500}>
       <TooltipTrigger asChild>
-        <Link href="https://github.com/EarthyScience/netcdf4-wasm" aria-label="github" target="_blank" rel="noopener noreferrer">
+        <Link
+          href="https://github.com/EarthyScience/netcdf4-wasm"
+          aria-label="github"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           <Button
             variant="ghost"
             className="

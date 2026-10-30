@@ -1,7 +1,7 @@
 "use client";
 
-import GithubButton from "@/components/loading/GitHubButton";
 import BrowzarrCTA from "@/components/loading/BrowzarrCTA";
+import GithubButton from "@/components/loading/GitHubButton";
 
 export default function TopNav() {
   return (
