@@ -41,6 +41,28 @@ describe("Data types", () => {
         ]);
     });
 
+    // netCDF-C allocates every string it returns; leaking them moves the top
+    // of the heap, so a large allocation lands further up after each read
+    test.each([
+        ["getVariableArray", () => ds.getVariableArray("strings")],
+        [
+            "getSlicedVariableArray",
+            () => ds.getSlicedVariableArray("strings", [0], [4]),
+        ],
+        ["get", () => ds.get("strings", ["all"])],
+    ])("frees the strings read by %s", async (_, read) => {
+        const module = ds.getModule();
+        const heapTop = () => {
+            const ptr = module._malloc(1 << 20);
+            module._free(ptr);
+            return ptr;
+        };
+        await read();
+        const before = heapTop();
+        for (let i = 0; i < 1000; i++) await read();
+        expect(heapTop()).toBe(before);
+    });
+
     // The rows of a char array are concatenated with their NUL padding
     // dropped, so the result is ["abcdef"]
     test.fails("reads a char array row by row", async () => {

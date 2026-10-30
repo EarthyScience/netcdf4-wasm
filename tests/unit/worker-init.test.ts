@@ -1,15 +1,25 @@
 // Worker initialization tests: init failures must reject instead of hanging
 
 import { getEventListeners } from "node:events";
-import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import {
+    afterAll,
+    beforeAll,
+    beforeEach,
+    describe,
+    expect,
+    test,
+    vi,
+} from "vitest";
 import { NetCDF4 } from "../../src/index.js";
 
 // Minimal stand-in for the browser Worker. Answers 'init' with
-// FakeWorker.initReply (reply data, or an event dispatched as is)
-// and every other request with success.
+// FakeWorker.initReply (reply data, or an event dispatched as is),
+// 'open' with FakeWorker.openReply and every other request with success.
 class FakeWorker extends EventTarget {
     static currentWorker: FakeWorker;
     static initReply: Record<string, unknown> | Event;
+    static openReply: Record<string, unknown>;
+    terminated = false;
 
     constructor() {
         super();
@@ -20,7 +30,9 @@ class FakeWorker extends EventTarget {
         const reply =
             type === "init"
                 ? FakeWorker.initReply
-                : { success: true, result: 1 };
+                : type === "open"
+                  ? FakeWorker.openReply
+                  : { success: true, result: 1 };
         queueMicrotask(() =>
             this.dispatchEvent(
                 reply instanceof Event
@@ -30,7 +42,9 @@ class FakeWorker extends EventTarget {
         );
     }
 
-    terminate() {}
+    terminate() {
+        this.terminated = true;
+    }
 }
 
 function expectNoInitListeners() {
@@ -48,15 +62,21 @@ describe("Worker Initialization", () => {
             Object.assign(globalThis, { Worker: FakeWorker });
         });
 
+        beforeEach(() => {
+            FakeWorker.openReply = { success: true, result: 1 };
+        });
+
         test("should open dataset when worker reports success", async () => {
             FakeWorker.initReply = { success: true };
 
             const dataset = await NetCDF4.fromBlobLazy(new Blob([]));
 
             expect(dataset.isopen).toBe(true);
+            expect(FakeWorker.currentWorker.terminated).toBe(false);
             expectNoInitListeners();
 
             await dataset.close();
+            expect(FakeWorker.currentWorker.terminated).toBe(true);
         });
 
         test("should reject with the error sent by the worker", async () => {
@@ -68,6 +88,7 @@ describe("Worker Initialization", () => {
             await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow(
                 "wasm fetch failed",
             );
+            expect(FakeWorker.currentWorker.terminated).toBe(true);
             expectNoInitListeners();
         });
 
@@ -79,6 +100,7 @@ describe("Worker Initialization", () => {
             await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow(
                 "Worker failed to start: Script error",
             );
+            expect(FakeWorker.currentWorker.terminated).toBe(true);
             expectNoInitListeners();
         });
 
@@ -88,7 +110,22 @@ describe("Worker Initialization", () => {
             await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow(
                 "Worker failed to start: unknown error",
             );
+            expect(FakeWorker.currentWorker.terminated).toBe(true);
             expectNoInitListeners();
+        });
+
+        // The caller never gets the dataset, so nothing else could stop the worker
+        test("should terminate the worker when the file fails to open", async () => {
+            FakeWorker.initReply = { success: true };
+            FakeWorker.openReply = {
+                success: false,
+                error: "nc_open failed: -51",
+            };
+
+            await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow(
+                "nc_open failed: -51",
+            );
+            expect(FakeWorker.currentWorker.terminated).toBe(true);
         });
     });
 
