@@ -37,7 +37,6 @@ const waitForModule: Promise<EmscriptenModule> = (async () => {
     return netcdfModule;
 })();
 
-// @ts-expect-error worker scope
 self.onmessage = async (e: MessageEvent) => {
     const data = e.data;
     const { type, id } = data;
