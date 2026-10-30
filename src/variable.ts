@@ -19,22 +19,6 @@ export class Variable {
     setAttr(name: string, value: any): void {
         this._attributes[name] = value;
 
-        // Store in mock file system if in test mode
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
-            const mockFiles = (global as any).__netcdf4_mock_files;
-            const dataset = this.netcdf as any;
-            if (
-                mockFiles &&
-                dataset.filename &&
-                mockFiles[dataset.filename] &&
-                mockFiles[dataset.filename].variables[this.name]
-            ) {
-                mockFiles[dataset.filename].variables[this.name].attributes[
-                    name
-                ] = value;
-            }
-        }
-
         // TODO: Implement actual NetCDF attribute setting
     }
 
@@ -48,22 +32,6 @@ export class Variable {
 
     // Data access methods
     async getValue(): Promise<Float64Array | Float32Array> {
-        // Check if we're in test mode and have stored data
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
-            const mockFiles = (global as any).__netcdf4_mock_files;
-            const dataset = this.netcdf as any;
-            if (mockFiles && dataset.filename && mockFiles[dataset.filename]) {
-                const variables = mockFiles[dataset.filename].variables;
-                if (variables[this.name] && variables[this.name].data) {
-                    const storedData = variables[this.name].data;
-                    if (this.datatype === "f4" || this.datatype === "float") {
-                        return new Float32Array(storedData);
-                    }
-                    return storedData;
-                }
-            }
-        }
-
         const totalSize = this.dimensions.reduce((acc, dimName) => {
             const dim = this.netcdf.dimensions[dimName];
             if (!dim) return acc * 1;
@@ -71,33 +39,7 @@ export class Variable {
             // Handle unlimited dimensions - use actual current size if available
             let actualSize = dim.size;
             if (dim.isUnlimited) {
-                // In test mode, try to get the actual size from stored data
-                if (
-                    typeof process !== "undefined" &&
-                    process.env.NODE_ENV === "test"
-                ) {
-                    const mockFiles = (global as any).__netcdf4_mock_files;
-                    const dataset = this.netcdf as any;
-                    if (
-                        mockFiles &&
-                        dataset.filename &&
-                        mockFiles[dataset.filename]
-                    ) {
-                        const variables = mockFiles[dataset.filename].variables;
-                        if (variables[this.name] && variables[this.name].data) {
-                            // Calculate size based on the current variable's shape
-                            const storedData = variables[this.name].data;
-                            actualSize = Math.max(
-                                1,
-                                Math.floor(storedData.length / acc),
-                            );
-                        } else {
-                            actualSize = 1; // Default for unlimited dimension
-                        }
-                    }
-                } else {
-                    actualSize = 1; // Default for unlimited dimension in real mode
-                }
+                actualSize = 1; // Default for unlimited dimension
             }
             return acc * Math.max(actualSize, 1);
         }, 1);
@@ -121,21 +63,6 @@ export class Variable {
     }
 
     async setValue(data: Float64Array | Float32Array): Promise<void> {
-        // Store data in mock file system if in test mode
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
-            const mockFiles = (global as any).__netcdf4_mock_files;
-            const dataset = this.netcdf as any;
-            if (mockFiles && dataset.filename && mockFiles[dataset.filename]) {
-                const variables = mockFiles[dataset.filename].variables;
-                if (variables[this.name]) {
-                    variables[this.name].data =
-                        data instanceof Float64Array
-                            ? data
-                            : new Float64Array(data);
-                }
-            }
-        }
-
         if (this.datatype === "f8" || this.datatype === "double") {
             const doubleData =
                 data instanceof Float64Array ? data : new Float64Array(data);

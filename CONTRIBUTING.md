@@ -49,7 +49,7 @@ To start developing `netcdf4-wasm`:
    npm run build
 ```
 
-7. Run tests to ensure everything works:
+7. Run tests to ensure everything works (they need the WASM module from step 6, see [tests/README.md](tests/README.md)):
 ```bash
    npm test
 ```
@@ -66,7 +66,6 @@ Understanding the project structure will help you navigate the codebase:
 ```
 netcdf4-wasm/
 ├── src/                   # TypeScript source code
-│   ├── __tests__/         # Test files
 │   ├── constants.ts       # NetCDF constants
 │   ├── dimension.ts       # Dimension class
 │   ├── group.ts           # Group class
@@ -75,10 +74,13 @@ netcdf4-wasm/
 │   ├── netcdf-worker.ts   # Web Worker implementation
 │   ├── netcdf4-wasm.d.ts  # TypeScript declarations
 │   ├── netcdf4.ts         # Main NetCDF4 class
-│   ├── test-setup.ts      # Test configuration
 │   ├── types.ts           # Type definitions
 │   ├── variable.ts        # Variable class
 │   └── wasm-module.ts     # WASM module loader
+├── tests/                 # Vitest tests, see tests/README.md
+│   ├── fixtures/          # Small netCDF files and their generator
+│   ├── unit/              # Tests without the WASM module
+│   └── wasm/              # Tests against the real WASM module
 ├── scripts/               # Build scripts
 │   ├── build-wasm.sh      # Main WASM build script
 │   ├── check-dependencies.sh

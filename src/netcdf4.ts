@@ -45,35 +45,22 @@ export class NetCDF4 extends Group {
     async initialize(): Promise<void> {
         if (this.initialized) return;
 
-        try {
-            if (this.workerSource) {
-                // This now handles the WORKERFS mounting
-                await this.setupWorker();
-                this.initialized = true;
-            } else {
-                this.module = await WasmModuleLoader.loadModule(this.options);
-                if (this.memorySource) {
-                    await this.mountMemoryData();
-                }
-            }
-
+        if (this.workerSource) {
+            // This now handles the WORKERFS mounting
+            await this.setupWorker();
             this.initialized = true;
+        } else {
+            this.module = await WasmModuleLoader.loadModule(this.options);
+            if (this.memorySource) {
+                await this.mountMemoryData();
+            }
+        }
 
-            // Automatically open the file if a filename was provided
-            if (this.filename && !this.workerSource) {
-                await this.open();
-            }
-        } catch (error) {
-            if (
-                typeof process !== "undefined" &&
-                process.env.NODE_ENV === "test"
-            ) {
-                this.module = this.createMockModule();
-                this.initialized = true;
-                if (this.filename) await this.open();
-            } else {
-                throw error;
-            }
+        this.initialized = true;
+
+        // Automatically open the file if a filename was provided
+        if (this.filename && !this.workerSource) {
+            await this.open();
         }
     }
 
@@ -288,16 +275,7 @@ export class NetCDF4 extends Group {
                     : NC_CONSTANTS.NC_WRITE;
             this.ncid = await this.openFile(this.filename, this.mode as any);
             (this as any).groupId = this.ncid;
-
-            // Load existing data from mock storage if in test mode
-            if (
-                typeof process !== "undefined" &&
-                process.env.NODE_ENV === "test"
-            ) {
-                (this as any).loadMockDimensions();
-            } else {
-                await this.load();
-            }
+            await this.load();
         }
 
         this._isOpen = true;
@@ -899,264 +877,6 @@ export class NetCDF4 extends Group {
         return result.data;
     }
 
-    // Create a mock module for testing
-    private createMockModule(): NetCDF4Module {
-        // Global mock file storage to simulate persistence across instances
-        if (!(global as any).__netcdf4_mock_files) {
-            (global as any).__netcdf4_mock_files = {};
-        }
-        const mockFiles = (global as any).__netcdf4_mock_files;
-        const getFile = () =>
-            this.filename ? mockFiles[this.filename] : undefined;
-        const getVariableNames = (): string[] =>
-            Object.keys(getFile()?.variables ?? {});
-        // Match the existing mock's 1-based variable IDs.
-        const getVariable = (varid: number) =>
-            getFile()?.variables[getVariableNames()[varid - 1]];
-        const getAttributes = (varid: number) =>
-            varid === NC_CONSTANTS.NC_GLOBAL
-                ? getFile()?.attributes
-                : getVariable(varid)?.attributes;
-
-        return {
-            nc_open: (path: string, mode: number) => {
-                // Mock implementation that simulates invalid filenames and unsupported modes
-                if (
-                    !path ||
-                    path.trim() === "" ||
-                    path.includes("unsupported") ||
-                    !["r", "w", "a"].some((m) => this.mode.includes(m))
-                ) {
-                    return { result: -1, ncid: -1 };
-                }
-                // For reading mode, file should exist in mock storage, otherwise create a minimal entry
-                if (this.mode === "r" && !mockFiles[path]) {
-                    // For test purposes, allow reading non-existent files but initialize them empty
-                    mockFiles[path] = {
-                        attributes: {},
-                        dimensions: {},
-                        variables: {},
-                    };
-                }
-                return { result: NC_CONSTANTS.NC_NOERR, ncid: 1 };
-            },
-            nc_close: (ncid: number) => {
-                // In a real implementation, this would flush data to the file
-                // For our mock, we'll keep the data in memory
-                return NC_CONSTANTS.NC_NOERR;
-            },
-            nc_create: (path: string, mode: number) => {
-                if (
-                    path.includes("unsupported") ||
-                    ["x", "invalid"].some((m) => this.mode.includes(m))
-                ) {
-                    return { result: -1, ncid: -1 };
-                }
-                // Initialize mock file storage
-                mockFiles[path] = {
-                    attributes: {},
-                    dimensions: {},
-                    variables: {},
-                };
-                return { result: NC_CONSTANTS.NC_NOERR, ncid: 1 };
-            },
-            nc_def_dim: (ncid: number, name: string, len: number) => {
-                // Store dimension in mock file
-                if (this.filename && mockFiles[this.filename]) {
-                    mockFiles[this.filename].dimensions[name] = {
-                        size: len,
-                        unlimited: len === NC_CONSTANTS.NC_UNLIMITED,
-                    };
-                }
-                return { result: NC_CONSTANTS.NC_NOERR, dimid: 1 };
-            },
-            nc_def_var: (
-                ncid: number,
-                name: string,
-                xtype: number,
-                ndims: number,
-                dimids: number[],
-            ) => {
-                // Initialize variable storage
-                if (this.filename && mockFiles[this.filename]) {
-                    mockFiles[this.filename].variables[name] = {
-                        type: xtype,
-                        dimids: [...dimids],
-                        data: new Float64Array(0),
-                        attributes: {},
-                    };
-                    // Return varid based on current variable count (1-based)
-                    const varCount = Object.keys(
-                        mockFiles[this.filename].variables,
-                    ).length;
-                    return { result: NC_CONSTANTS.NC_NOERR, varid: varCount };
-                }
-                return { result: NC_CONSTANTS.NC_NOERR, varid: 1 };
-            },
-            nc_inq_varids: (ncid: number) => ({
-                result: NC_CONSTANTS.NC_NOERR,
-                varids: Int32Array.from(getVariableNames(), (_, i) => i + 1),
-            }),
-            nc_inq_varid: (ncid: number, name: string) => {
-                const index = getVariableNames().indexOf(name);
-                return index < 0
-                    ? { result: -1 }
-                    : { result: NC_CONSTANTS.NC_NOERR, varid: index + 1 };
-            },
-            nc_inq_var: (ncid: number, varid: number) => {
-                const variable = getVariable(varid);
-                if (!variable) return { result: -1 };
-                return {
-                    result: NC_CONSTANTS.NC_NOERR,
-                    name: getVariableNames()[varid - 1],
-                    type: variable.type,
-                    ndims: variable.dimids.length,
-                    dimids: Int32Array.from(variable.dimids),
-                    natts: Object.keys(variable.attributes).length,
-                };
-            },
-            nc_inq_dim: (ncid: number, dimid: number) => {
-                const dimensions = getFile()?.dimensions ?? {};
-                const name = Object.keys(dimensions)[dimid];
-                return name === undefined
-                    ? { result: -1 }
-                    : {
-                          result: NC_CONSTANTS.NC_NOERR,
-                          name,
-                          len: dimensions[name].size,
-                      };
-            },
-            nc_inq_grp_parent: (ncid: number) => ({ result: -1 }),
-            nc_inq_attname: (ncid: number, varid: number, attnum: number) => {
-                const name = Object.keys(getAttributes(varid) ?? {})[attnum];
-                return name === undefined
-                    ? { result: -1 }
-                    : { result: NC_CONSTANTS.NC_NOERR, name };
-            },
-            nc_inq_att: (ncid: number, varid: number, name: string) => {
-                const value = getAttributes(varid)?.[name];
-                if (value === undefined) return { result: -1 };
-                return {
-                    result: NC_CONSTANTS.NC_NOERR,
-                    type:
-                        typeof value === "string"
-                            ? NC_CONSTANTS.NC_CHAR
-                            : NC_CONSTANTS.NC_DOUBLE,
-                    len:
-                        typeof value === "string" || Array.isArray(value)
-                            ? value.length
-                            : 1,
-                };
-            },
-            nc_get_att_text: (
-                ncid: number,
-                varid: number,
-                name: string,
-                length: number,
-            ) => {
-                const data = getAttributes(varid)?.[name];
-                return typeof data === "string"
-                    ? { result: NC_CONSTANTS.NC_NOERR, data }
-                    : { result: -1 };
-            },
-            nc_get_att_double: (
-                ncid: number,
-                varid: number,
-                name: string,
-                length: number,
-            ) => {
-                const value = getAttributes(varid)?.[name];
-                return value === undefined
-                    ? { result: -1 }
-                    : {
-                          result: NC_CONSTANTS.NC_NOERR,
-                          data: Array.isArray(value) ? value : [value],
-                      };
-            },
-            nc_inq_var_chunking: (ncid: number, varid: number) =>
-                getVariable(varid)
-                    ? {
-                          result: NC_CONSTANTS.NC_NOERR,
-                          chunking: NC_CONSTANTS.NC_CONTIGUOUS,
-                      }
-                    : { result: -1 },
-            nc_put_var_double: (
-                ncid: number,
-                varid: number,
-                data: Float64Array,
-            ) => {
-                // Store data in mock file - try to map varid to variable name
-                if (this.filename && mockFiles[this.filename]) {
-                    const variables = mockFiles[this.filename].variables;
-                    const varNames = Object.keys(variables);
-
-                    // Map varid to variable name (1-based indexing)
-                    if (
-                        varNames.length > 0 &&
-                        varid >= 1 &&
-                        varid <= varNames.length
-                    ) {
-                        const varName = varNames[varid - 1]; // Convert to 0-based
-                        variables[varName].data = new Float64Array(data);
-                    }
-                }
-                return NC_CONSTANTS.NC_NOERR;
-            },
-            nc_get_var_double: (ncid: number, varid: number, size: number) => {
-                // Try to get actual stored data first
-                if (this.filename && mockFiles[this.filename]) {
-                    const variables = mockFiles[this.filename].variables;
-                    const varNames = Object.keys(variables);
-
-                    // Map varid to variable name (1-based indexing)
-                    if (
-                        varNames.length > 0 &&
-                        varid >= 1 &&
-                        varid <= varNames.length
-                    ) {
-                        const varName = varNames[varid - 1]; // Convert to 0-based
-                        const storedData = variables[varName].data;
-                        if (storedData && storedData.length > 0) {
-                            // Return the stored data, resized to requested size if needed
-                            if (size <= 0) {
-                                return {
-                                    result: NC_CONSTANTS.NC_NOERR,
-                                    data: new Float64Array(0),
-                                };
-                            }
-                            const result = new Float64Array(size);
-                            for (
-                                let i = 0;
-                                i < size && i < storedData.length;
-                                i++
-                            ) {
-                                result[i] = storedData[i];
-                            }
-                            return {
-                                result: NC_CONSTANTS.NC_NOERR,
-                                data: result,
-                            };
-                        }
-                    }
-                }
-
-                // Fallback to test pattern if no data stored
-                if (size <= 0) {
-                    return {
-                        result: NC_CONSTANTS.NC_NOERR,
-                        data: new Float64Array(0),
-                    };
-                }
-                const data = new Float64Array(size);
-                for (let i = 0; i < size; i++) {
-                    data[i] = i * 0.1; // Simple test pattern
-                }
-                return { result: NC_CONSTANTS.NC_NOERR, data };
-            },
-            nc_enddef: (ncid: number) => NC_CONSTANTS.NC_NOERR,
-        } as any;
-    }
-
     private async setupWorker(): Promise<void> {
         if (!this.workerSource) throw new Error("No worker source");
 
@@ -1183,11 +903,6 @@ export class NetCDF4 extends Group {
     // Mount memory data in the WASM virtual file system
     private async mountMemoryData(): Promise<void> {
         if (!this.memorySource || !this.module) {
-            return;
-        }
-
-        // Skip mounting in test mode (mock module doesn't have FS)
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
             return;
         }
 
@@ -1218,12 +933,6 @@ export class NetCDF4 extends Group {
     async toArrayBuffer(): Promise<ArrayBuffer> {
         if (!this.module) {
             throw new Error("NetCDF4 module not initialized");
-        }
-
-        // Skip in test mode
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
-            // Return empty buffer in test mode
-            return new ArrayBuffer(0);
         }
 
         try {
