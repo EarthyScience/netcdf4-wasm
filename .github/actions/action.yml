@@ -16,6 +16,7 @@ runs:
         registry-url: "https://registry.npmjs.org"
 
     - name: Install system dependencies
+      if: runner.os == 'Linux' # macOS runner images already ship cmake, wget, tar and Xcode CLT
       shell: bash
       run: |
         sudo apt-get update
@@ -25,7 +26,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: build/
-        key: emsdk-${{ runner.os }}-5.0.1
+        key: emsdk-${{ runner.os }}-6.0.13
 
     - name: Install npm dependencies
       shell: bash
