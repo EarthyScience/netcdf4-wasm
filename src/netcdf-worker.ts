@@ -1,8 +1,13 @@
-import type { NetCDF4Module, EmscriptenModule } from "./types.js";
-import * as NCGet from './netcdf-getters.js';
-import { WasmModuleLoader } from "./wasm-module.js";
 import { NC_CONSTANTS } from "./constants.js";
-import { RemoteFile, XhrRangeSource, checkRangeSupport, createRemoteFileNode } from "./remote-read.js";
+import * as NCGet from "./netcdf-getters.js";
+import {
+    checkRangeSupport,
+    createRemoteFileNode,
+    RemoteFile,
+    XhrRangeSource,
+} from "./remote-read.js";
+import type { EmscriptenModule, NetCDF4Module } from "./types.js";
+import { WasmModuleLoader } from "./wasm-module.js";
 
 let netcdfModule: EmscriptenModule;
 let mod: NetCDF4Module;
@@ -12,47 +17,51 @@ let remoteFile: RemoteFile | undefined;
 // An async IIFE (rather than `new Promise(async ...)`) so that a failed
 // import or WASM load rejects this promise instead of leaving it pending.
 const waitForModule: Promise<EmscriptenModule> = (async () => {
-    const netcdf4Module = await import('./netcdf4-wasm.js');
-    const createNetCDF4Module =
-        netcdf4Module.default as (options?: any) => Promise<EmscriptenModule>;
+    const netcdf4Module = await import("./netcdf4-wasm.js");
+    const createNetCDF4Module = netcdf4Module.default as (
+        options?: any,
+    ) => Promise<EmscriptenModule>;
 
     netcdfModule = await createNetCDF4Module({
         locateFile: (file: string): string => {
-            if (file.endsWith('.wasm')) {
+            if (file.endsWith(".wasm")) {
                 const origin: string = (self as any).location.origin;
-                const basePath: string = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
+                const basePath: string =
+                    process.env.NEXT_PUBLIC_BASE_PATH ?? "";
                 return `${origin}${basePath}/${file}`;
             }
             return file;
-        }
+        },
     });
 
     return netcdfModule;
 })();
 
-// @ts-ignore worker scope
 self.onmessage = async (e: MessageEvent) => {
     const data = e.data;
     const { type, id } = data;
 
     try {
         // ---------------- INIT ----------------
-        if (type === 'init') {
+        if (type === "init") {
             mod = WasmModuleLoader.wrapModule(await waitForModule);
 
             const { blob, url, remote, filename } = data;
 
             if (url) {
                 await checkRangeSupport(url, remote);
-                remoteFile = new RemoteFile(new XhrRangeSource(url, remote), remote);
+                remoteFile = new RemoteFile(
+                    new XhrRangeSource(url, remote),
+                    remote,
+                );
                 createRemoteFileNode(mod.FS, filename, remoteFile);
                 self.postMessage({ id, success: true });
                 return;
             }
 
-            const pathParts = filename.split('/');
+            const pathParts = filename.split("/");
             const baseName = pathParts.pop();
-            const mountPoint = pathParts.join('/') || '/';
+            const mountPoint = pathParts.join("/") || "/";
 
             // safer for nested paths
             try {
@@ -60,11 +69,18 @@ self.onmessage = async (e: MessageEvent) => {
             } catch (_) {}
 
             try {
-                mod.FS.mount(mod.WORKERFS, {
-                    blobs: [{ name: baseName, data: blob }],
-                }, mountPoint);
+                mod.FS.mount(
+                    mod.WORKERFS,
+                    {
+                        blobs: [{ name: baseName, data: blob }],
+                    },
+                    mountPoint,
+                );
             } catch (err: any) {
-                console.warn("Mount failed (might already be mounted):", err.message);
+                console.warn(
+                    "Mount failed (might already be mounted):",
+                    err.message,
+                );
             }
 
             self.postMessage({ id, success: true });
@@ -81,16 +97,16 @@ self.onmessage = async (e: MessageEvent) => {
         let result;
 
         switch (type) {
-            case 'open': {
+            case "open": {
                 const openResult = mod.nc_open(data.path, data.modeValue);
                 if (openResult.result !== NC_CONSTANTS.NC_NOERR) {
-                    throw new Error('nc_open failed: ' + openResult.result);
+                    throw new Error("nc_open failed: " + openResult.result);
                 }
                 result = openResult.ncid as number;
                 break;
             }
 
-            case 'close': {
+            case "close": {
                 const closeResult = mod.nc_close(data.ncid);
                 if (closeResult !== NC_CONSTANTS.NC_NOERR) {
                     throw new Error("Failed to close file");
@@ -100,109 +116,141 @@ self.onmessage = async (e: MessageEvent) => {
             }
 
             // ---- Globals ----
-            case 'getGlobalAttributes':
-                result = NCGet.getGlobalAttributes(mod, data.ncid, data.groupPath);
+            case "getGlobalAttributes":
+                result = NCGet.getGlobalAttributes(
+                    mod,
+                    data.ncid,
+                    data.groupPath,
+                );
                 break;
 
-            case 'getFullMetadata':
+            case "getFullMetadata":
                 result = NCGet.getFullMetadata(mod, data.ncid, data.groupPath);
                 break;
 
             // ---- Dims ----
-            case 'getDimCount':
+            case "getDimCount":
                 result = NCGet.getDimCount(mod, data.ncid);
                 break;
 
-            case 'getDimIDs':
+            case "getDimIDs":
                 result = Array.from(NCGet.getDimIDs(mod, data.ncid));
                 break;
 
-            case 'getDim':
+            case "getDim":
                 result = NCGet.getDim(mod, data.ncid, data.dimid);
                 break;
 
-            case 'getDims':
+            case "getDims":
                 result = NCGet.getDims(mod, data.ncid, data.groupPath);
                 break;
 
             // ---- Vars ----
-            case 'getGroupVariables':
+            case "getGroupVariables":
                 // console.log('Worker: getGroupVariables', data.ncid);
-                result = NCGet.getGroupVariables(mod, data.ncid, data.groupPath);
+                result = NCGet.getGroupVariables(
+                    mod,
+                    data.ncid,
+                    data.groupPath,
+                );
                 break;
 
-            case 'getVarIDs':
+            case "getVarIDs":
                 result = Array.from(NCGet.getVarIDs(mod, data.ncid));
                 break;
 
-            case 'getVarCount':
+            case "getVarCount":
                 result = NCGet.getVarCount(mod, data.ncid);
                 break;
 
-            case 'getAttributeName':
-                result = NCGet.getAttributeName(mod, data.ncid, data.varid, data.attId);
+            case "getAttributeName":
+                result = NCGet.getAttributeName(
+                    mod,
+                    data.ncid,
+                    data.varid,
+                    data.attId,
+                );
                 break;
 
-            case 'getVariableInfo':
-                result = NCGet.getVariableInfo(mod, data.ncid, data.variable, data.groupPath);
+            case "getVariableInfo":
+                result = NCGet.getVariableInfo(
+                    mod,
+                    data.ncid,
+                    data.variable,
+                    data.groupPath,
+                );
                 break;
 
-            case 'getAttributeValues':
-                result = NCGet.getAttributeValues(mod, data.ncid, data.varid, data.attname);
+            case "getAttributeValues":
+                result = NCGet.getAttributeValues(
+                    mod,
+                    data.ncid,
+                    data.varid,
+                    data.attname,
+                );
                 break;
 
-            case 'getVariableArrayWithSelection':
+            case "getVariableArrayWithSelection":
                 result = NCGet.getVariableArrayWithSelection(
                     mod,
                     data.ncid,
                     data.variable,
                     data.selection,
                     data.groupPath,
-                    data.options
+                    data.options,
                 );
                 break;
 
             // ---- Arrays ----
-            case 'getVariableArray':
-                result = NCGet.getVariableArray(mod, data.ncid, data.variable, data.groupPath);
+            case "getVariableArray":
+                result = NCGet.getVariableArray(
+                    mod,
+                    data.ncid,
+                    data.variable,
+                    data.groupPath,
+                );
                 break;
 
-            case 'getSlicedVariableArray':
+            case "getSlicedVariableArray":
                 result = NCGet.getSlicedVariableArray(
                     mod,
                     data.ncid,
                     data.variable,
                     data.start,
                     data.count,
-                    data.groupPath
+                    data.groupPath,
                 );
                 break;
 
             // ---- Groups ----
-            case 'getGroups':
+            case "getGroups":
                 result = NCGet.getGroups(mod, data.ncid);
                 break;
 
-            case 'getGroupsRecursive':
+            case "getGroupsRecursive":
                 result = NCGet.getGroupsRecursive(mod, data.ncid);
                 break;
 
-            case 'getGroupNCID':
+            case "getGroupNCID":
                 result = NCGet.getGroupNCID(mod, data.ncid, data.groupPath);
                 break;
 
-            case 'getGroupName':
+            case "getGroupName":
                 result = NCGet.getGroupName(mod, data.ncid);
                 break;
 
-            case 'getGroupPath':
+            case "getGroupPath":
                 result = NCGet.getGroupPath(mod, data.ncid);
                 break;
-            case 'getCompleteHierarchy':
-                result = NCGet.getCompleteHierarchy(mod, data.ncid, data.groupPath);
+            case "getCompleteHierarchy":
+                result = NCGet.getCompleteHierarchy(
+                    mod,
+                    data.ncid,
+                    data.groupPath,
+                );
                 break;
 
-            case 'getVariables':
+            case "getVariables":
                 result = NCGet.getVariables(mod, data.ncid);
                 break;
 

@@ -1,13 +1,13 @@
-'use client';
-import React, { ChangeEvent, useState } from 'react';
-import type { RemoteFileOptions } from '@earthyscience/netcdf4-wasm';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { ButtonGroup } from '@/components/ui/button-group';
-import { Field } from '@/components/ui/field';
-import { Spinner } from '@/components/ui/spinner';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal } from 'lucide-react';
+"use client";
+import type { RemoteFileOptions } from "@earthyscience/netcdf4-wasm";
+import { Terminal } from "lucide-react";
+import React, { ChangeEvent, useState } from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Field } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
 
 interface FileLoaderProps {
   url: string;
@@ -22,10 +22,10 @@ interface FileLoaderProps {
 const parseHeaders = (text: string): Record<string, string> =>
   Object.fromEntries(
     text
-      .split('\n')
+      .split("\n")
       .map((line) => line.split(/:(.*)/).map((part) => part.trim()))
       .filter(([name]) => name)
-      .map(([name, value = '']) => [name, value])
+      .map(([name, value = ""]) => [name, value]),
   );
 
 export const FileLoader = ({
@@ -36,9 +36,10 @@ export const FileLoader = ({
   onFileSelect,
   onUrlFetch,
 }: FileLoaderProps) => {
-  const [headers, setHeaders] = useState('');
+  const [headers, setHeaders] = useState("");
   const [withCredentials, setWithCredentials] = useState(false);
-  const fetchUrl = () => onUrlFetch({ headers: parseHeaders(headers), withCredentials });
+  const fetchUrl = () =>
+    onUrlFetch({ headers: parseHeaders(headers), withCredentials });
 
   return (
     <>
@@ -56,7 +57,7 @@ export const FileLoader = ({
             placeholder="http:// or https://"
             value={url}
             onChange={(e) => onUrlChange(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && fetchUrl()}
+            onKeyDown={(e) => e.key === "Enter" && fetchUrl()}
             disabled={isLoading}
             className="min-w-0"
           />
@@ -71,11 +72,17 @@ export const FileLoader = ({
         </ButtonGroup>
 
         <details className="text-sm">
-          <summary className="cursor-pointer text-muted-foreground">Request options</summary>
+          <summary className="cursor-pointer text-muted-foreground">
+            Request options
+          </summary>
           <div className="flex flex-col gap-2 mt-2">
-            <span className="text-xs text-muted-foreground">Headers, one per line as Name: value</span>
+            <span className="text-xs text-muted-foreground">
+              Headers, one per line as Name: value
+            </span>
             <textarea
-              placeholder={'Authorization: Bearer <token>\nX-Custom-Header: value'}
+              placeholder={
+                "Authorization: Bearer <token>\nX-Custom-Header: value"
+              }
               value={headers}
               onChange={(e) => setHeaders(e.target.value)}
               disabled={isLoading}

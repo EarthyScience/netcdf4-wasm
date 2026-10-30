@@ -1,13 +1,13 @@
-'use client';
-import React from 'react';
-import { Button } from '@/components/ui/button';
+"use client";
+import { ChevronDown, ChevronRight, FileText } from "lucide-react";
+import React from "react";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { FileText, ChevronRight, ChevronDown } from 'lucide-react';
-import { VariableData } from './types';
+} from "@/components/ui/tooltip";
+import { VariableData } from "./types";
 
 interface VariableMenuTriggerProps {
   showVariableMenu: boolean;
@@ -20,7 +20,10 @@ interface VariableMenuPanelProps {
   onSelect: (name: string) => void;
 }
 
-export const VariableMenuTrigger = ({ showVariableMenu, onToggle }: VariableMenuTriggerProps) => (
+export const VariableMenuTrigger = ({
+  showVariableMenu,
+  onToggle,
+}: VariableMenuTriggerProps) => (
   <Tooltip>
     <TooltipTrigger asChild>
       <Button
@@ -60,7 +63,9 @@ export const VariableMenuPanel = ({
           key={name}
           onClick={() => onSelect(name)}
           className={`w-full text-left px-2 py-2 rounded text-sm flex items-center gap-2 ${
-            selectedVariable === name ? 'bg-accent font-semibold' : 'hover:bg-accent/50'
+            selectedVariable === name
+              ? "bg-accent font-semibold"
+              : "hover:bg-accent/50"
           }`}
         >
           <FileText className="h-4 w-4 flex-shrink-0" />

@@ -1,0 +1,6 @@
+# Bulk formatting commits to skip in `git blame`.
+# GitHub picks this file up automatically. For local git, run once:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# code formatting via biome
+d2114ec88adb2ca65cde41e8b93f1d32d85c5b77

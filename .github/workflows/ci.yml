@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [main]
 
-  workflow_dispatch:   # Manual trigger
+  workflow_dispatch: # Manual trigger
 
 defaults:
   run:
@@ -16,7 +16,7 @@ jobs:
   core:
     name: Build and Test
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4

@@ -1,8 +1,8 @@
 // Worker initialization tests: init failures must reject instead of hanging
 
-import { jest } from '@jest/globals';
-import { getEventListeners } from 'node:events';
-import { NetCDF4 } from '../index.js';
+import { getEventListeners } from "node:events";
+import { jest } from "@jest/globals";
+import { NetCDF4 } from "../index.js";
 
 // Minimal stand-in for the browser Worker. Answers 'init' with
 // FakeWorker.initReply (reply data, or an event dispatched as is)
@@ -17,27 +17,38 @@ class FakeWorker extends EventTarget {
     }
 
     postMessage({ type, id }: { type: string; id: number }) {
-        const reply = type === 'init' ? FakeWorker.initReply : { success: true, result: 1 };
-        queueMicrotask(() => this.dispatchEvent(reply instanceof Event
-            ? reply
-            : new MessageEvent('message', { data: { id, ...reply } })));
+        const reply =
+            type === "init"
+                ? FakeWorker.initReply
+                : { success: true, result: 1 };
+        queueMicrotask(() =>
+            this.dispatchEvent(
+                reply instanceof Event
+                    ? reply
+                    : new MessageEvent("message", { data: { id, ...reply } }),
+            ),
+        );
     }
 
     terminate() {}
 }
 
 function expectNoInitListeners() {
-    expect(getEventListeners(FakeWorker.currentWorker, 'message')).toHaveLength(0);
-    expect(getEventListeners(FakeWorker.currentWorker, 'error')).toHaveLength(0);
+    expect(getEventListeners(FakeWorker.currentWorker, "message")).toHaveLength(
+        0,
+    );
+    expect(getEventListeners(FakeWorker.currentWorker, "error")).toHaveLength(
+        0,
+    );
 }
 
-describe('Worker Initialization', () => {
-    describe('Main Thread (setupWorker)', () => {
+describe("Worker Initialization", () => {
+    describe("Main Thread (setupWorker)", () => {
         beforeAll(() => {
             Object.assign(globalThis, { Worker: FakeWorker });
         });
 
-        test('should open dataset when worker reports success', async () => {
+        test("should open dataset when worker reports success", async () => {
             FakeWorker.initReply = { success: true };
 
             const dataset = await NetCDF4.fromBlobLazy(new Blob([]));
@@ -48,50 +59,72 @@ describe('Worker Initialization', () => {
             await dataset.close();
         });
 
-        test('should reject with the error sent by the worker', async () => {
-            FakeWorker.initReply = { success: false, error: 'wasm fetch failed' };
+        test("should reject with the error sent by the worker", async () => {
+            FakeWorker.initReply = {
+                success: false,
+                error: "wasm fetch failed",
+            };
 
-            await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow('wasm fetch failed');
+            await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow(
+                "wasm fetch failed",
+            );
             expectNoInitListeners();
         });
 
-        test('should reject when worker script fails to load', async () => {
-            FakeWorker.initReply = Object.assign(new Event('error'), { message: 'Script error' });
+        test("should reject when worker script fails to load", async () => {
+            FakeWorker.initReply = Object.assign(new Event("error"), {
+                message: "Script error",
+            });
 
-            await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow('Worker failed to start: Script error');
+            await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow(
+                "Worker failed to start: Script error",
+            );
             expectNoInitListeners();
         });
 
-        test('should use fallback message when error event has none', async () => {
-            FakeWorker.initReply = new Event('error');
+        test("should use fallback message when error event has none", async () => {
+            FakeWorker.initReply = new Event("error");
 
-            await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow('Worker failed to start: unknown error');
+            await expect(NetCDF4.fromBlobLazy(new Blob([]))).rejects.toThrow(
+                "Worker failed to start: unknown error",
+            );
             expectNoInitListeners();
         });
     });
 
-    describe('Worker Script (netcdf-worker)', () => {
+    describe("Worker Script (netcdf-worker)", () => {
         const originalSelf = globalThis.self;
 
         afterAll(() => {
             if (originalSelf) globalThis.self = originalSelf;
-            else Reflect.deleteProperty(globalThis, 'self');
+            else Reflect.deleteProperty(globalThis, "self");
         });
 
         // netcdf-worker binds onmessage to `self` once, at import time. A second
         // test here would need jest.resetModules() and a fresh import.
-        test('should report a missing WASM module instead of hanging', async () => {
+        test("should report a missing WASM module instead of hanging", async () => {
             // The generated WASM module lives in dist, so importing it from src fails.
-            const scope = { postMessage: jest.fn(), onmessage: async (_: MessageEvent) => {} };
+            const scope = {
+                postMessage: jest.fn(),
+                onmessage: async (_: MessageEvent) => {},
+            };
             Object.assign(globalThis, { self: scope });
-            const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+            const consoleError = jest
+                .spyOn(console, "error")
+                .mockImplementation(() => {});
 
             try {
-                await import('../netcdf-worker.js');
-                await scope.onmessage(new MessageEvent('message', { data: { type: 'init', id: 1 } }));
+                await import("../netcdf-worker.js");
+                await scope.onmessage(
+                    new MessageEvent("message", {
+                        data: { type: "init", id: 1 },
+                    }),
+                );
 
                 expect(scope.postMessage).toHaveBeenCalledWith({
-                    id: 1, success: false, error: expect.stringContaining('netcdf4-wasm'),
+                    id: 1,
+                    success: false,
+                    error: expect.stringContaining("netcdf4-wasm"),
                 });
             } finally {
                 consoleError.mockRestore();

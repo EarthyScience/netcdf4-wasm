@@ -54,8 +54,8 @@ export const NC_CONSTANTS = {
     NC_EAUTH: -78,
     NC_ENOTFOUND: -90,
     NC_ECANTREMOVE: -91,
-    NC_EINTERNAL: -92,   // internal library error
-    NC_EPNETCDF: -93,    // PnetCDF error
+    NC_EINTERNAL: -92, // internal library error
+    NC_EPNETCDF: -93, // PnetCDF error
     NC_EHDFERR: -101,
     NC_ECANTREAD: -102,
     NC_ECANTWRITE: -103,
@@ -94,7 +94,7 @@ export const NC_CONSTANTS = {
     NC_CLOBBER: 0x0000,
     NC_NOCLOBBER: 0x0004,
     NC_DISKLESS: 0x0008,
-    NC_MMAP: 0x0010,       // deprecated
+    NC_MMAP: 0x0010, // deprecated
     NC_64BIT_DATA: 0x0020,
     NC_CDF5: 0x0020,
     NC_CLASSIC_MODEL: 0x0100,
@@ -113,30 +113,30 @@ export const NC_CONSTANTS = {
     NC_FORMAT_CDF5: 5,
 
     // Data types (atomic types)
-    NC_NAT: 0,         // Not A Type
-    NC_BYTE: 1,        // signed 1-byte integer
-    NC_CHAR: 2,        // text character
-    NC_SHORT: 3,       // signed 2-byte integer
-    NC_INT: 4,         // signed 4-byte integer
-    NC_LONG: 4,        // deprecated, same as NC_INT
-    NC_FLOAT: 5,       // single precision float
-    NC_DOUBLE: 6,      // double precision float
-    NC_UBYTE: 7,       // unsigned 1-byte integer
-    NC_USHORT: 8,      // unsigned 2-byte integer
-    NC_UINT: 9,        // unsigned 4-byte integer
-    NC_INT64: 10,      // signed 8-byte integer
-    NC_UINT64: 11,     // unsigned 8-byte integer
-    NC_STRING: 12,     // variable-length string
+    NC_NAT: 0, // Not A Type
+    NC_BYTE: 1, // signed 1-byte integer
+    NC_CHAR: 2, // text character
+    NC_SHORT: 3, // signed 2-byte integer
+    NC_INT: 4, // signed 4-byte integer
+    NC_LONG: 4, // deprecated, same as NC_INT
+    NC_FLOAT: 5, // single precision float
+    NC_DOUBLE: 6, // double precision float
+    NC_UBYTE: 7, // unsigned 1-byte integer
+    NC_USHORT: 8, // unsigned 2-byte integer
+    NC_UINT: 9, // unsigned 4-byte integer
+    NC_INT64: 10, // signed 8-byte integer
+    NC_UINT64: 11, // unsigned 8-byte integer
+    NC_STRING: 12, // variable-length string
 
     // Aliases for 64-bit integers
-    NC_LONGLONG: 10,   // alias for NC_INT64
-    NC_ULONGLONG: 11,  // alias for NC_UINT64
+    NC_LONGLONG: 10, // alias for NC_INT64
+    NC_ULONGLONG: 11, // alias for NC_UINT64
 
     // User-defined types (NetCDF-4)
-    NC_VLEN: 13,       // variable-length type
-    NC_OPAQUE: 14,     // opaque type
-    NC_ENUM: 15,       // enumeration type
-    NC_COMPOUND: 16,   // compound type
+    NC_VLEN: 13, // variable-length type
+    NC_OPAQUE: 14, // opaque type
+    NC_ENUM: 15, // enumeration type
+    NC_COMPOUND: 16, // compound type
 
     // First user-defined type ID
     NC_FIRSTUSERTYPEID: 32,
@@ -160,7 +160,7 @@ export const NC_CONSTANTS = {
     NC_UNLIMITED: 0,
 
     // Special values
-    NC_GLOBAL: -1,     // Global attribute
+    NC_GLOBAL: -1, // Global attribute
     NC_MAX_DIMS: 1024,
     NC_MAX_ATTRS: 8192,
     NC_MAX_VARS: 8192,
@@ -179,90 +179,90 @@ export const NC_CONSTANTS = {
 // Data type mapping from string names to NetCDF constants
 export const DATA_TYPE_MAP: { [key: string]: number } = {
     // Short names
-    'f8': NC_CONSTANTS.NC_DOUBLE,
-    'f4': NC_CONSTANTS.NC_FLOAT,
-    'i8': NC_CONSTANTS.NC_INT64,
-    'i4': NC_CONSTANTS.NC_INT,
-    'i2': NC_CONSTANTS.NC_SHORT,
-    'i1': NC_CONSTANTS.NC_BYTE,
-    'u8': NC_CONSTANTS.NC_UINT64,
-    'u4': NC_CONSTANTS.NC_UINT,
-    'u2': NC_CONSTANTS.NC_USHORT,
-    'u1': NC_CONSTANTS.NC_UBYTE,
-    'S1': NC_CONSTANTS.NC_CHAR,
+    f8: NC_CONSTANTS.NC_DOUBLE,
+    f4: NC_CONSTANTS.NC_FLOAT,
+    i8: NC_CONSTANTS.NC_INT64,
+    i4: NC_CONSTANTS.NC_INT,
+    i2: NC_CONSTANTS.NC_SHORT,
+    i1: NC_CONSTANTS.NC_BYTE,
+    u8: NC_CONSTANTS.NC_UINT64,
+    u4: NC_CONSTANTS.NC_UINT,
+    u2: NC_CONSTANTS.NC_USHORT,
+    u1: NC_CONSTANTS.NC_UBYTE,
+    S1: NC_CONSTANTS.NC_CHAR,
 
     // Long names
-    'double': NC_CONSTANTS.NC_DOUBLE,
-    'float': NC_CONSTANTS.NC_FLOAT,
-    'int64': NC_CONSTANTS.NC_INT64,
-    'int': NC_CONSTANTS.NC_INT,
-    'short': NC_CONSTANTS.NC_SHORT,
-    'byte': NC_CONSTANTS.NC_BYTE,
-    'uint64': NC_CONSTANTS.NC_UINT64,
-    'uint': NC_CONSTANTS.NC_UINT,
-    'ushort': NC_CONSTANTS.NC_USHORT,
-    'ubyte': NC_CONSTANTS.NC_UBYTE,
-    'char': NC_CONSTANTS.NC_CHAR,
-    'string': NC_CONSTANTS.NC_STRING,
-    'str': NC_CONSTANTS.NC_STRING,
+    double: NC_CONSTANTS.NC_DOUBLE,
+    float: NC_CONSTANTS.NC_FLOAT,
+    int64: NC_CONSTANTS.NC_INT64,
+    int: NC_CONSTANTS.NC_INT,
+    short: NC_CONSTANTS.NC_SHORT,
+    byte: NC_CONSTANTS.NC_BYTE,
+    uint64: NC_CONSTANTS.NC_UINT64,
+    uint: NC_CONSTANTS.NC_UINT,
+    ushort: NC_CONSTANTS.NC_USHORT,
+    ubyte: NC_CONSTANTS.NC_UBYTE,
+    char: NC_CONSTANTS.NC_CHAR,
+    string: NC_CONSTANTS.NC_STRING,
+    str: NC_CONSTANTS.NC_STRING,
 
     // Aliases
-    'longlong': NC_CONSTANTS.NC_LONGLONG,
-    'ulonglong': NC_CONSTANTS.NC_ULONGLONG,
-    'long': NC_CONSTANTS.NC_INT,
+    longlong: NC_CONSTANTS.NC_LONGLONG,
+    ulonglong: NC_CONSTANTS.NC_ULONGLONG,
+    long: NC_CONSTANTS.NC_INT,
 };
 
 // Reverse mapping: NetCDF type ID to dtype string
 export const CONSTANT_DTYPE_MAP: { [key: number]: string } = {
-    0: 'NAT',    // NC_NAT
-    1: 'i1',     // NC_BYTE
-    2: 'S1',     // NC_CHAR
-    3: 'i2',     // NC_SHORT
-    4: 'i4',     // NC_INT
-    5: 'f4',     // NC_FLOAT
-    6: 'f8',     // NC_DOUBLE
-    7: 'u1',     // NC_UBYTE
-    8: 'u2',     // NC_USHORT
-    9: 'u4',     // NC_UINT
-    10: 'i8',    // NC_INT64
-    11: 'u8',    // NC_UINT64
-    12: 'str',   // NC_STRING
+    0: "NAT", // NC_NAT
+    1: "i1", // NC_BYTE
+    2: "S1", // NC_CHAR
+    3: "i2", // NC_SHORT
+    4: "i4", // NC_INT
+    5: "f4", // NC_FLOAT
+    6: "f8", // NC_DOUBLE
+    7: "u1", // NC_UBYTE
+    8: "u2", // NC_USHORT
+    9: "u4", // NC_UINT
+    10: "i8", // NC_INT64
+    11: "u8", // NC_UINT64
+    12: "str", // NC_STRING
 };
 
 // Data type sizes in bytes
 export const DATA_TYPE_SIZE: { [key: number]: number } = {
-    0: 0,    // NC_NAT
-    1: 1,    // NC_BYTE
-    2: 1,    // NC_CHAR
-    3: 2,    // NC_SHORT
-    4: 4,    // NC_INT
-    5: 4,    // NC_FLOAT
-    6: 8,    // NC_DOUBLE
-    7: 1,    // NC_UBYTE
-    8: 2,    // NC_USHORT
-    9: 4,    // NC_UINT
-    10: 8,   // NC_INT64
-    11: 8,   // NC_UINT64
-    12: 0,   // NC_STRING (variable length)
+    0: 0, // NC_NAT
+    1: 1, // NC_BYTE
+    2: 1, // NC_CHAR
+    3: 2, // NC_SHORT
+    4: 4, // NC_INT
+    5: 4, // NC_FLOAT
+    6: 8, // NC_DOUBLE
+    7: 1, // NC_UBYTE
+    8: 2, // NC_USHORT
+    9: 4, // NC_UINT
+    10: 8, // NC_INT64
+    11: 8, // NC_UINT64
+    12: 0, // NC_STRING (variable length)
 };
 
 // Human-readable type names
 export const TYPE_NAMES: { [key: number]: string } = {
-    0: 'NAT',
-    1: 'byte',
-    2: 'char',
-    3: 'short',
-    4: 'int',
-    5: 'float',
-    6: 'double',
-    7: 'ubyte',
-    8: 'ushort',
-    9: 'uint',
-    10: 'int64',
-    11: 'uint64',
-    12: 'string',
-    13: 'vlen',
-    14: 'opaque',
-    15: 'enum',
-    16: 'compound',
+    0: "NAT",
+    1: "byte",
+    2: "char",
+    3: "short",
+    4: "int",
+    5: "float",
+    6: "double",
+    7: "ubyte",
+    8: "ushort",
+    9: "uint",
+    10: "int64",
+    11: "uint64",
+    12: "string",
+    13: "vlen",
+    14: "opaque",
+    15: "enum",
+    16: "compound",
 };

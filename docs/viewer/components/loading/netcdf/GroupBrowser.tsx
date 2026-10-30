@@ -1,17 +1,17 @@
-'use client';
-import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+"use client";
+import { DataTree, GroupNode } from "@earthyscience/netcdf4-wasm";
 import {
+  ChevronDown,
+  ChevronRight,
+  FileText,
   Folder,
   FolderOpen,
-  FileText,
-  ChevronRight,
-  ChevronDown,
-} from 'lucide-react';
-import { DataTree, GroupNode } from '@earthyscience/netcdf4-wasm';
+} from "lucide-react";
+import React from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
-export const ROOT_VARS_KEY = '/__root_vars__';
+export const ROOT_VARS_KEY = "/__root_vars__";
 
 interface GroupBrowserTriggerProps {
   showGroupMenu: boolean;
@@ -26,7 +26,10 @@ interface GroupBrowserPanelProps {
   onVariableClick: (varName: string, groupPath: string) => void;
 }
 
-export const GroupBrowserTrigger = ({ showGroupMenu, onToggleMenu }: GroupBrowserTriggerProps) => (
+export const GroupBrowserTrigger = ({
+  showGroupMenu,
+  onToggleMenu,
+}: GroupBrowserTriggerProps) => (
   <Button
     variant="outline"
     size="sm"
@@ -62,11 +65,14 @@ export const GroupBrowserPanel = ({
 
     return (
       <div key={node.path}>
-        <div className="flex items-stretch gap-1" style={{ paddingLeft: `${level * 12}px` }}>
+        <div
+          className="flex items-stretch gap-1"
+          style={{ paddingLeft: `${level * 12}px` }}
+        >
           <button
             onClick={() => onToggleExpand(node.path)}
             className={`flex-1 text-left px-2 py-2 rounded text-sm flex items-center justify-between gap-2 hover:bg-accent/50 ${
-              isSelected ? 'bg-accent font-semibold' : ''
+              isSelected ? "bg-accent font-semibold" : ""
             }`}
           >
             <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -102,7 +108,10 @@ export const GroupBrowserPanel = ({
         </div>
 
         {isExpanded && varNames.length > 0 && (
-          <div style={{ paddingLeft: `${(level + 1) * 12 + 20}px` }} className="space-y-0.5 py-1">
+          <div
+            style={{ paddingLeft: `${(level + 1) * 12 + 20}px` }}
+            className="space-y-0.5 py-1"
+          >
             {varNames.map((name) => (
               <button
                 key={name}
@@ -117,15 +126,17 @@ export const GroupBrowserPanel = ({
         )}
 
         {isExpanded && hasChildren && (
-          <div>{node.children.map((child) => renderGroupItem(child, level + 1))}</div>
+          <div>
+            {node.children.map((child) => renderGroupItem(child, level + 1))}
+          </div>
         )}
       </div>
     );
   };
 
-  const rootVars = tree.getAllVariables('/');
+  const rootVars = tree.getAllVariables("/");
   const rootVarNames = Object.keys(rootVars);
-  const isRootExpanded = expandedGroups.has('/');
+  const isRootExpanded = expandedGroups.has("/");
   const isRootVarsExpanded = expandedGroups.has(ROOT_VARS_KEY);
 
   return (
@@ -133,9 +144,9 @@ export const GroupBrowserPanel = ({
       {/* Root row */}
       <div className="flex items-stretch gap-1">
         <button
-          onClick={() => onToggleExpand('/')}
+          onClick={() => onToggleExpand("/")}
           className={`flex-1 text-left px-2 py-2 rounded text-sm flex items-center justify-between gap-2 hover:bg-accent/50 ${
-            currentGroupPath === '/' ? 'bg-accent font-semibold' : ''
+            currentGroupPath === "/" ? "bg-accent font-semibold" : ""
           }`}
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -161,7 +172,7 @@ export const GroupBrowserPanel = ({
 
       {/* Root variables (collapsible section) */}
       {isRootExpanded && rootVarNames.length > 0 && (
-        <div style={{ paddingLeft: '12px' }}>
+        <div style={{ paddingLeft: "12px" }}>
           <button
             onClick={() => onToggleExpand(ROOT_VARS_KEY)}
             className="w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
@@ -175,11 +186,11 @@ export const GroupBrowserPanel = ({
           </button>
 
           {isRootVarsExpanded && (
-            <div style={{ paddingLeft: '20px' }} className="space-y-0.5 py-1">
+            <div style={{ paddingLeft: "20px" }} className="space-y-0.5 py-1">
               {rootVarNames.map((name) => (
                 <button
                   key={name}
-                  onClick={() => onVariableClick(name, '/')}
+                  onClick={() => onVariableClick(name, "/")}
                   className="w-full text-left px-2 py-1.5 rounded text-sm flex items-center gap-2 hover:bg-accent/50 text-muted-foreground"
                 >
                   <FileText className="h-3 w-3 flex-shrink-0" />
@@ -192,7 +203,8 @@ export const GroupBrowserPanel = ({
       )}
 
       {/* Child groups */}
-      {isRootExpanded && groupTree.children.map((child) => renderGroupItem(child, 0))}
+      {isRootExpanded &&
+        groupTree.children.map((child) => renderGroupItem(child, 0))}
     </div>
   );
 };

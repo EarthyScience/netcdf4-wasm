@@ -1,9 +1,18 @@
-'use client';
-import { ChangeEvent, useState, useEffect, useCallback } from 'react';
-import { NetCDF4, DataTree } from '@earthyscience/netcdf4-wasm';
-import type { RemoteFileOptions } from '@earthyscience/netcdf4-wasm';
-import { VariableData, VariableInfo, VariableArrayData, Dimension } from './types';
-import { SliceSelectionState, defaultSelection, buildSelection } from './SliceTester';
+"use client";
+import type { RemoteFileOptions } from "@earthyscience/netcdf4-wasm";
+import { DataTree, NetCDF4 } from "@earthyscience/netcdf4-wasm";
+import { ChangeEvent, useCallback, useEffect, useState } from "react";
+import {
+  buildSelection,
+  defaultSelection,
+  SliceSelectionState,
+} from "./SliceTester";
+import {
+  Dimension,
+  VariableArrayData,
+  VariableData,
+  VariableInfo,
+} from "./types";
 
 const NETCDF_EXT_REGEX = /\.(nc|netcdf|nc3|nc4)$/i;
 
@@ -13,7 +22,7 @@ export const useViewerState = () => {
   const [dataset, setDataset] = useState<NetCDF4 | null>(null);
 
   // Group / variable state
-  const [currentGroupPath, setCurrentGroupPath] = useState<string>('/');
+  const [currentGroupPath, setCurrentGroupPath] = useState<string>("/");
   const [variables, setVariables] = useState<Record<string, VariableData>>({});
   const [attributes, setAttributes] = useState<Record<string, unknown>>({});
   const [dimensions, setDimensions] = useState<Record<string, Dimension>>({});
@@ -27,10 +36,10 @@ export const useViewerState = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [loadingVariable, setLoadingVariable] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState("");
 
   // Data controls
-  const [sliceSize, setSliceSize] = useState<string>('10');
+  const [sliceSize, setSliceSize] = useState<string>("10");
 
   // Expand/collapse state
   const [expandedVariableInfo, setExpandedVariableInfo] = useState(true);
@@ -42,11 +51,15 @@ export const useViewerState = () => {
   // Menu states
   const [showGroupMenu, setShowGroupMenu] = useState(false);
   const [showVariableMenu, setShowVariableMenu] = useState(false);
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['/']));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+    new Set(["/"]),
+  );
 
   // Search
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Array<{ name: string; groupPath: string }>>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<
+    Array<{ name: string; groupPath: string }>
+  >([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
   // Helpers
@@ -64,16 +77,19 @@ export const useViewerState = () => {
       if (!dataset) return;
       setLoadingVariable(varName);
       try {
-        const info = await dataset.getVariableInfo(
+        const info = (await dataset.getVariableInfo(
           varName,
-          currentGroupPath === '/' ? undefined : currentGroupPath
-        ) as VariableInfo;
-        setVariables((prev) => ({ ...prev, [varName]: { ...prev[varName], info } }));
+          currentGroupPath === "/" ? undefined : currentGroupPath,
+        )) as VariableInfo;
+        setVariables((prev) => ({
+          ...prev,
+          [varName]: { ...prev[varName], info },
+        }));
       } finally {
         setLoadingVariable(null);
       }
     },
-    [dataset, currentGroupPath]
+    [dataset, currentGroupPath],
   );
 
   const loadVariableData = useCallback(
@@ -81,16 +97,19 @@ export const useViewerState = () => {
       if (!dataset) return;
       setLoadingVariable(varName);
       try {
-        const data = await dataset.getVariableArray(
+        const data = (await dataset.getVariableArray(
           varName,
-          currentGroupPath === '/' ? undefined : currentGroupPath
-        ) as VariableArrayData;
-        setVariables((prev) => ({ ...prev, [varName]: { ...prev[varName], data } }));
+          currentGroupPath === "/" ? undefined : currentGroupPath,
+        )) as VariableArrayData;
+        setVariables((prev) => ({
+          ...prev,
+          [varName]: { ...prev[varName], data },
+        }));
       } finally {
         setLoadingVariable(null);
       }
     },
-    [dataset, currentGroupPath]
+    [dataset, currentGroupPath],
   );
 
   const loadVariableSlice = useCallback(
@@ -102,35 +121,47 @@ export const useViewerState = () => {
         if (!info) return;
         const shape = info.shape;
         if (shape.length === 0) {
-          const data = await dataset.getVariableArray(
+          const data = (await dataset.getVariableArray(
             varName,
-            currentGroupPath === '/' ? undefined : currentGroupPath
-          ) as VariableArrayData;
-          setVariables((prev) => ({ ...prev, [varName]: { ...prev[varName], data } }));
+            currentGroupPath === "/" ? undefined : currentGroupPath,
+          )) as VariableArrayData;
+          setVariables((prev) => ({
+            ...prev,
+            [varName]: { ...prev[varName], data },
+          }));
         } else {
           const start = new Array(shape.length).fill(0);
           const count = [...shape];
           count[0] = Math.min(size, shape[0]);
-          const data = await dataset.getSlicedVariableArray(
+          const data = (await dataset.getSlicedVariableArray(
             varName,
             start,
             count,
-            currentGroupPath === '/' ? undefined : currentGroupPath
-          ) as VariableArrayData;
-          setVariables((prev) => ({ ...prev, [varName]: { ...prev[varName], data } }));
+            currentGroupPath === "/" ? undefined : currentGroupPath,
+          )) as VariableArrayData;
+          setVariables((prev) => ({
+            ...prev,
+            [varName]: { ...prev[varName], data },
+          }));
         }
       } finally {
         setLoadingVariable(null);
       }
     },
-    [dataset, currentGroupPath, variables]
+    [dataset, currentGroupPath, variables],
   );
 
   // Handle pending variable selection after group navigation
   useEffect(() => {
-    if (pendingVariableLoad && currentGroupPath === pendingVariableLoad.groupPath) {
+    if (
+      pendingVariableLoad &&
+      currentGroupPath === pendingVariableLoad.groupPath
+    ) {
       setSelectedVariable(pendingVariableLoad.name);
-      if (variables[pendingVariableLoad.name] && !variables[pendingVariableLoad.name].info) {
+      if (
+        variables[pendingVariableLoad.name] &&
+        !variables[pendingVariableLoad.name].info
+      ) {
         loadVariableInfo(pendingVariableLoad.name);
       }
       setPendingVariableLoad(null);
@@ -141,16 +172,18 @@ export const useViewerState = () => {
 
   const validateUrl = (urlString: string): boolean => {
     if (!urlString.trim()) {
-      setError('Please enter a URL.');
+      setError("Please enter a URL.");
       return false;
     }
-    const validProtocols = ['http://', 'https://', 's3://', 'gs://', 'ftp://'];
+    const validProtocols = ["http://", "https://", "s3://", "gs://", "ftp://"];
     if (!validProtocols.some((p) => urlString.toLowerCase().startsWith(p))) {
-      setError('URL must start with a valid protocol (http://, https://, s3://, gs://, or ftp://)');
+      setError(
+        "URL must start with a valid protocol (http://, https://, s3://, gs://, or ftp://)",
+      );
       return false;
     }
     if (!NETCDF_EXT_REGEX.test(urlString)) {
-      setError('URL should point to a NetCDF file (.nc, .netcdf, .nc3, .nc4)');
+      setError("URL should point to a NetCDF file (.nc, .netcdf, .nc3, .nc4)");
       return false;
     }
     return true;
@@ -164,7 +197,7 @@ export const useViewerState = () => {
     if (!files || files.length === 0) return;
     const file = files[0];
     if (!NETCDF_EXT_REGEX.test(file.name)) {
-      setError('Please select a valid NetCDF file.');
+      setError("Please select a valid NetCDF file.");
       return;
     }
     try {
@@ -174,10 +207,10 @@ export const useViewerState = () => {
       await dt.buildTree();
       setDataset(ds);
       setTree(dt);
-      refreshGroup('/', dt);
+      refreshGroup("/", dt);
     } catch (err) {
       console.error(err);
-      setError('Failed to load NetCDF file.');
+      setError("Failed to load NetCDF file.");
     } finally {
       setIsLoading(false);
     }
@@ -188,15 +221,18 @@ export const useViewerState = () => {
     if (!validateUrl(url)) return;
     try {
       setIsLoading(true);
-      const ds = await NetCDF4.Dataset(url, "r",{ ...options, maxFullDownload: 4 * 1024 * 1024 * 1024 }); // 4 GB
+      const ds = await NetCDF4.Dataset(url, "r", {
+        ...options,
+        maxFullDownload: 4 * 1024 * 1024 * 1024,
+      }); // 4 GB
       const dt = new DataTree(ds);
       await dt.buildTree();
       setDataset(ds);
       setTree(dt);
-      refreshGroup('/', dt);
+      refreshGroup("/", dt);
     } catch (err) {
       console.error(err);
-      setError('Failed to fetch NetCDF.');
+      setError("Failed to fetch NetCDF.");
     } finally {
       setIsLoading(false);
     }
@@ -210,8 +246,8 @@ export const useViewerState = () => {
     if (openMenu) setShowGroupMenu(true);
     setShowVariableMenu(false);
     const newExpanded = new Set(expandedGroups);
-    const parts = path.split('/').filter(Boolean);
-    let currentPath = '/';
+    const parts = path.split("/").filter(Boolean);
+    let currentPath = "/";
     newExpanded.add(currentPath);
     for (const part of parts) {
       currentPath = `${currentPath}${part}/`;
@@ -250,14 +286,18 @@ export const useViewerState = () => {
     setPendingVariableLoad(result);
     selectGroup(result.groupPath, { openMenu: false });
     setShowSearchResults(false);
-    setSearchQuery('');
+    setSearchQuery("");
     setSearchResults([]);
   };
 
   // Slice tester state
-  const [sliceSelections, setSliceSelections] = useState<SliceSelectionState[]>([]);
+  const [sliceSelections, setSliceSelections] = useState<SliceSelectionState[]>(
+    [],
+  );
   const [expandedSliceTester, setExpandedSliceTester] = useState(true);
-  const [sliceResult, setSliceResult] = useState<VariableArrayData | null>(null);
+  const [sliceResult, setSliceResult] = useState<VariableArrayData | null>(
+    null,
+  );
   const [sliceError, setSliceError] = useState<string | null>(null);
   const [loadingSlice, setLoadingSlice] = useState(false);
 
@@ -280,11 +320,11 @@ export const useViewerState = () => {
     try {
       const selection = buildSelection(sliceSelections);
       // or, await (dataset as NetCDF4).get(...) if you prefer an explicit cast.
-      const data = await dataset.get(
+      const data = (await dataset.get(
         selectedVariable,
         selection,
-        currentGroupPath === '/' ? undefined : currentGroupPath
-      ) as VariableArrayData;
+        currentGroupPath === "/" ? undefined : currentGroupPath,
+      )) as VariableArrayData;
       setSliceResult(data);
     } catch (err) {
       setSliceError(err instanceof Error ? err.message : String(err));

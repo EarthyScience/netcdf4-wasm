@@ -19,6 +19,7 @@ The test suite is organized into multiple files, each focusing on specific funct
 ## Test Categories
 
 ### Dataset Tests (`test-dataset.test.ts`)
+
 - **Dataset Construction**: Factory methods, class methods, direct instantiation
 - **File Modes**: Read, write, append mode handling
 - **File Formats**: NetCDF4 format support and validation
@@ -27,6 +28,7 @@ The test suite is organized into multiple files, each focusing on specific funct
 - **Context Management**: Python-like `__aenter__`/`__aexit__` patterns
 
 ### Dimension Tests (`test-dimensions.test.ts`)
+
 - **Dimension Creation**: Fixed-size and unlimited dimensions
 - **Dimension Properties**: Name, size, unlimited status
 - **Dimension Collections**: Management of dimension dictionaries
@@ -34,6 +36,7 @@ The test suite is organized into multiple files, each focusing on specific funct
 - **Group Dimensions**: Hierarchical dimension organization
 
 ### Variable Tests (`test-variables.test.ts`)
+
 - **Variable Creation**: Scalar and multi-dimensional variables
 - **Data Types**: Support for f8, f4, i4, i2, i1, S1 and alternative names
 - **Variable Options**: Compression, chunking parameters
@@ -42,6 +45,7 @@ The test suite is organized into multiple files, each focusing on specific funct
 - **Error Handling**: Invalid types, undefined dimensions, type mismatches
 
 ### Attribute Tests (`test-attributes.test.ts`)
+
 - **Global Attributes**: String, numeric, and special value attributes
 - **Variable Attributes**: CF convention attributes, property-style access
 - **Group Attributes**: Hierarchical attribute organization
@@ -49,6 +53,7 @@ The test suite is organized into multiple files, each focusing on specific funct
 - **CF Conventions**: Climate and Forecast metadata standards
 
 ### Data Type Tests (`test-datatypes.test.ts`)
+
 - **Data Type Constants**: NetCDF constant verification
 - **Supported Types**: All netCDF data type support
 - **Array Handling**: 1D, 2D, 3D, 4D, and scalar arrays
@@ -57,6 +62,7 @@ The test suite is organized into multiple files, each focusing on specific funct
 - **Limitations**: Current implementation constraints
 
 ### Integration Tests (`test-integration.test.ts`)
+
 - **Climate Dataset**: Complete CF-compliant climate data workflow
 - **Multi-Group Dataset**: Hierarchical data organization
 - **Read/Write Workflow**: Complex file operations and data persistence
@@ -65,24 +71,28 @@ The test suite is organized into multiple files, each focusing on specific funct
 ## Test Features
 
 ### Python API Compatibility
+
 - Tests follow netcdf4-python patterns and conventions
 - Comprehensive attribute testing matching Python library
 - Dimension and variable management similar to Python Dataset
 - Error handling patterns consistent with Python exceptions
 
 ### Mock and Real Testing
+
 - **Mock Mode**: Tests run without WASM module for interface validation
 - **Real Mode**: Full integration tests when WASM module is available
 - Graceful fallback when WASM is not available
 - Interface consistency verification regardless of backend
 
 ### CF Convention Support
+
 - Climate and Forecast metadata convention testing
 - Standard attribute validation
 - Coordinate variable patterns
 - Global attribute requirements
 
 ### Data Integrity
+
 - Comprehensive array comparison utilities
 - Floating-point precision handling
 - Large dataset validation
@@ -91,6 +101,7 @@ The test suite is organized into multiple files, each focusing on specific funct
 ## Running Tests
 
 ### Basic Test Execution
+
 ```bash
 npm test                    # Run all tests
 npm run test:watch         # Watch mode for development
@@ -98,14 +109,16 @@ npm run test:coverage      # Generate coverage report
 ```
 
 ### Test Configuration
+
 - **Timeout**: 30 seconds for integration tests
 - **Setup**: Mock environment configuration
 - **Cleanup**: Automatic test file cleanup
 - **Utilities**: Shared test data generation
 
 ### Test Data Patterns
+
 - **Temperature Data**: Realistic climate patterns
-- **Array Patterns**: Mathematical sequences and patterns  
+- **Array Patterns**: Mathematical sequences and patterns
 - **Special Values**: NaN, Infinity, extreme numbers
 - **CF Examples**: Standard meteorological datasets
 

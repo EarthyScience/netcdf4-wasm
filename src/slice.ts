@@ -22,7 +22,7 @@ export class Slice {
     constructor(
         public readonly start?: number,
         public readonly stop?: number,
-        public readonly step?: number
+        public readonly step?: number,
     ) {}
 }
 
@@ -37,7 +37,7 @@ export function slice(start: number, stop: number, step: number): Slice;
 export function slice(
     startOrStop: number,
     stop?: number,
-    step?: number
+    step?: number,
 ): Slice {
     if (stop === undefined) {
         return new Slice(undefined, startOrStop, undefined);
@@ -78,8 +78,10 @@ export interface ResolvedDim {
  * Accepts BigInt dimension sizes (from nc_inq_dimlen i64 reads) and coerces safely.
  * Step is always treated as positive; start/stop are swapped if out of order.
  */
-export function resolveDim(sel: DimSelection, dimSizeRaw: number | bigint): ResolvedDim {
-
+export function resolveDim(
+    sel: DimSelection,
+    dimSizeRaw: number | bigint,
+): ResolvedDim {
     const dimSize = Number(dimSizeRaw);
 
     // full dimension
@@ -89,7 +91,7 @@ export function resolveDim(sel: DimSelection, dimSizeRaw: number | bigint): Reso
 
     // scalar index
     if (typeof sel === "number") {
-        const idx     = sel < 0 ? dimSize + sel : sel;
+        const idx = sel < 0 ? dimSize + sel : sel;
         const clamped = Math.max(0, Math.min(idx, dimSize - 1));
         return { start: clamped, count: 1, step: 1, collapsed: true };
     }
@@ -99,23 +101,23 @@ export function resolveDim(sel: DimSelection, dimSizeRaw: number | bigint): Reso
     if (step <= 0) throw new Error("Slice step must be a positive integer");
 
     const rawStart = sel.start ?? 0;
-    const rawStop  = sel.stop  ?? dimSize;
+    const rawStop = sel.stop ?? dimSize;
 
     const start = Math.max(
         0,
-        Math.min(rawStart < 0 ? dimSize + rawStart : rawStart, dimSize)
+        Math.min(rawStart < 0 ? dimSize + rawStart : rawStart, dimSize),
     );
 
     const stop = Math.max(
         0,
-        Math.min(rawStop < 0 ? dimSize + rawStop : rawStop, dimSize)
+        Math.min(rawStop < 0 ? dimSize + rawStop : rawStop, dimSize),
     );
 
     // Swap if caller passed start > stop — resolve to the correct forward range
     const lo = Math.min(start, stop);
     const hi = Math.max(start, stop);
 
-    const span  = hi - lo;
+    const span = hi - lo;
     const count = span === 0 ? 0 : Math.ceil(span / step);
     return { start: lo, count, step, collapsed: false };
 }

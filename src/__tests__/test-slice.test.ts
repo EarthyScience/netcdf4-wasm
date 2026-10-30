@@ -1,9 +1,11 @@
-import { all, slice, resolveDim } from '../slice.js';
+import { all, resolveDim, slice } from "../slice.js";
 
-describe('slice selection compatibility', () => {
-    test('all() behaves like slice(0, dimSize, 1)', () => {
+describe("slice selection compatibility", () => {
+    test("all() behaves like slice(0, dimSize, 1)", () => {
         const dimSize = 17;
-        expect(resolveDim(all(), dimSize)).toEqual(resolveDim(slice(0, dimSize, 1), dimSize));
+        expect(resolveDim(all(), dimSize)).toEqual(
+            resolveDim(slice(0, dimSize, 1), dimSize),
+        );
     });
 
     test('null and "all" behave like all()', () => {
@@ -13,4 +15,3 @@ describe('slice selection compatibility', () => {
         expect(resolveDim("all", dimSize)).toEqual(expected);
     });
 });
-

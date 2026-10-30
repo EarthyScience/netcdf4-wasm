@@ -1,14 +1,18 @@
 import type { NextConfig } from "next";
 
-const isProd = process.env.NODE_ENV === 'production';
-const basePath = isProd ? (process.env.BASE_PATH || '') : '';
-const assetPrefix = isProd ? (basePath ? `${basePath.replace(/\/$/, '')}/` : './') : '';
+const isProd = process.env.NODE_ENV === "production";
+const basePath = isProd ? process.env.BASE_PATH || "" : "";
+const assetPrefix = isProd
+  ? basePath
+    ? `${basePath.replace(/\/$/, "")}/`
+    : "./"
+  : "";
 
-console.log("BASE_PATH", basePath)
+console.log("BASE_PATH", basePath);
 
 const nextConfig: NextConfig = {
   /* config options here */
-  output: 'export' as const,
+  output: "export" as const,
   basePath: basePath,
   trailingSlash: true,
   assetPrefix: assetPrefix,
@@ -17,6 +21,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-console.log('Current NODE_ENV:', process.env.NODE_ENV);
+console.log("Current NODE_ENV:", process.env.NODE_ENV);
 
 export default nextConfig;

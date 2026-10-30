@@ -1,23 +1,22 @@
-'use client';
-import React from 'react';
-import { Badge } from '@/components/ui/badge';
-import { FileText, ChevronRight } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-
+"use client";
+import { ChevronRight, FileText } from "lucide-react";
+import React from "react";
 import {
-  FileLoader,
-  GroupBrowserTrigger,
-  GroupBrowserPanel,
-  VariableMenuTrigger,
-  VariableMenuPanel,
-  SearchBar,
-  VariableDetails,
-  VariableDataLoader,
-  SliceTester,
-  DimensionsCard,
   AttributesCard,
-} from '@/components/loading/netcdf';
-import { useViewerState } from '@/components/loading/netcdf/useViewerState';
+  DimensionsCard,
+  FileLoader,
+  GroupBrowserPanel,
+  GroupBrowserTrigger,
+  SearchBar,
+  SliceTester,
+  VariableDataLoader,
+  VariableDetails,
+  VariableMenuPanel,
+  VariableMenuTrigger,
+} from "@/components/loading/netcdf";
+import { useViewerState } from "@/components/loading/netcdf/useViewerState";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 
 const Viewer = () => {
   const {
@@ -112,7 +111,6 @@ const Viewer = () => {
           {/* Navigation Bar */}
           <Card className="border-0 py-4">
             <CardContent className="space-y-3 p-2 sm:p-3">
-
               {/* Row 1: trigger buttons + search */}
               <div className="flex gap-2 flex-wrap">
                 <GroupBrowserTrigger
@@ -173,8 +171,8 @@ const Viewer = () => {
                           onClick={() => selectGroup(crumb.path)}
                           className={`hover:text-foreground transition-colors cursor-pointer break-all ${
                             crumb.path === currentGroupPath
-                              ? 'text-foreground font-semibold'
-                              : ''
+                              ? "text-foreground font-semibold"
+                              : ""
                           }`}
                         >
                           {crumb.name}
@@ -189,7 +187,7 @@ const Viewer = () => {
                   {selectedVariable && (
                     <Badge
                       className="text-xs h-5 max-w-full"
-                      style={{ backgroundColor: '#644FF0', color: 'white' }}
+                      style={{ backgroundColor: "#644FF0", color: "white" }}
                     >
                       <FileText className="h-3 w-3 mr-1 flex-shrink-0" />
                       <span className="truncate">{selectedVariable}</span>
@@ -224,7 +222,6 @@ const Viewer = () => {
                   }}
                 />
               )}
-
             </CardContent>
           </Card>
 
@@ -235,8 +232,12 @@ const Viewer = () => {
               expandedVariableInfo={expandedVariableInfo}
               expandedVariableAttrs={expandedVariableAttrs}
               expandedEnumDict={expandedEnumDict}
-              onToggleVariableInfo={() => setExpandedVariableInfo(!expandedVariableInfo)}
-              onToggleVariableAttrs={() => setExpandedVariableAttrs(!expandedVariableAttrs)}
+              onToggleVariableInfo={() =>
+                setExpandedVariableInfo(!expandedVariableInfo)
+              }
+              onToggleVariableAttrs={() =>
+                setExpandedVariableAttrs(!expandedVariableAttrs)
+              }
               onToggleEnumDict={() => setExpandedEnumDict(!expandedEnumDict)}
             />
           )}
@@ -256,7 +257,7 @@ const Viewer = () => {
             />
           )}
 
-           {/* Variable Data Loader */}
+          {/* Variable Data Loader */}
           {selectedVariable && variables[selectedVariable]?.info && (
             <VariableDataLoader
               variableName={selectedVariable}

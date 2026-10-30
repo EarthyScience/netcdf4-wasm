@@ -1,109 +1,123 @@
-'use client';
-import React from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { ButtonGroup } from '@/components/ui/button-group';
-import { PlusIcon, MinusIcon } from 'lucide-react';
-import { Spinner } from '@/components/ui/spinner';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Terminal, ChevronRight, ChevronDown } from 'lucide-react';
-import { all, Slice, DimSelection, resolveDim } from '@earthyscience/netcdf4-wasm';
-import { VariableInfo, VariableArrayData } from './types';
-import ArrayDisplay from './ArrayDisplay';
+"use client";
+import {
+  all,
+  DimSelection,
+  resolveDim,
+  Slice,
+} from "@earthyscience/netcdf4-wasm";
+import {
+  ChevronDown,
+  ChevronRight,
+  MinusIcon,
+  PlusIcon,
+  Terminal,
+} from "lucide-react";
+import React from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
+import { Input } from "@/components/ui/input";
+import { Spinner } from "@/components/ui/spinner";
+import ArrayDisplay from "./ArrayDisplay";
+import { VariableArrayData, VariableInfo } from "./types";
 
 // Types
-export type SelectionMode = 'all' | 'scalar' | 'slice';
+export type SelectionMode = "all" | "scalar" | "slice";
 
 export interface SliceSelectionState {
-    mode:   SelectionMode;
-    scalar: string;
-    start:  string;
-    stop:   string;
-    step:   string;
+  mode: SelectionMode;
+  scalar: string;
+  start: string;
+  stop: string;
+  step: string;
 }
 
 export function defaultSelection(): SliceSelectionState {
-    return { mode: 'all', scalar: '0', start: '0', stop: '', step: '1' };
+  return { mode: "all", scalar: "0", start: "0", stop: "", step: "1" };
 }
 
 const MAX_ELEMENTS = 10_000_000;
 
 const MODE_ACCENT: Record<SelectionMode, string> = {
-    all:    'border-l-muted-foreground/30',
-    scalar: 'border-l-teal-700',
-    slice:  'border-l-[#644FF0]',
+  all: "border-l-muted-foreground/30",
+  scalar: "border-l-teal-700",
+  slice: "border-l-[#644FF0]",
 };
 
 const MODE_BADGE: Record<SelectionMode, string> = {
-    all:    'text-muted-foreground/50',
-    scalar: 'text-teal-700',
-    slice:  'text-[#644FF0]',
+  all: "text-muted-foreground/50",
+  scalar: "text-teal-700",
+  slice: "text-[#644FF0]",
 };
 
 // Translate UI state into a DimSelection — all resolution is delegated to resolveDim
-export function buildSelection(
-    sels: SliceSelectionState[],
-): DimSelection[] {
-    return sels.map(s => {
-        if (s.mode === 'all')    return all();
-        if (s.mode === 'scalar') return parseInt(s.scalar) || 0;
+export function buildSelection(sels: SliceSelectionState[]): DimSelection[] {
+  return sels.map((s) => {
+    if (s.mode === "all") return all();
+    if (s.mode === "scalar") return parseInt(s.scalar) || 0;
 
-        const start = s.start !== '' ? parseInt(s.start) : undefined;
-        const stop  = s.stop  !== '' ? parseInt(s.stop)  : undefined;
-        const step  = s.step  !== '' ? parseInt(s.step)  : undefined;
-        return new Slice(start, stop, step);
-    });
+    const start = s.start !== "" ? parseInt(s.start) : undefined;
+    const stop = s.stop !== "" ? parseInt(s.stop) : undefined;
+    const step = s.step !== "" ? parseInt(s.step) : undefined;
+    return new Slice(start, stop, step);
+  });
 }
 
 // Compute output shape using resolveDim — stays in sync with the library by construction
 export function resultShape(
-    sels: SliceSelectionState[],
-    shape: Array<number | bigint>
+  sels: SliceSelectionState[],
+  shape: Array<number | bigint>,
 ): number[] {
-    return sels.flatMap((s, i) => {
-        const sel: DimSelection =
-            s.mode === 'scalar' ? (parseInt(s.scalar) || 0) :
-            s.mode === 'all'    ? all() :
-            new Slice(
-                s.start !== '' ? parseInt(s.start) : undefined,
-                s.stop  !== '' ? parseInt(s.stop)  : undefined,
-                s.step  !== '' ? parseInt(s.step)  : undefined,
+  return sels.flatMap((s, i) => {
+    const sel: DimSelection =
+      s.mode === "scalar"
+        ? parseInt(s.scalar) || 0
+        : s.mode === "all"
+          ? all()
+          : new Slice(
+              s.start !== "" ? parseInt(s.start) : undefined,
+              s.stop !== "" ? parseInt(s.stop) : undefined,
+              s.step !== "" ? parseInt(s.step) : undefined,
             );
-        const resolved = resolveDim(sel, shape[i]);
-        return resolved.collapsed ? [] : [resolved.count];
-    });
+    const resolved = resolveDim(sel, shape[i]);
+    return resolved.collapsed ? [] : [resolved.count];
+  });
 }
 
 function dimBadge(s: SliceSelectionState, dimSize: number): string | null {
-  if (s.mode === 'scalar') return s.scalar || '0';
-  if (s.mode === 'all') return 'all';
-  const start = s.start !== '' ? s.start : '0';
-  const stop  = s.stop  !== '' ? s.stop  : String(dimSize);
-  const step  = s.step  !== '' ? s.step  : '1';
+  if (s.mode === "scalar") return s.scalar || "0";
+  if (s.mode === "all") return "all";
+  const start = s.start !== "" ? s.start : "0";
+  const stop = s.stop !== "" ? s.stop : String(dimSize);
+  const step = s.step !== "" ? s.step : "1";
   return `${start}:${step}:${stop}`;
 }
 
 function resolvedBadge(s: SliceSelectionState, dimSize: number): string | null {
-  if (s.mode === 'scalar') {
+  if (s.mode === "scalar") {
     const raw = parseInt(s.scalar);
     if (Number.isNaN(raw) || raw >= 0) return null;
     return String(dimSize + raw);
   }
-  if (s.mode !== 'slice') return null;
-  const rawStart = s.start !== '' ? parseInt(s.start) : 0;
-  const rawStop  = s.stop  !== '' ? parseInt(s.stop)  : dimSize;
-  const step     = s.step  !== '' ? s.step             : '1';
+  if (s.mode !== "slice") return null;
+  const rawStart = s.start !== "" ? parseInt(s.start) : 0;
+  const rawStop = s.stop !== "" ? parseInt(s.stop) : dimSize;
+  const step = s.step !== "" ? s.step : "1";
   if (Number.isNaN(rawStart) || Number.isNaN(rawStop)) return null;
   const absStart = rawStart < 0 ? Math.max(0, dimSize + rawStart) : rawStart;
-  const absStop  = rawStop  < 0 ? Math.max(0, dimSize + rawStop)  : rawStop;
-  const [resolvedStart, resolvedStop] = absStart > absStop ? [absStop, absStart] : [absStart, absStop];
+  const absStop = rawStop < 0 ? Math.max(0, dimSize + rawStop) : rawStop;
+  const [resolvedStart, resolvedStop] =
+    absStart > absStop ? [absStop, absStart] : [absStart, absStop];
   if (resolvedStart === rawStart && resolvedStop === rawStop) return null;
   return `${resolvedStart}:${step}:${resolvedStop}`;
 }
 
-function clampStep(sel: SliceSelectionState, dimSize: number): SliceSelectionState {
-  if (sel.mode !== 'slice') return sel;
-  let step = sel.step !== '' ? parseInt(sel.step) : 1;
+function clampStep(
+  sel: SliceSelectionState,
+  dimSize: number,
+): SliceSelectionState {
+  if (sel.mode !== "slice") return sel;
+  let step = sel.step !== "" ? parseInt(sel.step) : 1;
   if (Number.isNaN(step) || step <= 0) step = 1;
   const clamped = Math.min(dimSize, step);
   return sel.step === String(clamped) ? sel : { ...sel, step: String(clamped) };
@@ -111,20 +125,22 @@ function clampStep(sel: SliceSelectionState, dimSize: number): SliceSelectionSta
 
 function fmtCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} M`;
-  if (n >= 1_000)     return `${(n / 1_000).toFixed(1)} K`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)} K`;
   return String(n);
 }
 
 interface SliceTesterSectionProps {
-  info:                   VariableInfo;
-  sliceSelections:        SliceSelectionState[];
-  setSliceSelections:     React.Dispatch<React.SetStateAction<SliceSelectionState[]>>;
-  expandedSliceTester:    boolean;
+  info: VariableInfo;
+  sliceSelections: SliceSelectionState[];
+  setSliceSelections: React.Dispatch<
+    React.SetStateAction<SliceSelectionState[]>
+  >;
+  expandedSliceTester: boolean;
   setExpandedSliceTester: (v: boolean) => void;
-  sliceResult:            VariableArrayData | null;
-  sliceError:             string | null;
-  loadingSlice:           boolean;
-  onRun:                  () => void;
+  sliceResult: VariableArrayData | null;
+  sliceError: string | null;
+  loadingSlice: boolean;
+  onRun: () => void;
 }
 
 const SliceTester: React.FC<SliceTesterSectionProps> = ({
@@ -148,39 +164,49 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
   };
 
   const updateSel = (i: number, patch: Partial<SliceSelectionState>) =>
-    setSliceSelections(prev => prev.map((s, idx) => {
-      if (idx !== i) return s;
-      const next = { ...s, ...patch };
-      return clampStep(next, Number(shape[i]));
-    }));
+    setSliceSelections((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== i) return s;
+        const next = { ...s, ...patch };
+        return clampStep(next, Number(shape[i]));
+      }),
+    );
 
-  const changeBy = (i: number, key: keyof Omit<SliceSelectionState, 'mode'>, delta: number) => {
-    setSliceSelections(prev => prev.map((s, idx) => {
-      if (idx !== i) return s;
-      const dimSize = Number(shape[i]);
-      if (key === 'step') {
-        let step = s.step !== '' ? parseOr(s.step, 1) : 1;
-        if (step <= 0) step = 1;
-        const nextStep = Math.max(1, Math.min(dimSize, step + delta));
-        const next = { ...s, step: String(nextStep) };
-        return clampStep(next, dimSize);
-      } else {
-        let val = parseInt(s[key] || '0');
-        if (Number.isNaN(val)) val = 0;
-        val += delta;
-        const lo = -dimSize;
-        const hi = key === 'stop' ? dimSize : dimSize - 1;
-        val = Math.max(lo, Math.min(hi, val));
-        const next = { ...s, [key]: String(val) } as SliceSelectionState;
-        return clampStep(next, dimSize);
-      }
-    }));
+  const changeBy = (
+    i: number,
+    key: keyof Omit<SliceSelectionState, "mode">,
+    delta: number,
+  ) => {
+    setSliceSelections((prev) =>
+      prev.map((s, idx) => {
+        if (idx !== i) return s;
+        const dimSize = Number(shape[i]);
+        if (key === "step") {
+          let step = s.step !== "" ? parseOr(s.step, 1) : 1;
+          if (step <= 0) step = 1;
+          const nextStep = Math.max(1, Math.min(dimSize, step + delta));
+          const next = { ...s, step: String(nextStep) };
+          return clampStep(next, dimSize);
+        } else {
+          let val = parseInt(s[key] || "0");
+          if (Number.isNaN(val)) val = 0;
+          val += delta;
+          const lo = -dimSize;
+          const hi = key === "stop" ? dimSize : dimSize - 1;
+          val = Math.max(lo, Math.min(hi, val));
+          const next = { ...s, [key]: String(val) } as SliceSelectionState;
+          return clampStep(next, dimSize);
+        }
+      }),
+    );
   };
 
-  const rShape    = resultShape(sliceSelections, info.shape);
-  const rDims     = info.dimensions?.filter((_, i) => sliceSelections[i]?.mode !== 'scalar');
+  const rShape = resultShape(sliceSelections, info.shape);
+  const rDims = info.dimensions?.filter(
+    (_, i) => sliceSelections[i]?.mode !== "scalar",
+  );
   const nElements = rShape.reduce((a, b) => a * b, 1);
-  const tooMany   = nElements > MAX_ELEMENTS;
+  const tooMany = nElements > MAX_ELEMENTS;
 
   return (
     <div className="border-[0.1px] rounded-lg overflow-hidden mt-2">
@@ -192,24 +218,24 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
         <div className="flex items-center gap-2 min-w-0">
           <span className="text-sm font-semibold truncate">{info.name}</span>
           <span className="text-xs text-muted-foreground font-mono shrink-0">
-            [{shape.join(', ')}] Data viewer
+            [{shape.join(", ")}] Data viewer
           </span>
         </div>
-        {expandedSliceTester
-          ? <ChevronDown  className="h-4 w-4 flex-shrink-0 text-muted-foreground ml-2" />
-          : <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground ml-2" />
-        }
+        {expandedSliceTester ? (
+          <ChevronDown className="h-4 w-4 flex-shrink-0 text-muted-foreground ml-2" />
+        ) : (
+          <ChevronRight className="h-4 w-4 flex-shrink-0 text-muted-foreground ml-2" />
+        )}
       </button>
 
       {expandedSliceTester && (
         <div className="px-3 pb-3 space-y-2">
-
           {/* Dimension rows */}
           <div className="space-y-1.5">
             {shape.map((dimSize, i) => {
-              const dimName  = info.dimensions?.[i] ?? `dim_${i}`;
-              const sel      = sliceSelections[i] ?? defaultSelection();
-              const badge    = dimBadge(sel, dimSize);
+              const dimName = info.dimensions?.[i] ?? `dim_${i}`;
+              const sel = sliceSelections[i] ?? defaultSelection();
+              const badge = dimBadge(sel, dimSize);
               const resBadge = resolvedBadge(sel, dimSize);
               return (
                 <div
@@ -221,15 +247,23 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                     <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                       <span className="font-mono text-xs text-muted-foreground shrink-0">
                         {dimName}
-                        <span className="text-muted-foreground/50"> [{dimSize}]</span>
+                        <span className="text-muted-foreground/50">
+                          {" "}
+                          [{dimSize}]
+                        </span>
                       </span>
                       {badge !== null && (
-                        <span className={`text-xs font-mono shrink-0 ${MODE_BADGE[sel.mode]}`}>
+                        <span
+                          className={`text-xs font-mono shrink-0 ${MODE_BADGE[sel.mode]}`}
+                        >
                           → {badge}
                         </span>
                       )}
                       {resBadge !== null && (
-                        <span className="text-xs font-mono shrink-0" style={{ color: 'tomato' }}>
+                        <span
+                          className="text-xs font-mono shrink-0"
+                          style={{ color: "tomato" }}
+                        >
                           [{resBadge}]
                         </span>
                       )}
@@ -237,27 +271,37 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
 
                     {/* Mode tabs */}
                     <div className="flex rounded-md border overflow-hidden text-xs shrink-0">
-                      {(['all', 'scalar', 'slice'] as SelectionMode[]).map(m => (
-                        <button
-                          key={m}
-                          onClick={() => updateSel(i, { mode: m })}
-                          className={`px-2 py-1 transition-colors cursor-pointer ${
-                            sel.mode === m
-                              ? 'bg-primary text-primary-foreground font-semibold'
-                              : 'hover:bg-accent/50'
-                          }`}
-                        >
-                          {m}
-                        </button>
-                      ))}
+                      {(["all", "scalar", "slice"] as SelectionMode[]).map(
+                        (m) => (
+                          <button
+                            key={m}
+                            onClick={() => updateSel(i, { mode: m })}
+                            className={`px-2 py-1 transition-colors cursor-pointer ${
+                              sel.mode === m
+                                ? "bg-primary text-primary-foreground font-semibold"
+                                : "hover:bg-accent/50"
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        ),
+                      )}
                     </div>
                   </div>
 
                   {/* Scalar input */}
-                  {sel.mode === 'scalar' && (
+                  {sel.mode === "scalar" && (
                     <div className="flex flex-wrap items-center justify-center gap-2">
-                      <ButtonGroup orientation="horizontal" className="h-7 w-fit">
-                        <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0 cursor-pointer shrink-0" onClick={() => changeBy(i, 'scalar', -1)}>
+                      <ButtonGroup
+                        orientation="horizontal"
+                        className="h-7 w-fit"
+                      >
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          className="h-7 w-7 p-0 cursor-pointer shrink-0"
+                          onClick={() => changeBy(i, "scalar", -1)}
+                        >
                           <MinusIcon className="h-4 w-4" />
                         </Button>
                         <Input
@@ -265,11 +309,18 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                           min={-dimSize}
                           max={dimSize - 1}
                           value={sel.scalar}
-                          onChange={e => updateSel(i, { scalar: e.target.value })}
+                          onChange={(e) =>
+                            updateSel(i, { scalar: e.target.value })
+                          }
                           className="h-7 text-xs w-16 font-mono text-center appearance-none"
                           placeholder="0"
                         />
-                        <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0 cursor-pointer shrink-0" onClick={() => changeBy(i, 'scalar', +1)}>
+                        <Button
+                          variant="outline"
+                          size="icon-sm"
+                          className="h-7 w-7 p-0 cursor-pointer shrink-0"
+                          onClick={() => changeBy(i, "scalar", +1)}
+                        >
                           <PlusIcon className="h-4 w-4" />
                         </Button>
                       </ButtonGroup>
@@ -280,17 +331,48 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                   )}
 
                   {/* Slice inputs */}
-                  {sel.mode === 'slice' && (
+                  {sel.mode === "slice" && (
                     <div className="flex flex-wrap justify-center gap-2">
                       {[
-                        { label: 'start', key: 'start' as const, placeholder: '0',             min: -dimSize, max: dimSize - 1 },
-                        { label: 'stop',  key: 'stop'  as const, placeholder: String(dimSize), min: -dimSize, max: dimSize     },
-                        { label: 'step',  key: 'step'  as const, placeholder: '1',             min: 1,        max: dimSize     },
+                        {
+                          label: "start",
+                          key: "start" as const,
+                          placeholder: "0",
+                          min: -dimSize,
+                          max: dimSize - 1,
+                        },
+                        {
+                          label: "stop",
+                          key: "stop" as const,
+                          placeholder: String(dimSize),
+                          min: -dimSize,
+                          max: dimSize,
+                        },
+                        {
+                          label: "step",
+                          key: "step" as const,
+                          placeholder: "1",
+                          min: 1,
+                          max: dimSize,
+                        },
                       ].map(({ label, key, placeholder, min, max }) => (
-                        <div key={key} className="flex flex-col items-center gap-1">
-                          <span className="text-xs text-muted-foreground">{label}</span>
-                          <ButtonGroup orientation="horizontal" className="h-7 w-fit">
-                            <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0 cursor-pointer shrink-0" onClick={() => changeBy(i, key, -1)}>
+                        <div
+                          key={key}
+                          className="flex flex-col items-center gap-1"
+                        >
+                          <span className="text-xs text-muted-foreground">
+                            {label}
+                          </span>
+                          <ButtonGroup
+                            orientation="horizontal"
+                            className="h-7 w-fit"
+                          >
+                            <Button
+                              variant="outline"
+                              size="icon-sm"
+                              className="h-7 w-7 p-0 cursor-pointer shrink-0"
+                              onClick={() => changeBy(i, key, -1)}
+                            >
                               <MinusIcon className="h-4 w-4" />
                             </Button>
                             <Input
@@ -298,11 +380,18 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
                               min={min}
                               max={max}
                               value={sel[key]}
-                              onChange={e => updateSel(i, { [key]: e.target.value })}
+                              onChange={(e) =>
+                                updateSel(i, { [key]: e.target.value })
+                              }
                               className="h-7 text-xs w-16 font-mono text-center appearance-none"
                               placeholder={placeholder}
                             />
-                            <Button variant="outline" size="icon-sm" className="h-7 w-7 p-0 cursor-pointer shrink-0" onClick={() => changeBy(i, key, +1)}>
+                            <Button
+                              variant="outline"
+                              size="icon-sm"
+                              className="h-7 w-7 p-0 cursor-pointer shrink-0"
+                              onClick={() => changeBy(i, key, +1)}
+                            >
                               <PlusIcon className="h-4 w-4" />
                             </Button>
                           </ButtonGroup>
@@ -318,33 +407,47 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
           {/* Selection preview + Run */}
           <div className="bg-muted/50 rounded px-2 py-1.5 space-y-1.5">
             <div className="text-xs font-mono text-muted-foreground break-all">
-              {`dataset.get("${info.name}", [${
-                sliceSelections.map((s, i) => {
-                  if (s.mode === 'all') return 'all';
-                  if (s.mode === 'scalar') return s.scalar || '0';
+              {`dataset.get("${info.name}", [${sliceSelections
+                .map((s, i) => {
+                  if (s.mode === "all") return "all";
+                  if (s.mode === "scalar") return s.scalar || "0";
                   const dimSize = shape[i];
-                  const parts: string[] = [s.start || '0', s.stop || String(dimSize)];
-                  if (s.step && s.step !== '1') parts.push(s.step);
-                  return `slice(${parts.join(', ')})`;
-                }).join(', ')
-              }])`}
+                  const parts: string[] = [
+                    s.start || "0",
+                    s.stop || String(dimSize),
+                  ];
+                  if (s.step && s.step !== "1") parts.push(s.step);
+                  return `slice(${parts.join(", ")})`;
+                })
+                .join(", ")}])`}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
                 onClick={onRun}
                 disabled={loadingSlice || tooMany}
-                style={{ backgroundColor: tooMany ? undefined : '#644FF0', color: 'white' }}
+                style={{
+                  backgroundColor: tooMany ? undefined : "#644FF0",
+                  color: "white",
+                }}
                 className="h-7 text-xs px-3 cursor-pointer"
               >
-                {loadingSlice
-                  ? <><Spinner className="h-3 w-3 mr-1.5" />Loading...</>
-                  : 'Load'
-                }
+                {loadingSlice ? (
+                  <>
+                    <Spinner className="h-3 w-3 mr-1.5" />
+                    Loading...
+                  </>
+                ) : (
+                  "Load"
+                )}
               </Button>
               {tooMany ? (
-                <span className="text-xs font-mono" style={{ color: 'tomato', justifyContent: 'right' }}>
-                  {fmtCount(nElements)} elements — too many to display at once. Narrow your selection, try {'<'}10 M.
+                <span
+                  className="text-xs font-mono"
+                  style={{ color: "tomato", justifyContent: "right" }}
+                >
+                  {fmtCount(nElements)} elements — too many to display at once.
+                  Narrow your selection, try {"<"}10 M.
                 </span>
               ) : (
                 <span className="text-xs font-mono text-muted-foreground">
@@ -363,7 +466,9 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
           {sliceError && (
             <Alert variant="destructive" className="py-2">
               <Terminal className="h-4 w-4 flex-shrink-0" />
-              <AlertDescription className="text-xs break-words">{sliceError}</AlertDescription>
+              <AlertDescription className="text-xs break-words">
+                {sliceError}
+              </AlertDescription>
             </Alert>
           )}
 
@@ -378,7 +483,6 @@ const SliceTester: React.FC<SliceTesterSectionProps> = ({
               totalShape={info.shape.map(Number)}
             />
           )}
-
         </div>
       )}
     </div>
