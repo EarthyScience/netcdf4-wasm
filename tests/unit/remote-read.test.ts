@@ -1,13 +1,21 @@
 // Remote reads: range requests, the block cache, and the Emscripten FS node
 
-import { jest } from "@jest/globals";
+import {
+    afterEach,
+    beforeEach,
+    describe,
+    expect,
+    type Mock,
+    test,
+    vi,
+} from "vitest";
 import {
     cacheSizes,
     checkRangeSupport,
     createRemoteFileNode,
     RemoteFile,
     XhrRangeSource,
-} from "../remote-read.js";
+} from "../../src/remote-read.js";
 
 const GiB = 1024 ** 3;
 const URL_ = "https://example.org/data.nc";
@@ -82,7 +90,7 @@ function serve(
     size: number,
     { head = true, exposeRange = true, ignoreRange = false } = {},
 ): Handler {
-    return (method, headers) => {
+    return (method, headers): Reply => {
         if (method === "HEAD") {
             return head
                 ? { status: 200, headers: { "Content-Length": String(size) } }
@@ -186,7 +194,7 @@ describe("XhrRangeSource", () => {
 
 describe("RemoteFile", () => {
     function source(length: number) {
-        return { length, read: jest.fn(bytesAt) };
+        return { length, read: vi.fn(bytesAt) };
     }
 
     test("reads across block boundaries above 4 GiB with one request", () => {
@@ -267,7 +275,7 @@ describe("RemoteFile", () => {
 
 describe("checkRangeSupport", () => {
     const originalFetch = globalThis.fetch;
-    let fetchMock: jest.Mock<typeof fetch>;
+    let fetchMock: Mock<typeof fetch>;
 
     function reply(status: number, headers: Record<string, string> = {}) {
         fetchMock.mockResolvedValue(
@@ -279,7 +287,7 @@ describe("checkRangeSupport", () => {
     }
 
     beforeEach(() => {
-        fetchMock = jest.fn<typeof fetch>();
+        fetchMock = vi.fn<typeof fetch>();
         Object.assign(globalThis, { fetch: fetchMock });
     });
 
@@ -349,11 +357,11 @@ describe("checkRangeSupport", () => {
 describe("createRemoteFileNode", () => {
     test("exposes the size, serves reads, and maps errors to errno", () => {
         const length = 300 * GiB;
-        const bytes = { length, read: jest.fn(bytesAt) };
+        const bytes = { length, read: vi.fn(bytesAt) };
         const file = new RemoteFile(bytes, { blockSize: 16, cacheSize: 32 });
         const FS = {
-            mkdirTree: jest.fn(),
-            createFile: jest.fn(() => ({ stream_ops: {} })),
+            mkdirTree: vi.fn(),
+            createFile: vi.fn(() => ({ stream_ops: {} })),
             ErrnoError: class extends Error {
                 constructor(public errno: number) {
                     super(String(errno));

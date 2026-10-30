@@ -1,8 +1,8 @@
 // Worker initialization tests: init failures must reject instead of hanging
 
 import { getEventListeners } from "node:events";
-import { jest } from "@jest/globals";
-import { NetCDF4 } from "../index.js";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
+import { NetCDF4 } from "../../src/index.js";
 
 // Minimal stand-in for the browser Worker. Answers 'init' with
 // FakeWorker.initReply (reply data, or an event dispatched as is)
@@ -101,20 +101,23 @@ describe("Worker Initialization", () => {
         });
 
         // netcdf-worker binds onmessage to `self` once, at import time. A second
-        // test here would need jest.resetModules() and a fresh import.
-        test("should report a missing WASM module instead of hanging", async () => {
-            // The generated WASM module lives in dist, so importing it from src fails.
+        // test here would need vi.resetModules() and a fresh import.
+        test("should report a failed WASM load instead of hanging", async () => {
+            vi.doMock("../../dist/netcdf4-wasm.js", () => ({
+                default: () =>
+                    Promise.reject(new Error("netcdf4-wasm.wasm: HTTP 404")),
+            }));
             const scope = {
-                postMessage: jest.fn(),
+                postMessage: vi.fn(),
                 onmessage: async (_: MessageEvent) => {},
             };
             Object.assign(globalThis, { self: scope });
-            const consoleError = jest
+            const consoleError = vi
                 .spyOn(console, "error")
                 .mockImplementation(() => {});
 
             try {
-                await import("../netcdf-worker.js");
+                await import("../../src/netcdf-worker.js");
                 await scope.onmessage(
                     new MessageEvent("message", {
                         data: { type: "init", id: 1 },

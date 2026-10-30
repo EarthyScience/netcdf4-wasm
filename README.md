@@ -6,8 +6,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178c6)](https://www.typescriptlang.org/)
 [![WebAssembly](https://img.shields.io/badge/WebAssembly-654FF0)](https://webassembly.org/)
 [![Emscripten](https://img.shields.io/badge/Emscripten-6.0.13-0000)](https://emscripten.org/)
-[![Jest](https://img.shields.io/badge/Jest-29.x-C21325)](https://jestjs.io/)
-[![ts-jest](https://img.shields.io/badge/ts--jest-29.x-3178c6)](https://kulshekhar.github.io/ts-jest/)
+[![Vitest](https://img.shields.io/badge/Vitest-5.x-6E9F18)](https://vitest.dev/)
 
 
 <img src="https://raw.githubusercontent.com/EarthyScience/netcdf4-wasm/6eecb7eea2da775c139ebddf3f544efc6593ee2f/assets/logo.svg" align="right" style="padding-left:10px;" width="180"/>

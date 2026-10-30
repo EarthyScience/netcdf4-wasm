@@ -22,31 +22,10 @@ export class Group {
     // Attribute methods
     setAttr(name: string, value: any): void {
         this._attributes[name] = value;
-
-        // Store in mock file system if in test mode
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
-            const mockFiles = (global as any).__netcdf4_mock_files;
-            const dataset = this.netcdf as any;
-            if (mockFiles && dataset.filename && mockFiles[dataset.filename]) {
-                mockFiles[dataset.filename].attributes[name] = value;
-            }
-        }
         // TODO: Implement actual NetCDF global attribute setting
     }
 
     getAttr(name: string): any {
-        // Check mock file system first if in test mode
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
-            const mockFiles = (global as any).__netcdf4_mock_files;
-            const dataset = this.netcdf as any;
-            if (mockFiles && dataset.filename && mockFiles[dataset.filename]) {
-                const value = mockFiles[dataset.filename].attributes[name];
-                if (value !== undefined) {
-                    this._attributes[name] = value; // Sync local cache
-                    return value;
-                }
-            }
-        }
         return this._attributes[name];
     }
 
@@ -82,50 +61,6 @@ export class Group {
         const dimension = new Dimension(name, actualSize, isUnlimited);
         this.dimensions[name] = dimension;
         return dimension;
-    }
-
-    // Load dimensions and variables from mock storage when in test mode
-    public loadMockDimensions(): void {
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
-            const mockFiles = (global as any).__netcdf4_mock_files;
-            const dataset = this.netcdf as any;
-            if (mockFiles && dataset.filename && mockFiles[dataset.filename]) {
-                // Load dimensions
-                const mockDims = mockFiles[dataset.filename].dimensions;
-                for (const [name, dimData] of Object.entries(mockDims as any)) {
-                    const dimension = new Dimension(
-                        name,
-                        (dimData as any).size,
-                        (dimData as any).unlimited,
-                    );
-                    this.dimensions[name] = dimension;
-                }
-
-                // Load variables
-                const mockVars = mockFiles[dataset.filename].variables;
-                for (const [name, varData] of Object.entries(mockVars as any)) {
-                    const varInfo = varData as any;
-                    // Reconstruct variable - for now, assume double datatype and no dimensions for simplicity
-                    const variable = new Variable(
-                        this.netcdf,
-                        name,
-                        varInfo.datatype || "f8",
-                        varInfo.dimensions || [],
-                        1,
-                        this.groupId,
-                    );
-                    // Restore variable attributes
-                    if (varInfo.attributes) {
-                        for (const [attrName, attrValue] of Object.entries(
-                            varInfo.attributes,
-                        )) {
-                            variable.setAttr(attrName, attrValue);
-                        }
-                    }
-                    this.variables[name] = variable;
-                }
-            }
-        }
     }
 
     async createVariable(
@@ -164,22 +99,6 @@ export class Group {
             this.groupId,
         );
         this.variables[name] = variable;
-
-        // Store variable metadata in mock storage if in test mode
-        if (typeof process !== "undefined" && process.env.NODE_ENV === "test") {
-            const mockFiles = (global as any).__netcdf4_mock_files;
-            const dataset = this.netcdf as any;
-            if (mockFiles && dataset.filename && mockFiles[dataset.filename]) {
-                mockFiles[dataset.filename].variables[name] = {
-                    ...mockFiles[dataset.filename].variables[name],
-                    datatype: datatype,
-                    dimensions: dimensions,
-                    data: new Float64Array(0),
-                    attributes: {},
-                };
-            }
-        }
-
         return variable;
     }
 
