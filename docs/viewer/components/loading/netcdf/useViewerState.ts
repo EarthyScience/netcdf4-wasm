@@ -62,6 +62,13 @@ export const useViewerState = () => {
   >([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
+  // Close a dataset once it is replaced or the viewer unmounts, so its worker is freed
+  useEffect(() => {
+    return () => {
+      dataset?.close().catch(console.error);
+    };
+  }, [dataset]);
+
   // Helpers
 
   const refreshGroup = useCallback((path: string, dataTree: DataTree) => {
@@ -200,9 +207,10 @@ export const useViewerState = () => {
       setError("Please select a valid NetCDF file.");
       return;
     }
+    let ds: NetCDF4 | undefined;
     try {
       setIsLoading(true);
-      const ds = await NetCDF4.fromBlobLazy(file);
+      ds = await NetCDF4.fromBlobLazy(file);
       const dt = new DataTree(ds);
       await dt.buildTree();
       setDataset(ds);
@@ -210,6 +218,7 @@ export const useViewerState = () => {
       refreshGroup("/", dt);
     } catch (err) {
       console.error(err);
+      ds?.close().catch(console.error);
       setError("Failed to load NetCDF file.");
     } finally {
       setIsLoading(false);
@@ -219,9 +228,10 @@ export const useViewerState = () => {
   const handleUrlFetch = async (options: RemoteFileOptions = {}) => {
     setError(null);
     if (!validateUrl(url)) return;
+    let ds: NetCDF4 | undefined;
     try {
       setIsLoading(true);
-      const ds = await NetCDF4.Dataset(url, "r", {
+      ds = await NetCDF4.Dataset(url, "r", {
         ...options,
         maxFullDownload: 4 * 1024 * 1024 * 1024,
       }); // 4 GB
@@ -232,6 +242,7 @@ export const useViewerState = () => {
       refreshGroup("/", dt);
     } catch (err) {
       console.error(err);
+      ds?.close().catch(console.error);
       setError("Failed to fetch NetCDF.");
     } finally {
       setIsLoading(false);

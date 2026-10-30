@@ -147,10 +147,17 @@ export class NetCDF4 extends Group {
         const dataset = new NetCDF4(fullPath, "r", options);
         // Store the raw blob. The worker will mount it via WORKERFS
         dataset.workerSource = { blob, filename: fullPath };
-        await dataset.initialize();
+        try {
+            await dataset.initialize();
 
-        // After worker is set up, open the file
-        await dataset.open();
+            // After worker is set up, open the file
+            await dataset.open();
+        } catch (error) {
+            dataset.terminateWorker(
+                error instanceof Error ? error : new Error(String(error)),
+            );
+            throw error;
+        }
 
         return dataset;
     }
