@@ -19,7 +19,8 @@
     "test": "cross-env NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest",
     "test:watch": "cross-env NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest --watch",
     "test:coverage": "cross-env NODE_OPTIONS='--experimental-vm-modules --no-warnings=ExperimentalWarning' jest --coverage",
-    "lint": "echo 'Linting not configured yet'",
+    "lint": "biome lint src/",
+    "formatcheck": "biome format src/",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "npm run clean && npm run install-emscripten && npm run build && npm run test",
     "install-emscripten": "bash scripts/install-emscripten.sh",
@@ -54,6 +55,7 @@
   "devDependencies": {
     "@types/jest": "^29.0.0",
     "@types/node": "^20.0.0",
+    "@biomejs/biome": "^2.6.4",
     "cpx2": "^8.0.0",
     "cross-env": "^10.1.0",
     "jest": "^29.0.0",
