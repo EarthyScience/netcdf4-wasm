@@ -16,6 +16,7 @@ runs:
         registry-url: "https://registry.npmjs.org"
 
     - name: Install system dependencies
+      if: runner.os == 'Linux' # macOS runner images already ship cmake, wget, tar and Xcode CLT
       shell: bash
       run: |
         sudo apt-get update
