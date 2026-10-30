@@ -1547,9 +1547,12 @@ export class WasmModuleLoader {
                         const strPtr = module.getValue(dataPtr + i * 4, "*");
                         data.push(module.UTF8ToString(strPtr));
                     }
+                    // free the individual strings allocated by NetCDF-C before
+                    // freeing the pointer array. nc_free_string_wrapper handles both.
+                    nc_free_string_wrapper(totalLength, dataPtr);
+                } else {
+                    module._free(dataPtr);
                 }
-
-                module._free(dataPtr);
                 module._free(startPtr);
                 module._free(countPtr);
                 return { result, data };
@@ -1745,8 +1748,12 @@ export class WasmModuleLoader {
                         const strPtr = module.getValue(dataPtr + i * 4, "*");
                         data.push(module.UTF8ToString(strPtr));
                     }
+                    // free the individual strings allocated by NetCDF-C before
+                    // freeing the pointer array. nc_free_string_wrapper handles both.
+                    nc_free_string_wrapper(length, dataPtr);
+                } else {
+                    module._free(dataPtr);
                 }
-                module._free(dataPtr);
                 return { result, data };
             },
 
