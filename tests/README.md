@@ -12,8 +12,10 @@ npm test             # or test:watch, test:coverage
 
 - `unit/`: code that needs no WASM module: slicing, range requests and the
   block cache (with a fake `XMLHttpRequest`/`fetch`), and the worker
-  handshake (with a fake `Worker`). The worker path itself is not covered:
-  it needs a browser for `Worker` and `WORKERFS`.
+  handshake (with a fake `Worker`). The worker runs the same operations
+  (`src/operations.ts`) as the main thread, so `wasm/` covers them; only the
+  message passing and `WORKERFS` mounting are not covered, as they need a
+  browser.
 - `wasm/`: reads the fixtures through the WASM module, and writes new files.
 - `setup.ts`: lets the browser-only module run in Node. It stubs `window`,
   serves the `.wasm` binary through `fetch`, and compiles it once per test

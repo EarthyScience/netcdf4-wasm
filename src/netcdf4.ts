@@ -2,7 +2,12 @@
 
 import { NC_CONSTANTS } from "./constants.js";
 import { Group } from "./group.js";
-import * as NCGet from "./netcdf-getters.js";
+import {
+    type OperationArgs,
+    type OperationName,
+    type OperationResult,
+    runOperation,
+} from "./operations.js";
 import type { DimSelection } from "./slice.js";
 import type {
     DatasetOptions,
@@ -250,7 +255,7 @@ export class NetCDF4 extends Group {
                 this.mode === "r"
                     ? NC_CONSTANTS.NC_NOWRITE
                     : NC_CONSTANTS.NC_WRITE;
-            this.ncid = await this.callWorker("open", {
+            this.ncid = await this.run("open", {
                 path: this.filename,
                 modeValue,
             });
@@ -356,21 +361,9 @@ export class NetCDF4 extends Group {
 
     // Low-level NetCDF operations (used by Group methods)
     async openFile(path: string, mode: "r" | "w" | "a" = "r"): Promise<number> {
-        const module = this.getModule();
         const modeValue =
-            mode === "r"
-                ? NC_CONSTANTS.NC_NOWRITE
-                : mode === "w"
-                  ? NC_CONSTANTS.NC_WRITE
-                  : NC_CONSTANTS.NC_WRITE;
-
-        const result = module.nc_open(path, modeValue);
-        if (result.result !== NC_CONSTANTS.NC_NOERR) {
-            throw new Error(
-                `Failed to open NetCDF file: ${path} (error: ${result.result})`,
-            );
-        }
-        return result.ncid;
+            mode === "r" ? NC_CONSTANTS.NC_NOWRITE : NC_CONSTANTS.NC_WRITE;
+        return this.run("open", { path, modeValue });
     }
 
     async createFile(
@@ -388,31 +381,23 @@ export class NetCDF4 extends Group {
     }
 
     async closeFile(ncid: number): Promise<void> {
-        if (this.worker) {
-            await this.callWorker("close");
-        } else {
-            const module = this.module;
-            if (!module)
-                throw new Error(
-                    "Failed to load module. Ensure module is initialized before calling methods",
-                );
-
-            const result = module.nc_close(ncid);
-            if (result !== NC_CONSTANTS.NC_NOERR) {
-                throw new Error(
-                    `Failed to close NetCDF file with ID: ${ncid} (error: ${result})`,
-                );
-            }
-        }
+        await this.run("close", { ncid });
     }
 
     private requestId = 0;
 
-    private async callWorker(type: string, payload: any = {}): Promise<any> {
+    // Run an operation from operations.ts: in the worker if there is one,
+    // otherwise on this thread. ncid defaults to the dataset's own.
+    private async run<K extends OperationName>(
+        name: K,
+        args: Omit<OperationArgs<K>, "ncid"> & { ncid?: number },
+    ): Promise<OperationResult<K>> {
+        const fullArgs = { ncid: this.ncid, ...args } as OperationArgs<K>;
         if (this.workerError) throw this.workerError;
-        if (!this.worker) throw new Error("Worker not initialized");
-
-        return this.requestWorker({ type, ncid: this.ncid, ...payload });
+        if (this.worker) {
+            return this.requestWorker({ type: name, args: fullArgs });
+        }
+        return runOperation(this.getModule(), name, fullArgs);
     }
 
     // Post a message to the worker and wait for the reply carrying the same id.
@@ -487,151 +472,60 @@ export class NetCDF4 extends Group {
     async getGlobalAttributes(
         groupPath?: string,
     ): Promise<Record<string, any>> {
-        if (this.worker) {
-            return this.callWorker("getGlobalAttributes", { groupPath });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getGlobalAttributes(
-                this.module as NetCDF4Module,
-                this.ncid,
-                groupPath,
-            );
-        }
+        return this.run("getGlobalAttributes", { groupPath });
     }
 
     async getFullMetadata(groupPath?: string): Promise<Record<string, any>[]> {
-        if (this.worker) {
-            return this.callWorker("getFullMetadata", { groupPath });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getFullMetadata(
-                this.module as NetCDF4Module,
-                this.ncid,
-                groupPath,
-            );
-        }
+        return this.run("getFullMetadata", { groupPath });
     }
 
     async getAttributeValues(varid: number, attname: string): Promise<any> {
-        if (this.worker) {
-            return this.callWorker("getAttributeValues", { varid, attname });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getAttributeValues(
-                this.module as NetCDF4Module,
-                this.ncid,
-                varid,
-                attname,
-            );
-        }
+        return this.run("getAttributeValues", { varid, attname });
     }
 
     async getDimCount(ncid: number = this.ncid): Promise<number> {
-        if (this.worker) {
-            return this.callWorker("getDimCount", { ncid });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getDimCount(this.module as NetCDF4Module, ncid);
-        }
+        return this.run("getDimCount", { ncid });
     }
 
     async getGroupVariables(groupPath?: string): Promise<Record<string, any>> {
-        if (this.worker) {
-            return this.callWorker("getGroupVariables", { groupPath });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getGroupVariables(
-                this.module as NetCDF4Module,
-                this.ncid,
-                groupPath,
-            );
-        }
+        return this.run("getGroupVariables", { groupPath });
     }
 
     async getVarIDs(ncid: number = this.ncid): Promise<number[] | Int32Array> {
-        if (this.worker) {
-            return this.callWorker("getVarIDs", { ncid });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getVarIDs(this.module as NetCDF4Module, ncid);
-        }
+        return this.run("getVarIDs", { ncid });
     }
 
     async getDimIDs(ncid: number = this.ncid): Promise<number[] | Int32Array> {
-        if (this.worker) {
-            return this.callWorker("getDimIDs", { ncid });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getDimIDs(this.module as NetCDF4Module, ncid);
-        }
+        return this.run("getDimIDs", { ncid });
     }
 
     async getDim(
         dimid: number,
         ncid: number = this.ncid,
     ): Promise<Record<string, any>> {
-        if (this.worker) {
-            return this.callWorker("getDim", { dimid, ncid });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getDim(this.module as NetCDF4Module, ncid, dimid);
-        }
+        return this.run("getDim", { dimid, ncid });
     }
 
     async getDims(groupPath?: string): Promise<Record<string, any>> {
-        if (this.worker) {
-            return this.callWorker("getDims", { groupPath });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getDims(
-                this.module as NetCDF4Module,
-                this.ncid,
-                groupPath,
-            );
-        }
+        return this.run("getDims", { groupPath });
     }
 
     async getVarCount(ncid: number = this.ncid): Promise<number> {
-        if (this.worker) {
-            return this.callWorker("getVarCount", { ncid });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getVarCount(this.module as NetCDF4Module, ncid);
-        }
+        return this.run("getVarCount", { ncid });
     }
 
     async getAttributeName(
         varid: number,
         attId: number,
     ): Promise<string | undefined> {
-        if (this.worker) {
-            return this.callWorker("getAttributeName", { varid, attId });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getAttributeName(
-                this.module as NetCDF4Module,
-                this.ncid,
-                varid,
-                attId,
-            );
-        }
+        return this.run("getAttributeName", { varid, attId });
     }
 
     async getVariableInfo(
         variable: number | string,
         groupPath?: string,
     ): Promise<Record<string, any>> {
-        if (this.worker) {
-            return this.callWorker("getVariableInfo", { variable, groupPath });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getVariableInfo(
-                this.module as NetCDF4Module,
-                this.ncid,
-                variable,
-                groupPath,
-            );
-        }
+        return this.run("getVariableInfo", { variable, groupPath });
     }
 
     async getVariableArray(
@@ -650,17 +544,7 @@ export class NetCDF4 extends Group {
         | BigUint64Array
         | string[]
     > {
-        if (this.worker) {
-            return this.callWorker("getVariableArray", { variable, groupPath });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getVariableArray(
-                this.module as NetCDF4Module,
-                this.ncid,
-                variable,
-                groupPath,
-            );
-        }
+        return this.run("getVariableArray", { variable, groupPath });
     }
 
     async getSlicedVariableArray(
@@ -681,24 +565,12 @@ export class NetCDF4 extends Group {
         | BigUint64Array
         | string[]
     > {
-        if (this.worker) {
-            return this.callWorker("getSlicedVariableArray", {
-                variable,
-                start,
-                count,
-                groupPath,
-            });
-        } else {
-            // Main thread path is already synchronous (or could be wrapped in Promise.resolve)
-            return NCGet.getSlicedVariableArray(
-                this.module as NetCDF4Module,
-                this.ncid,
-                variable,
-                start,
-                count,
-                groupPath,
-            );
-        }
+        return this.run("getSlicedVariableArray", {
+            variable,
+            start,
+            count,
+            groupPath,
+        });
     }
 
     /**
@@ -742,71 +614,35 @@ export class NetCDF4 extends Group {
         | BigUint64Array
         | string[]
     > {
-        if (this.worker) {
-            return this.callWorker("getVariableArrayWithSelection", {
-                ncid: this.ncid,
-                variable,
-                selection,
-                groupPath,
-                options,
-            });
-        } else {
-            return NCGet.getVariableArrayWithSelection(
-                this.module as NetCDF4Module,
-                this.ncid,
-                variable,
-                selection,
-                groupPath,
-                options,
-            );
-        }
+        return this.run("getVariableArrayWithSelection", {
+            variable,
+            selection,
+            groupPath,
+            options,
+        });
     }
 
     // Group functions
     async getGroups(ncid: number = this.ncid): Promise<Record<string, number>> {
-        if (this.worker) {
-            return this.callWorker("getGroups", { ncid });
-        } else {
-            return NCGet.getGroups(this.module as NetCDF4Module, ncid);
-        }
+        return this.run("getGroups", { ncid });
     }
 
     async getGroupsRecursive(
         ncid: number = this.ncid,
     ): Promise<Record<string, any>> {
-        if (this.worker) {
-            return this.callWorker("getGroupsRecursive", { ncid });
-        } else {
-            return NCGet.getGroupsRecursive(this.module as NetCDF4Module, ncid);
-        }
+        return this.run("getGroupsRecursive", { ncid });
     }
 
     async getGroupNCID(groupPath: string): Promise<number> {
-        if (this.worker) {
-            return this.callWorker("getGroupNCID", { groupPath });
-        } else {
-            return NCGet.getGroupNCID(
-                this.module as NetCDF4Module,
-                this.ncid,
-                groupPath,
-            );
-        }
+        return this.run("getGroupNCID", { groupPath });
     }
 
     async getGroupName(ncid: number = this.ncid): Promise<string> {
-        if (this.worker) {
-            return this.callWorker("getGroupName", { ncid });
-        } else {
-            return NCGet.getGroupName(this.module as NetCDF4Module, ncid);
-        }
+        return this.run("getGroupName", { ncid });
     }
 
     async getGroupPath(ncid: number = this.ncid): Promise<string> {
-        if (this.worker) {
-            return this.callWorker("getGroupPath", { ncid });
-        } else {
-            return NCGet.getGroupPath(this.module as NetCDF4Module, ncid);
-        }
+        return this.run("getGroupPath", { ncid });
     }
 
     async defineDimension(
@@ -978,15 +814,7 @@ export class NetCDF4 extends Group {
     async getCompleteHierarchy(
         groupPath?: string,
     ): Promise<Record<string, any>> {
-        if (this.worker) {
-            return this.callWorker("getCompleteHierarchy", { groupPath });
-        } else {
-            return NCGet.getCompleteHierarchy(
-                this.module as NetCDF4Module,
-                this.ncid,
-                groupPath,
-            );
-        }
+        return this.run("getCompleteHierarchy", { groupPath });
     }
 
     /**
@@ -994,11 +822,7 @@ export class NetCDF4 extends Group {
      * Returns a flat dictionary with full path keys like "/group1/var1"
      */
     async getVariables(): Promise<Record<string, any>> {
-        if (this.worker) {
-            return this.callWorker("getVariables");
-        } else {
-            return NCGet.getVariables(this.module as NetCDF4Module, this.ncid);
-        }
+        return this.run("getVariables", {});
     }
 }
 

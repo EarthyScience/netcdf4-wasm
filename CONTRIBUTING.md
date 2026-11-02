@@ -74,6 +74,7 @@ netcdf4-wasm/
 │   ├── netcdf-worker.ts   # Web Worker implementation
 │   ├── netcdf4-wasm.d.ts  # TypeScript declarations
 │   ├── netcdf4.ts         # Main NetCDF4 class
+│   ├── operations.ts      # Operations shared by the main thread and the worker
 │   ├── types.ts           # Type definitions
 │   ├── variable.ts        # Variable class
 │   └── wasm-module.ts     # WASM module loader
