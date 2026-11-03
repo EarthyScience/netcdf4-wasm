@@ -1,43 +1,52 @@
 // Type definitions for NetCDF4 WASM
 
-export interface EmscriptenModule {
-    ccall: (
+/// <reference types="emscripten" />
+
+import type { FILE_FORMATS, FILE_MODES } from "./constants.js";
+
+// A MEMFS file node. stream_ops.read is passed HEAP8, not the Uint8Array
+// that @types/emscripten declares.
+export type EmscriptenFileNode = FS.FSNode & {
+    usedBytes: number;
+    stream_ops: Omit<FS.StreamOps, "read"> & {
+        read(
+            stream: FS.FSStream,
+            buffer: Int8Array,
+            offset: number,
+            length: number,
+            position: number,
+        ): number;
+    };
+};
+
+// FS.createFile exists at runtime but is missing from @types/emscripten
+export type EmscriptenFS = typeof FS & {
+    createFile(
+        parent: string | FS.FSNode,
         name: string,
-        returnType: string,
-        argTypes: string[],
-        args: any[],
-    ) => any;
-    cwrap: (
-        name: string,
-        returnType: string,
-        argTypes: string[],
-    ) => (...args: any[]) => any;
-    getValue: (ptr: number, type: string) => number;
-    setValue: (ptr: number, value: number, type: string) => void;
-    UTF8ToString: (ptr: number) => string;
-    stringToUTF8: (
-        str: string,
-        outPtr: number,
-        maxBytesToWrite: number,
-    ) => void;
-    lengthBytesUTF8: (str: string) => number;
-    _malloc: (size: number) => number;
-    _free: (ptr: number) => void;
+        properties: object,
+        canRead: boolean,
+        canWrite: boolean,
+    ): EmscriptenFileNode;
+};
+
+// The base interface (heaps, _malloc, _free, ...) comes from @types/emscripten.
+// Runtime methods are only present when listed in EXPORTED_RUNTIME_METHODS
+// (see scripts/build-wasm.sh), so they have to be added here.
+export interface EmscriptenModule extends globalThis.EmscriptenModule {
+    ccall: typeof ccall;
+    cwrap: typeof cwrap;
+    getValue: typeof getValue;
+    setValue: typeof setValue;
+    UTF8ToString: typeof UTF8ToString;
+    stringToUTF8: typeof stringToUTF8;
+    lengthBytesUTF8: typeof lengthBytesUTF8;
+    FS: EmscriptenFS;
+    WORKERFS: Emscripten.FileSystemType;
+    // Defined in bindings/post.js
     allocateString: (str: string) => number;
     freeString: (ptr: number) => void;
-    FS: any;
-    WORKERFS: any;
     ready: Promise<EmscriptenModule>;
-    HEAPF64: Float64Array;
-    HEAP64: BigInt64Array;
-    HEAP32: Int32Array;
-    HEAP8: Int8Array;
-    HEAPF32: Float32Array;
-    HEAPU8: Uint8Array;
-    HEAP16: Int16Array;
-    HEAPU16: Uint16Array;
-    HEAPU32: Uint32Array;
-    HEAPU64: BigUint64Array;
 }
 
 export type AnyTypedArray =
@@ -53,6 +62,14 @@ export type AnyTypedArray =
     | BigUint64Array
     | string[];
 
+export type FileMode = keyof typeof FILE_MODES;
+export type CreateMode = {
+    [M in FileMode]: (typeof FILE_MODES)[M]["create"] extends true ? M : never;
+}[FileMode];
+export type OpenMode = Exclude<FileMode, CreateMode>;
+export type FileFormat = keyof typeof FILE_FORMATS;
+// The flags nc_open accepts
+export type OpenFlags = (typeof FILE_MODES)[OpenMode]["flags"];
 export interface NetCDF4Module extends EmscriptenModule {
     // Wrapped NetCDF4 functions
     nc_open: (path: string, mode: number) => { result: number; ncid: number };

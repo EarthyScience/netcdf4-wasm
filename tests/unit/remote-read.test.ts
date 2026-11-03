@@ -16,6 +16,7 @@ import {
     RemoteFile,
     XhrRangeSource,
 } from "../../src/remote-read.js";
+import type { EmscriptenFS } from "../../src/types.js";
 
 const GiB = 1024 ** 3;
 const URL_ = "https://example.org/data.nc";
@@ -369,12 +370,17 @@ describe("createRemoteFileNode", () => {
             },
         };
 
-        const node = createRemoteFileNode(FS, "/remote/data.nc", file);
+        const node = createRemoteFileNode(
+            FS as unknown as EmscriptenFS,
+            "/remote/data.nc",
+            file,
+        );
+        const stream = {} as FS.FSStream;
         expect(FS.mkdirTree).toHaveBeenCalledWith("/remote");
         expect(node.usedBytes).toBe(length);
 
         const heap = new Int8Array(10);
-        expect(node.stream_ops.read({}, heap, 2, 3, length - 3)).toBe(3);
+        expect(node.stream_ops.read(stream, heap, 2, 3, length - 3)).toBe(3);
         expect(new Uint8Array(heap.buffer, 2, 3)).toEqual(
             bytesAt(length - 3, length),
         );
@@ -382,7 +388,7 @@ describe("createRemoteFileNode", () => {
         bytes.read.mockImplementationOnce(() => {
             throw new Error("HTTP 403");
         });
-        expect(() => node.stream_ops.read({}, heap, 0, 1, 0)).toThrow("29");
+        expect(() => node.stream_ops.read(stream, heap, 0, 1, 0)).toThrow("29");
         expect(file.lastError?.message).toBe("HTTP 403");
     });
 });

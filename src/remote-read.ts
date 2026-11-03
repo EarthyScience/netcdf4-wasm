@@ -5,7 +5,10 @@
 
 import { toError } from "./errors.js";
 import type {
-import type { RemoteFileOptions } from "./types.js";
+    EmscriptenFileNode,
+    EmscriptenFS,
+    RemoteFileOptions,
+} from "./types.js";
 
 const DEFAULT_BLOCK_SIZE = 1024 * 1024; // 1 MiB
 const DEFAULT_CACHE_SIZE = 64 * 1024 * 1024; // 64 MiB
@@ -281,10 +284,10 @@ export class RemoteFile {
  * kept in file.lastError.
  */
 export function createRemoteFileNode(
-    FS: any,
+    FS: EmscriptenFS,
     path: string,
     file: RemoteFile,
-): any {
+): EmscriptenFileNode {
     const slash = path.lastIndexOf("/");
     const dir = path.slice(0, slash) || "/";
     FS.mkdirTree(dir);
@@ -295,8 +298,8 @@ export function createRemoteFileNode(
     node.stream_ops = {
         ...node.stream_ops,
         read(
-            _stream: any,
-            buffer: Int8Array,
+            _stream: FS.FSStream,
+            buffer: ArrayBufferView,
             offset: number,
             length: number,
             position: number,
