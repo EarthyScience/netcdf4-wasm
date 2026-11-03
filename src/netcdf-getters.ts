@@ -187,7 +187,7 @@ export function getAttributeValues(
         [NC_CONSTANTS.NC_UBYTE]: module.nc_get_att_uchar,
         [NC_CONSTANTS.NC_UINT]: module.nc_get_att_uint,
         [NC_CONSTANTS.NC_USHORT]: module.nc_get_att_ushort,
-        [NC_CONSTANTS.NC_LONGLONG]: module.nc_get_att_longlong,
+        [NC_CONSTANTS.NC_INT64]: module.nc_get_att_longlong,
         [NC_CONSTANTS.NC_UINT64]: module.nc_get_att_ulonglong,
         [NC_CONSTANTS.NC_STRING]: module.nc_get_att_string,
     };
@@ -637,11 +637,7 @@ export function getVariableArray(
             module.nc_get_var_double(...args),
         [NC_CONSTANTS.NC_INT64]: (...args) =>
             module.nc_get_var_longlong(...args),
-        [NC_CONSTANTS.NC_LONGLONG]: (...args) =>
-            module.nc_get_var_longlong(...args),
         [NC_CONSTANTS.NC_UINT64]: (...args) =>
-            module.nc_get_var_ulonglong(...args),
-        [NC_CONSTANTS.NC_ULONGLONG]: (...args) =>
             module.nc_get_var_ulonglong(...args),
         [NC_CONSTANTS.NC_STRING]: (...args) =>
             module.nc_get_var_string(...args),
@@ -886,9 +882,7 @@ export function getVariableArrayWithSelection(
             [NC_CONSTANTS.NC_FLOAT]: () => new Float32Array(0),
             [NC_CONSTANTS.NC_DOUBLE]: () => new Float64Array(0),
             [NC_CONSTANTS.NC_INT64]: () => new BigInt64Array(0),
-            [NC_CONSTANTS.NC_LONGLONG]: () => new BigInt64Array(0),
             [NC_CONSTANTS.NC_UINT64]: () => new BigUint64Array(0),
-            [NC_CONSTANTS.NC_ULONGLONG]: () => new BigUint64Array(0),
             [NC_CONSTANTS.NC_STRING]: () => [],
         };
         return (emptyReaders[arrayType] ?? (() => new Float64Array(0)))();
@@ -929,11 +923,7 @@ export function getVariableArrayWithSelection(
                 module.nc_get_vars_double(...args),
             [NC_CONSTANTS.NC_INT64]: (...args) =>
                 module.nc_get_vars_longlong(...args),
-            [NC_CONSTANTS.NC_LONGLONG]: (...args) =>
-                module.nc_get_vars_longlong(...args),
             [NC_CONSTANTS.NC_UINT64]: (...args) =>
-                module.nc_get_vars_ulonglong(...args),
-            [NC_CONSTANTS.NC_ULONGLONG]: (...args) =>
                 module.nc_get_vars_ulonglong(...args),
             [NC_CONSTANTS.NC_STRING]: (...args) =>
                 module.nc_get_vars_string(...args),
