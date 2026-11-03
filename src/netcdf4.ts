@@ -1,6 +1,7 @@
 // Main NetCDF4 class implementation
 
-import { NC_CONSTANTS } from "./constants.js";
+import { FILE_MODES, NC_CONSTANTS } from "./constants.js";
+import { toError } from "./errors.js";
 import { Group } from "./group.js";
 import {
     type OperationArgs,
@@ -10,13 +11,32 @@ import {
 } from "./operations.js";
 import type { DimSelection } from "./slice.js";
 import type {
+    AnyTypedArray,
     DatasetOptions,
+    FileMode,
     MemoryDatasetSource,
     NetCDF4Module,
+    OpenMode,
     RemoteDatasetOptions,
     RemoteFileOptions,
 } from "./types.js";
 import { WasmModuleLoader } from "./wasm-module.js";
+
+function isFileMode(mode: string): mode is FileMode {
+    return Object.hasOwn(FILE_MODES, mode);
+}
+
+type WorkerSource = {
+    blob?: Blob;
+    url?: string;
+    remote?: RemoteFileOptions;
+    filename: string;
+};
+
+// Messages handled by netcdf-worker
+type WorkerRequest =
+    | ({ type: "init" } & WorkerSource)
+    | { type: OperationName; args: OperationArgs<OperationName> };
 
 export class NetCDF4 extends Group {
     private module: NetCDF4Module | null = null;
@@ -24,12 +44,7 @@ export class NetCDF4 extends Group {
     private ncid: number = -1;
     private _isOpen = false;
     private memorySource?: MemoryDatasetSource;
-    private workerSource?: {
-        blob?: Blob;
-        url?: string;
-        remote?: RemoteFileOptions;
-        filename: string;
-    };
+    private workerSource?: WorkerSource;
     private worker?: Worker;
     private workerReady?: Promise<void>;
     // Set once the worker is terminated; later worker calls reject with it
@@ -42,9 +57,10 @@ export class NetCDF4 extends Group {
         private mode: string = "r",
         private options: DatasetOptions = {},
     ) {
-        super(null as any, "", -1);
+        // this can't be passed before super(), so it is set on the next line
+        super(null as unknown as NetCDF4, "", -1);
         // Set up self-reference for Group methods
-        (this as any).netcdf = this;
+        this.netcdf = this;
     }
 
     async initialize(): Promise<void> {
@@ -72,7 +88,7 @@ export class NetCDF4 extends Group {
     // Python-like factory method
     static async Dataset(
         filename: string | URL,
-        mode: string = "r",
+        mode: FileMode = "r",
         options: RemoteDatasetOptions = {},
     ): Promise<NetCDF4> {
         if (filename instanceof URL || /^https?:\/\//i.test(filename)) {
@@ -91,7 +107,7 @@ export class NetCDF4 extends Group {
     // Create dataset from Blob
     static async fromBlob(
         blob: Blob,
-        mode: string = "r",
+        mode: FileMode = "r",
         options: DatasetOptions = {},
     ): Promise<NetCDF4> {
         const arrayBuffer = await blob.arrayBuffer();
@@ -101,7 +117,7 @@ export class NetCDF4 extends Group {
     // Create dataset from ArrayBuffer
     static async fromArrayBuffer(
         buffer: ArrayBuffer,
-        mode: string = "r",
+        mode: FileMode = "r",
         options: DatasetOptions = {},
     ): Promise<NetCDF4> {
         const data = new Uint8Array(buffer);
@@ -111,7 +127,7 @@ export class NetCDF4 extends Group {
     // Create dataset from memory data (Uint8Array or ArrayBuffer)
     static async fromMemory(
         data: Uint8Array | ArrayBuffer,
-        mode: string = "r",
+        mode: FileMode = "r",
         options: DatasetOptions = {},
         filename?: string,
     ): Promise<NetCDF4> {
@@ -158,9 +174,7 @@ export class NetCDF4 extends Group {
             // After worker is set up, open the file
             await dataset.open();
         } catch (error) {
-            dataset.terminateWorker(
-                error instanceof Error ? error : new Error(String(error)),
-            );
+            dataset.terminateWorker(toError(error));
             throw error;
         }
 
@@ -224,9 +238,7 @@ export class NetCDF4 extends Group {
             await dataset.initialize();
             await dataset.open();
         } catch (error) {
-            dataset.terminateWorker(
-                error instanceof Error ? error : new Error(String(error)),
-            );
+            dataset.terminateWorker(toError(error));
             throw error;
         }
 
@@ -241,55 +253,32 @@ export class NetCDF4 extends Group {
         }
 
         // Check for valid modes early, before any WASM operations
-        const validModes = ["r", "w", "w-", "a", "r+"];
-        if (!validModes.includes(this.mode)) {
-            throw new Error(`Unsupported mode: ${this.mode}`);
+        const mode = this.mode;
+        if (!isFileMode(mode)) {
+            throw new Error(`Unsupported mode: ${mode}`);
         }
 
-        // Worker path
-        if (this.worker) {
-            // Wait for worker to be ready first
-            await this.workerReady;
-
-            const modeValue =
-                this.mode === "r"
-                    ? NC_CONSTANTS.NC_NOWRITE
-                    : NC_CONSTANTS.NC_WRITE;
-            this.ncid = await this.run("open", {
-                path: this.filename,
-                modeValue,
-            });
-
-            (this as any).groupId = this.ncid;
-            this._isOpen = true;
-
-            return;
-        }
-
-        if (this.mode === "w" || this.mode === "w-") {
+        if (!this.worker && (mode === "w" || mode === "w-")) {
             // Create new file
-            let createMode = NC_CONSTANTS.NC_CLOBBER;
+            let createMode: number = NC_CONSTANTS.NC_CLOBBER;
             if (this.options.format === "NETCDF4") {
                 createMode |= NC_CONSTANTS.NC_NETCDF4;
             }
-            const result = await this.createFile(this.filename, createMode);
-            this.ncid = result;
-            (this as any).groupId = result;
-        } else if (
-            this.mode === "r" ||
-            this.mode === "a" ||
-            this.mode === "r+"
-        ) {
-            // Open existing file
-            const modeValue =
-                this.mode === "r"
-                    ? NC_CONSTANTS.NC_NOWRITE
-                    : NC_CONSTANTS.NC_WRITE;
-            this.ncid = await this.openFile(this.filename, this.mode as any);
-            (this as any).groupId = this.ncid;
-            await this.load();
+            this.ncid = await this.createFile(this.filename, createMode);
+            this.groupId = this.ncid;
+        } else {
+            // Worker datasets open the file inside the worker, where write
+            // modes open the existing file for writing like "a"
+            await this.workerReady;
+            this.ncid = await this.openFile(
+                this.filename,
+                mode === "w" || mode === "w-" ? "a" : mode,
+            );
+            this.groupId = this.ncid;
+            if (!this.worker) {
+                await this.load();
+            }
         }
-
         this._isOpen = true;
     }
 
@@ -360,10 +349,8 @@ export class NetCDF4 extends Group {
     }
 
     // Low-level NetCDF operations (used by Group methods)
-    async openFile(path: string, mode: "r" | "w" | "a" = "r"): Promise<number> {
-        const modeValue =
-            mode === "r" ? NC_CONSTANTS.NC_NOWRITE : NC_CONSTANTS.NC_WRITE;
-        return this.run("open", { path, modeValue });
+    async openFile(path: string, mode: OpenMode = "r"): Promise<number> {
+        return this.run("open", { path, modeValue: FILE_MODES[mode].flags });
     }
 
     async createFile(
@@ -395,7 +382,10 @@ export class NetCDF4 extends Group {
         const fullArgs = { ncid: this.ncid, ...args } as OperationArgs<K>;
         if (this.workerError) throw this.workerError;
         if (this.worker) {
-            return this.requestWorker({ type: name, args: fullArgs });
+            return this.requestWorker<OperationResult<K>>({
+                type: name,
+                args: fullArgs,
+            });
         }
         return runOperation(this.getModule(), name, fullArgs);
     }
@@ -403,14 +393,14 @@ export class NetCDF4 extends Group {
     // Post a message to the worker and wait for the reply carrying the same id.
     // With startup set, a worker 'error' event also rejects, since a worker that
     // fails to load never replies.
-    private requestWorker(
-        message: { type: string; [key: string]: any },
+    private requestWorker<T = void>(
+        message: WorkerRequest,
         { startup = false } = {},
-    ): Promise<any> {
+    ): Promise<T> {
         const worker = this.worker!;
         const id = ++this.requestId;
 
-        return new Promise((resolve, reject) => {
+        return new Promise<T>((resolve, reject) => {
             // Aborting it removes every listener this request added
             const listeners = new AbortController();
 
@@ -419,7 +409,8 @@ export class NetCDF4 extends Group {
                 listeners.abort();
                 this.pendingRequests.delete(id);
                 if (error) reject(error);
-                else resolve(result);
+                // The worker's reply can't be checked; it is trusted to match T
+                else resolve(result as T);
             };
 
             worker.addEventListener(
@@ -531,19 +522,7 @@ export class NetCDF4 extends Group {
     async getVariableArray(
         variable: number | string,
         groupPath?: string,
-    ): Promise<
-        | Int8Array
-        | Uint8Array
-        | Int16Array
-        | Uint16Array
-        | Int32Array
-        | Uint32Array
-        | Float32Array
-        | Float64Array
-        | BigInt64Array
-        | BigUint64Array
-        | string[]
-    > {
+    ): Promise<AnyTypedArray> {
         return this.run("getVariableArray", { variable, groupPath });
     }
 
@@ -552,19 +531,7 @@ export class NetCDF4 extends Group {
         start: number[],
         count: number[],
         groupPath?: string,
-    ): Promise<
-        | Int8Array
-        | Uint8Array
-        | Int16Array
-        | Uint16Array
-        | Int32Array
-        | Uint32Array
-        | Float32Array
-        | Float64Array
-        | BigInt64Array
-        | BigUint64Array
-        | string[]
-    > {
+    ): Promise<AnyTypedArray> {
         return this.run("getSlicedVariableArray", {
             variable,
             start,
@@ -601,19 +568,7 @@ export class NetCDF4 extends Group {
         selection: DimSelection[],
         groupPath?: string,
         options?: { convertEnumsToNames?: boolean },
-    ): Promise<
-        | Int8Array
-        | Uint8Array
-        | Int16Array
-        | Uint16Array
-        | Int32Array
-        | Uint32Array
-        | Float32Array
-        | Float64Array
-        | BigInt64Array
-        | BigUint64Array
-        | string[]
-    > {
+    ): Promise<AnyTypedArray> {
         return this.run("getVariableArrayWithSelection", {
             variable,
             selection,
@@ -745,7 +700,7 @@ export class NetCDF4 extends Group {
 
     // Mount memory data in the WASM virtual file system
     private async mountMemoryData(): Promise<void> {
-        if (!this.memorySource || !this.module) {
+        if (!this.memorySource?.filename || !this.module) {
             return;
         }
 
@@ -758,14 +713,15 @@ export class NetCDF4 extends Group {
             // Ensure the /tmp directory exists
             try {
                 module.FS.mkdir("/tmp");
-            } catch (e) {
+            } catch {
                 // Directory might already exist, ignore error
             }
 
             // Write the memory data to a virtual file
+            const { data, filename } = this.memorySource;
             module.FS.writeFile(
-                this.memorySource.filename,
-                this.memorySource.data,
+                filename,
+                data instanceof ArrayBuffer ? new Uint8Array(data) : data,
             );
         } catch (error) {
             throw new Error(`Failed to mount memory data: ${error}`);
@@ -789,7 +745,7 @@ export class NetCDF4 extends Group {
             return data.buffer.slice(
                 data.byteOffset,
                 data.byteOffset + data.byteLength,
-            );
+            ) as ArrayBuffer;
         } catch (error) {
             throw new Error(`Failed to read data as ArrayBuffer: ${error}`);
         }

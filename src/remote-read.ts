@@ -3,7 +3,12 @@
 // be answered synchronously. Synchronous XHR is only allowed in Web Workers,
 // which is why remote files are only supported on the worker path.
 
-import type { RemoteFileOptions } from "./types.js";
+import { toError } from "./errors.js";
+import type {
+    EmscriptenFileNode,
+    EmscriptenFS,
+    RemoteFileOptions,
+} from "./types.js";
 
 const DEFAULT_BLOCK_SIZE = 1024 * 1024; // 1 MiB
 const DEFAULT_CACHE_SIZE = 64 * 1024 * 1024; // 64 MiB
@@ -54,9 +59,9 @@ export async function checkRangeSupport(
             headers: { ...options.headers, Range: "bytes=0-0" },
             credentials: options.withCredentials ? "include" : "same-origin",
         });
-    } catch (err: any) {
+    } catch (err) {
         throw new Error(
-            `Request to ${url} failed (network error or blocked by CORS): ${err?.message ?? err}`,
+            `Request to ${url} failed (network error or blocked by CORS): ${toError(err).message}`,
         );
     }
     await response.body?.cancel();
@@ -165,9 +170,9 @@ export class XhrRangeSource implements RangeSource {
 
         try {
             xhr.send(null);
-        } catch (err: any) {
+        } catch (err) {
             throw new Error(
-                `Request to ${this.url} failed (network error or blocked by CORS): ${err?.message ?? err}`,
+                `Request to ${this.url} failed (network error or blocked by CORS): ${toError(err).message}`,
             );
         }
         if (xhr.status !== 200 && xhr.status !== 206) {
@@ -279,10 +284,10 @@ export class RemoteFile {
  * kept in file.lastError.
  */
 export function createRemoteFileNode(
-    FS: any,
+    FS: EmscriptenFS,
     path: string,
     file: RemoteFile,
-): any {
+): EmscriptenFileNode {
     const slash = path.lastIndexOf("/");
     const dir = path.slice(0, slash) || "/";
     FS.mkdirTree(dir);
@@ -293,8 +298,8 @@ export function createRemoteFileNode(
     node.stream_ops = {
         ...node.stream_ops,
         read(
-            _stream: any,
-            buffer: Int8Array,
+            _stream: FS.FSStream,
+            buffer: ArrayBufferView,
             offset: number,
             length: number,
             position: number,
@@ -307,9 +312,8 @@ export function createRemoteFileNode(
             );
             try {
                 return file.read(target, position);
-            } catch (err: any) {
-                file.lastError =
-                    err instanceof Error ? err : new Error(String(err));
+            } catch (err) {
+                file.lastError = toError(err);
                 throw new FS.ErrnoError(EIO);
             }
         },

@@ -4,7 +4,7 @@ import {
     NC_CONSTANTS,
 } from "./constants.js";
 import { type DimSelection, type ResolvedDim, resolveDim } from "./slice.js";
-import type { NetCDF4Module } from "./types.js";
+import type { AnyTypedArray, NetCDF4Module } from "./types.js";
 
 export function getGroupVariables(
     module: NetCDF4Module,
@@ -187,7 +187,7 @@ export function getAttributeValues(
         [NC_CONSTANTS.NC_UBYTE]: module.nc_get_att_uchar,
         [NC_CONSTANTS.NC_UINT]: module.nc_get_att_uint,
         [NC_CONSTANTS.NC_USHORT]: module.nc_get_att_ushort,
-        [NC_CONSTANTS.NC_LONGLONG]: module.nc_get_att_longlong,
+        [NC_CONSTANTS.NC_INT64]: module.nc_get_att_longlong,
         [NC_CONSTANTS.NC_UINT64]: module.nc_get_att_ulonglong,
         [NC_CONSTANTS.NC_STRING]: module.nc_get_att_string,
     };
@@ -595,18 +595,7 @@ export function getVariableArray(
     variable: number | string,
     groupPath?: string,
     options?: { convertEnumsToNames?: boolean },
-):
-    | Int8Array
-    | Uint8Array
-    | Int16Array
-    | Uint16Array
-    | Int32Array
-    | Uint32Array
-    | Float32Array
-    | Float64Array
-    | BigInt64Array
-    | BigUint64Array
-    | string[] {
+): AnyTypedArray {
     const workingNcid = groupPath
         ? getGroupNCID(module, ncid, groupPath)
         : ncid;
@@ -648,11 +637,7 @@ export function getVariableArray(
             module.nc_get_var_double(...args),
         [NC_CONSTANTS.NC_INT64]: (...args) =>
             module.nc_get_var_longlong(...args),
-        [NC_CONSTANTS.NC_LONGLONG]: (...args) =>
-            module.nc_get_var_longlong(...args),
         [NC_CONSTANTS.NC_UINT64]: (...args) =>
-            module.nc_get_var_ulonglong(...args),
-        [NC_CONSTANTS.NC_ULONGLONG]: (...args) =>
             module.nc_get_var_ulonglong(...args),
         [NC_CONSTANTS.NC_STRING]: (...args) =>
             module.nc_get_var_string(...args),
@@ -704,18 +689,7 @@ export function getSlicedVariableArray(
     count: number[],
     groupPath?: string,
     options?: { convertEnumsToNames?: boolean },
-):
-    | Int8Array
-    | Uint8Array
-    | Int16Array
-    | Uint16Array
-    | Int32Array
-    | Uint32Array
-    | Float32Array
-    | Float64Array
-    | BigInt64Array
-    | BigUint64Array
-    | string[] {
+): AnyTypedArray {
     const workingNcid = groupPath
         ? getGroupNCID(module, ncid, groupPath)
         : ncid;
@@ -801,19 +775,6 @@ export function getSlicedVariableArray(
 
     return arrayData.data;
 }
-
-type AnyTypedArray =
-    | Int8Array
-    | Uint8Array
-    | Int16Array
-    | Uint16Array
-    | Int32Array
-    | Uint32Array
-    | Float32Array
-    | Float64Array
-    | BigInt64Array
-    | BigUint64Array
-    | string[];
 
 export function getVariableArrayWithSelection(
     module: NetCDF4Module,
@@ -921,9 +882,7 @@ export function getVariableArrayWithSelection(
             [NC_CONSTANTS.NC_FLOAT]: () => new Float32Array(0),
             [NC_CONSTANTS.NC_DOUBLE]: () => new Float64Array(0),
             [NC_CONSTANTS.NC_INT64]: () => new BigInt64Array(0),
-            [NC_CONSTANTS.NC_LONGLONG]: () => new BigInt64Array(0),
             [NC_CONSTANTS.NC_UINT64]: () => new BigUint64Array(0),
-            [NC_CONSTANTS.NC_ULONGLONG]: () => new BigUint64Array(0),
             [NC_CONSTANTS.NC_STRING]: () => [],
         };
         return (emptyReaders[arrayType] ?? (() => new Float64Array(0)))();
@@ -964,11 +923,7 @@ export function getVariableArrayWithSelection(
                 module.nc_get_vars_double(...args),
             [NC_CONSTANTS.NC_INT64]: (...args) =>
                 module.nc_get_vars_longlong(...args),
-            [NC_CONSTANTS.NC_LONGLONG]: (...args) =>
-                module.nc_get_vars_longlong(...args),
             [NC_CONSTANTS.NC_UINT64]: (...args) =>
-                module.nc_get_vars_ulonglong(...args),
-            [NC_CONSTANTS.NC_ULONGLONG]: (...args) =>
                 module.nc_get_vars_ulonglong(...args),
             [NC_CONSTANTS.NC_STRING]: (...args) =>
                 module.nc_get_vars_string(...args),
