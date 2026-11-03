@@ -2,7 +2,7 @@
 
 /// <reference types="emscripten" />
 
-import type { FILE_FORMATS, FILE_MODES } from "./constants.js";
+import type { FILE_MODES } from "./constants.js";
 
 // A MEMFS file node. stream_ops.read is passed HEAP8, not the Uint8Array
 // that @types/emscripten declares.
@@ -67,7 +67,6 @@ export type CreateMode = {
     [M in FileMode]: (typeof FILE_MODES)[M]["create"] extends true ? M : never;
 }[FileMode];
 export type OpenMode = Exclude<FileMode, CreateMode>;
-export type FileFormat = keyof typeof FILE_FORMATS;
 // The flags nc_open accepts
 export type OpenFlags = (typeof FILE_MODES)[OpenMode]["flags"];
 export interface NetCDF4Module extends EmscriptenModule {

@@ -185,15 +185,6 @@ export const FILE_MODES = {
     "w-": { create: true, flags: NC_CONSTANTS.NC_NOCLOBBER },
 } as const;
 
-// netcdf4-python formats and the nc_create flags they add
-export const FILE_FORMATS = {
-    NETCDF4: NC_CONSTANTS.NC_NETCDF4,
-    NETCDF4_CLASSIC: NC_CONSTANTS.NC_NETCDF4 | NC_CONSTANTS.NC_CLASSIC_MODEL,
-    NETCDF3_CLASSIC: 0,
-    NETCDF3_64BIT_OFFSET: NC_CONSTANTS.NC_64BIT_OFFSET,
-    NETCDF3_64BIT_DATA: NC_CONSTANTS.NC_64BIT_DATA,
-} as const;
-
 // Data type mapping from string names to NetCDF constants
 export const DATA_TYPE_MAP: { [key: string]: number } = {
     // Short names
