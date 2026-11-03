@@ -30,12 +30,13 @@ import { NetCDF4 } from "./netcdf4.js";
 import type {
     DatasetOptions,
     DatasetSource,
+    FileMode,
     RemoteDatasetOptions,
 } from "./types.js";
 
 export async function Dataset(
     source: DatasetSource,
-    mode: string = "r",
+    mode: FileMode = "r",
     options: RemoteDatasetOptions = {},
 ): Promise<NetCDF4> {
     // Type detection and routing
@@ -61,7 +62,7 @@ export async function Dataset(
 // Legacy convenience functions for backward compatibility
 export async function DatasetFromBlob(
     blob: Blob,
-    mode: string = "r",
+    mode: FileMode = "r",
     options: DatasetOptions = {},
 ): Promise<NetCDF4> {
     return await Dataset(blob, mode, options);
@@ -69,7 +70,7 @@ export async function DatasetFromBlob(
 
 export async function DatasetFromArrayBuffer(
     buffer: ArrayBuffer,
-    mode: string = "r",
+    mode: FileMode = "r",
     options: DatasetOptions = {},
 ): Promise<NetCDF4> {
     return await Dataset(buffer, mode, options);
@@ -77,7 +78,7 @@ export async function DatasetFromArrayBuffer(
 
 export async function DatasetFromMemory(
     data: Uint8Array | ArrayBuffer,
-    mode: string = "r",
+    mode: FileMode = "r",
     options: DatasetOptions = {},
     filename?: string,
 ): Promise<NetCDF4> {
