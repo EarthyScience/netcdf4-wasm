@@ -40,6 +40,19 @@ export interface EmscriptenModule {
     HEAPU64: BigUint64Array;
 }
 
+export type AnyTypedArray =
+    | Int8Array
+    | Uint8Array
+    | Int16Array
+    | Uint16Array
+    | Int32Array
+    | Uint32Array
+    | Float32Array
+    | Float64Array
+    | BigInt64Array
+    | BigUint64Array
+    | string[];
+
 export interface NetCDF4Module extends EmscriptenModule {
     // Wrapped NetCDF4 functions
     nc_open: (path: string, mode: number) => { result: number; ncid: number };

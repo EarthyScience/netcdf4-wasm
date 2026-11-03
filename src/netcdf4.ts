@@ -11,6 +11,7 @@ import {
 } from "./operations.js";
 import type { DimSelection } from "./slice.js";
 import type {
+    AnyTypedArray,
     DatasetOptions,
     MemoryDatasetSource,
     NetCDF4Module,
@@ -528,19 +529,7 @@ export class NetCDF4 extends Group {
     async getVariableArray(
         variable: number | string,
         groupPath?: string,
-    ): Promise<
-        | Int8Array
-        | Uint8Array
-        | Int16Array
-        | Uint16Array
-        | Int32Array
-        | Uint32Array
-        | Float32Array
-        | Float64Array
-        | BigInt64Array
-        | BigUint64Array
-        | string[]
-    > {
+    ): Promise<AnyTypedArray> {
         return this.run("getVariableArray", { variable, groupPath });
     }
 
@@ -549,19 +538,7 @@ export class NetCDF4 extends Group {
         start: number[],
         count: number[],
         groupPath?: string,
-    ): Promise<
-        | Int8Array
-        | Uint8Array
-        | Int16Array
-        | Uint16Array
-        | Int32Array
-        | Uint32Array
-        | Float32Array
-        | Float64Array
-        | BigInt64Array
-        | BigUint64Array
-        | string[]
-    > {
+    ): Promise<AnyTypedArray> {
         return this.run("getSlicedVariableArray", {
             variable,
             start,
@@ -598,19 +575,7 @@ export class NetCDF4 extends Group {
         selection: DimSelection[],
         groupPath?: string,
         options?: { convertEnumsToNames?: boolean },
-    ): Promise<
-        | Int8Array
-        | Uint8Array
-        | Int16Array
-        | Uint16Array
-        | Int32Array
-        | Uint32Array
-        | Float32Array
-        | Float64Array
-        | BigInt64Array
-        | BigUint64Array
-        | string[]
-    > {
+    ): Promise<AnyTypedArray> {
         return this.run("getVariableArrayWithSelection", {
             variable,
             selection,

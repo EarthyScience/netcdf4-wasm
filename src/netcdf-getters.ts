@@ -4,7 +4,7 @@ import {
     NC_CONSTANTS,
 } from "./constants.js";
 import { type DimSelection, type ResolvedDim, resolveDim } from "./slice.js";
-import type { NetCDF4Module } from "./types.js";
+import type { AnyTypedArray, NetCDF4Module } from "./types.js";
 
 export function getGroupVariables(
     module: NetCDF4Module,
@@ -595,18 +595,7 @@ export function getVariableArray(
     variable: number | string,
     groupPath?: string,
     options?: { convertEnumsToNames?: boolean },
-):
-    | Int8Array
-    | Uint8Array
-    | Int16Array
-    | Uint16Array
-    | Int32Array
-    | Uint32Array
-    | Float32Array
-    | Float64Array
-    | BigInt64Array
-    | BigUint64Array
-    | string[] {
+): AnyTypedArray {
     const workingNcid = groupPath
         ? getGroupNCID(module, ncid, groupPath)
         : ncid;
@@ -704,18 +693,7 @@ export function getSlicedVariableArray(
     count: number[],
     groupPath?: string,
     options?: { convertEnumsToNames?: boolean },
-):
-    | Int8Array
-    | Uint8Array
-    | Int16Array
-    | Uint16Array
-    | Int32Array
-    | Uint32Array
-    | Float32Array
-    | Float64Array
-    | BigInt64Array
-    | BigUint64Array
-    | string[] {
+): AnyTypedArray {
     const workingNcid = groupPath
         ? getGroupNCID(module, ncid, groupPath)
         : ncid;
@@ -801,19 +779,6 @@ export function getSlicedVariableArray(
 
     return arrayData.data;
 }
-
-type AnyTypedArray =
-    | Int8Array
-    | Uint8Array
-    | Int16Array
-    | Uint16Array
-    | Int32Array
-    | Uint32Array
-    | Float32Array
-    | Float64Array
-    | BigInt64Array
-    | BigUint64Array
-    | string[];
 
 export function getVariableArrayWithSelection(
     module: NetCDF4Module,
