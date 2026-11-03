@@ -3,6 +3,8 @@
 // be answered synchronously. Synchronous XHR is only allowed in Web Workers,
 // which is why remote files are only supported on the worker path.
 
+import { toError } from "./errors.js";
+import type {
 import type { RemoteFileOptions } from "./types.js";
 
 const DEFAULT_BLOCK_SIZE = 1024 * 1024; // 1 MiB
@@ -54,9 +56,9 @@ export async function checkRangeSupport(
             headers: { ...options.headers, Range: "bytes=0-0" },
             credentials: options.withCredentials ? "include" : "same-origin",
         });
-    } catch (err: any) {
+    } catch (err) {
         throw new Error(
-            `Request to ${url} failed (network error or blocked by CORS): ${err?.message ?? err}`,
+            `Request to ${url} failed (network error or blocked by CORS): ${toError(err).message}`,
         );
     }
     await response.body?.cancel();
@@ -165,9 +167,9 @@ export class XhrRangeSource implements RangeSource {
 
         try {
             xhr.send(null);
-        } catch (err: any) {
+        } catch (err) {
             throw new Error(
-                `Request to ${this.url} failed (network error or blocked by CORS): ${err?.message ?? err}`,
+                `Request to ${this.url} failed (network error or blocked by CORS): ${toError(err).message}`,
             );
         }
         if (xhr.status !== 200 && xhr.status !== 206) {
@@ -307,9 +309,8 @@ export function createRemoteFileNode(
             );
             try {
                 return file.read(target, position);
-            } catch (err: any) {
-                file.lastError =
-                    err instanceof Error ? err : new Error(String(err));
+            } catch (err) {
+                file.lastError = toError(err);
                 throw new FS.ErrnoError(EIO);
             }
         },

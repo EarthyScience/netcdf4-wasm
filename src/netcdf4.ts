@@ -1,6 +1,7 @@
 // Main NetCDF4 class implementation
 
 import { NC_CONSTANTS } from "./constants.js";
+import { toError } from "./errors.js";
 import { Group } from "./group.js";
 import {
     type OperationArgs,
@@ -158,9 +159,7 @@ export class NetCDF4 extends Group {
             // After worker is set up, open the file
             await dataset.open();
         } catch (error) {
-            dataset.terminateWorker(
-                error instanceof Error ? error : new Error(String(error)),
-            );
+            dataset.terminateWorker(toError(error));
             throw error;
         }
 
@@ -224,9 +223,7 @@ export class NetCDF4 extends Group {
             await dataset.initialize();
             await dataset.open();
         } catch (error) {
-            dataset.terminateWorker(
-                error instanceof Error ? error : new Error(String(error)),
-            );
+            dataset.terminateWorker(toError(error));
             throw error;
         }
 
