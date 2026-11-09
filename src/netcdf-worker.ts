@@ -1,3 +1,4 @@
+import { toError } from "./errors.js";
 import { isOperationName, runOperation } from "./operations.js";
 import {
     checkRangeSupport,
@@ -75,10 +76,10 @@ self.onmessage = async (e: MessageEvent) => {
                     },
                     mountPoint,
                 );
-            } catch (err: any) {
+            } catch (err) {
                 console.warn(
                     "Mount failed (might already be mounted):",
-                    err.message,
+                    toError(err).message,
                 );
             }
 
@@ -99,9 +100,9 @@ self.onmessage = async (e: MessageEvent) => {
         const result = runOperation(mod, type, data.args);
 
         self.postMessage({ id, success: true, result });
-    } catch (err: any) {
+    } catch (err) {
         // netCDF-C only sees EIO for a failed remote read; attach the actual cause
-        let message = err.message;
+        let message = toError(err).message;
         if (remoteFile?.lastError) {
             message += ` (${remoteFile.lastError.message})`;
         }

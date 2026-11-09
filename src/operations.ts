@@ -5,7 +5,7 @@
 import { NC_CONSTANTS } from "./constants.js";
 import * as NCGet from "./netcdf-getters.js";
 import type { DimSelection } from "./slice.js";
-import type { NetCDF4Module } from "./types.js";
+import type { NetCDF4Module, OpenFlags } from "./types.js";
 
 // Arguments of an operation: the ncid it runs on, plus its own
 type Args<T = object> = { ncid: number } & T;
@@ -15,7 +15,7 @@ type VariableArgs = Args<{ variable: number | string; groupPath?: string }>;
 export const operations = {
     open: (
         module: NetCDF4Module,
-        { path, modeValue }: Args<{ path: string; modeValue: number }>,
+        { path, modeValue }: Args<{ path: string; modeValue: OpenFlags }>,
     ) => {
         const result = module.nc_open(path, modeValue);
         if (result.result !== NC_CONSTANTS.NC_NOERR) {

@@ -174,7 +174,16 @@ export const NC_CONSTANTS = {
     // Shuffle filter
     NC_NOSHUFFLE: 0,
     NC_SHUFFLE: 1,
-};
+} as const;
+
+// netcdf4-python modes: whether they create the file, and the nc_open/nc_create flags
+export const FILE_MODES = {
+    r: { create: false, flags: NC_CONSTANTS.NC_NOWRITE },
+    "r+": { create: false, flags: NC_CONSTANTS.NC_WRITE },
+    a: { create: false, flags: NC_CONSTANTS.NC_WRITE },
+    w: { create: true, flags: NC_CONSTANTS.NC_CLOBBER },
+    "w-": { create: true, flags: NC_CONSTANTS.NC_NOCLOBBER },
+} as const;
 
 // Data type mapping from string names to NetCDF constants
 export const DATA_TYPE_MAP: { [key: string]: number } = {
@@ -244,25 +253,4 @@ export const DATA_TYPE_SIZE: { [key: number]: number } = {
     10: 8, // NC_INT64
     11: 8, // NC_UINT64
     12: 0, // NC_STRING (variable length)
-};
-
-// Human-readable type names
-export const TYPE_NAMES: { [key: number]: string } = {
-    0: "NAT",
-    1: "byte",
-    2: "char",
-    3: "short",
-    4: "int",
-    5: "float",
-    6: "double",
-    7: "ubyte",
-    8: "ushort",
-    9: "uint",
-    10: "int64",
-    11: "uint64",
-    12: "string",
-    13: "vlen",
-    14: "opaque",
-    15: "enum",
-    16: "compound",
 };

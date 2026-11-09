@@ -973,7 +973,7 @@ export class WasmModuleLoader {
                 const result = nc_inq_attlen_wrapper(ncid, varid, name, lenPtr);
                 const len =
                     result === NC_CONSTANTS.NC_NOERR
-                        ? module.getValue(lenPtr, "i64")
+                        ? Number(module.getValue(lenPtr, "i64"))
                         : undefined;
                 module._free(lenPtr);
                 return { result, len };
@@ -1924,7 +1924,7 @@ export class WasmModuleLoader {
                 const result = nc_inq_grpname_len_wrapper(ncid, lenpPtr);
                 const lenp =
                     result === NC_CONSTANTS.NC_NOERR
-                        ? module.getValue(lenpPtr, "i64")
+                        ? Number(module.getValue(lenpPtr, "i64"))
                         : undefined;
 
                 module._free(lenpPtr);
