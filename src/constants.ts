@@ -254,24 +254,3 @@ export const DATA_TYPE_SIZE: { [key: number]: number } = {
     11: 8, // NC_UINT64
     12: 0, // NC_STRING (variable length)
 };
-
-// Human-readable type names
-// export const TYPE_NAMES: { [key: number]: string } = {
-//     0: "NAT",
-//     1: "byte",
-//     2: "char",
-//     3: "short",
-//     4: "int",
-//     5: "float",
-//     6: "double",
-//     7: "ubyte",
-//     8: "ushort",
-//     9: "uint",
-//     10: "int64",
-//     11: "uint64",
-//     12: "string",
-//     13: "vlen",
-//     14: "opaque",
-//     15: "enum",
-//     16: "compound",
-// };
