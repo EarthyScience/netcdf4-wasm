@@ -15,9 +15,7 @@ export { all, isAll, resolveDim, Slice, slice } from "./slice.js";
 export type {
     DatasetOptions,
     DatasetSource,
-    EmscriptenModule,
     MemoryDatasetSource,
-    NetCDF4Module,
     NetCDF4WasmOptions,
     RemoteDatasetOptions,
     RemoteFileOptions,

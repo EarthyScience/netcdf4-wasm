@@ -15,11 +15,11 @@ import type {
     DatasetOptions,
     FileMode,
     MemoryDatasetSource,
-    NetCDF4Module,
     OpenMode,
     RemoteDatasetOptions,
     RemoteFileOptions,
 } from "./types.js";
+import type { NetCDF4Module } from "./wasm-module.js";
 import { WasmModuleLoader } from "./wasm-module.js";
 
 function isFileMode(mode: string): mode is FileMode {
@@ -304,7 +304,7 @@ export class NetCDF4 extends Group {
         return this.initialized;
     }
 
-    getModule(): NetCDF4Module {
+    private getModule(): NetCDF4Module {
         if (!this.module) {
             throw new Error(
                 "NetCDF4 module not initialized. Call initialize() first.",
