@@ -51,7 +51,8 @@ describe("Data types", () => {
         ],
         ["get", () => ds.get("strings", ["all"])],
     ])("frees the strings read by %s", async (_, read) => {
-        const module = ds.getModule();
+        // biome-ignore lint/complexity/useLiteralKeys: getModule is private
+        const module = ds["getModule"]();
         const heapTop = () => {
             const ptr = module._malloc(1 << 20);
             module._free(ptr);

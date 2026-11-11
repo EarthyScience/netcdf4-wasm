@@ -5,7 +5,8 @@
 import { NC_CONSTANTS } from "./constants.js";
 import * as NCGet from "./netcdf-getters.js";
 import type { DimSelection } from "./slice.js";
-import type { NetCDF4Module, OpenFlags } from "./types.js";
+import type { OpenFlags } from "./types.js";
+import type { NetCDF4Module } from "./wasm-module.js";
 
 // Arguments of an operation: the ncid it runs on, plus its own
 type Args<T = object> = { ncid: number } & T;

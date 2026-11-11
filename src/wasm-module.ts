@@ -1,11 +1,9 @@
 // WASM module loading and wrapping functionality
 
 import { DATA_TYPE_SIZE, NC_CONSTANTS } from "./constants.js";
-import type {
-    EmscriptenModule,
-    NetCDF4Module,
-    NetCDF4WasmOptions,
-} from "./types.js";
+import type { EmscriptenModule, NetCDF4WasmOptions } from "./types.js";
+
+export type NetCDF4Module = ReturnType<typeof WasmModuleLoader.wrapModule>;
 
 const NC_MAX_NAME = 256;
 const NC_MAX_DIMS = 1024;
@@ -62,7 +60,7 @@ export class WasmModuleLoader {
         }
     }
 
-    static wrapModule(module: EmscriptenModule): NetCDF4Module {
+    static wrapModule(module: EmscriptenModule) {
         // Create wrappers for NetCDF functions
         // https://docs.unidata.ucar.edu/netcdf-c/current/group__variables.html#details
         const nc_open_wrapper = module.cwrap("nc_open_wrapper", "number", [
