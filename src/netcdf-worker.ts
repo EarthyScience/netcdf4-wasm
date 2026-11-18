@@ -6,7 +6,8 @@ import {
     RemoteFile,
     XhrRangeSource,
 } from "./remote-read.js";
-import type { EmscriptenModule, NetCDF4Module } from "./types.js";
+import type { EmscriptenModule } from "./types.js";
+import type { NetCDF4Module } from "./wasm-module.js";
 import { WasmModuleLoader } from "./wasm-module.js";
 
 let netcdfModule: EmscriptenModule;

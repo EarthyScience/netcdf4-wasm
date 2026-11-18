@@ -4,7 +4,8 @@ import {
     NC_CONSTANTS,
 } from "./constants.js";
 import { type DimSelection, type ResolvedDim, resolveDim } from "./slice.js";
-import type { AnyTypedArray, NetCDF4Module } from "./types.js";
+import type { AnyTypedArray } from "./types.js";
+import type { NetCDF4Module } from "./wasm-module.js";
 
 export function getGroupVariables(
     module: NetCDF4Module,
