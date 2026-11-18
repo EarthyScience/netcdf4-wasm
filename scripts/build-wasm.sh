@@ -27,7 +27,7 @@ BLOSC_VERSION="1.21.6"
 NETCDF_VERSION="4.10.1"
 
 # Download URLs
-ZLIB_URL="https://zlib.net/zlib-${ZLIB_VERSION}.tar.gz"
+ZLIB_URL="https://zlib.net/fossils/zlib-${ZLIB_VERSION}.tar.gz"
 HDF5_URL="https://github.com/HDFGroup/hdf5/archive/refs/tags/${HDF5_VERSION}.tar.gz"
 ZSTD_URL="https://github.com/facebook/zstd/releases/download/v${ZSTD_VERSION}/zstd-${ZSTD_VERSION}.tar.gz"
 BLOSC_URL="https://github.com/Blosc/c-blosc/archive/refs/tags/v${BLOSC_VERSION}.tar.gz"
@@ -134,10 +134,10 @@ if [ ! -f "$INSTALL_DIR/lib/libz.a" ]; then
     log "zlib not found, building from source..."
     cd "$DEPS_DIR"
     log "Changed to deps directory: $(pwd)"
-    
+
     if [ ! -d "zlib-$ZLIB_VERSION" ]; then
         log "Downloading zlib-$ZLIB_VERSION..."
-        
+
         # Try wget first, then curl
         if command -v wget &> /dev/null; then
             log "Using wget to download zlib..."
@@ -148,30 +148,30 @@ if [ ! -f "$INSTALL_DIR/lib/libz.a" ]; then
         else
             error_exit "Neither wget nor curl available for downloading"
         fi
-        
+
         log "Extracting zlib archive..."
         check_command tar -xzf "zlib-$ZLIB_VERSION.tar.gz"
         log "zlib extracted successfully"
     else
         log "zlib source directory already exists"
     fi
-    
+
     cd "zlib-$ZLIB_VERSION"
     log "Configuring zlib in directory: $(pwd)"
-    
+
     # Configure with verbose output
     log "Running emconfigure ./configure..."
     check_command emconfigure ./configure --prefix="$INSTALL_DIR" --static
-    
+
     log "Building zlib with emmake..."
     # Use single core for initial build to avoid issues
     check_command emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
-    
+
     log "Installing zlib..."
     check_command emmake make install
-    
+
     log "zlib built and installed successfully"
-    
+
     # Verify installation
     if [ -f "$INSTALL_DIR/lib/libz.a" ]; then
         log "zlib library verified at $INSTALL_DIR/lib/libz.a"
@@ -188,10 +188,10 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
     log "HDF5 not found, building from source..."
     cd "$DEPS_DIR"
     log "Changed to deps directory: $(pwd)"
-    
+
     if [ ! -d "hdf5-$HDF5_VERSION" ]; then
         log "Downloading HDF5-$HDF5_VERSION..."
-        
+
         HDF5_DOWNLOAD_NAME="hdf5-$HDF5_VERSION.tar.gz"
         if command -v wget &> /dev/null; then
             log "Using wget to download HDF5..."
@@ -202,7 +202,7 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
         else
             error_exit "Neither wget nor curl available for downloading"
         fi
-        
+
         log "Extracting HDF5 archive..."
         # HDF5 2.x tags are plain versions, so the archive extracts to hdf5-$HDF5_VERSION
         check_command tar -xzf "$HDF5_DOWNLOAD_NAME"
@@ -210,12 +210,12 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
     else
         log "HDF5 source directory already exists"
     fi
-    
+
     cd "hdf5-$HDF5_VERSION"
     log "Configuring HDF5 in directory: $(pwd)"
     rm -rf build
     mkdir -p build && cd build
-    
+
     log "Running emcmake cmake for HDF5 with FILTER SUPPORT..."
 
     # Set environment variables to help CMake find zlib
@@ -244,22 +244,22 @@ if [ ! -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
         -DZLIB_INCLUDE_DIR="$INSTALL_DIR/include" \
         -DZLIB_LIBRARY="$INSTALL_DIR/lib/libz.a" \
         -DBUILD_STATIC_EXECS=OFF
-    
+
     log "Building HDF5 with emmake..."
     check_command emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
-    
+
     log "Installing HDF5..."
     check_command emmake make install
-    
+
     log "HDF5 built and installed successfully"
-    
+
     # Verify installation
     if [ -f "$INSTALL_DIR/lib/libhdf5.a" ]; then
         log "HDF5 library verified at $INSTALL_DIR/lib/libhdf5.a"
     else
         error_exit "HDF5 library not found after installation"
     fi
-    
+
     # Verify HDF5 High-Level library (required by NetCDF)
     if [ -f "$INSTALL_DIR/lib/libhdf5_hl.a" ]; then
         log "HDF5 High-Level library verified at $INSTALL_DIR/lib/libhdf5_hl.a"
@@ -373,10 +373,10 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ] || [ ! -f "$INSTALL_DIR/lib/libh5filt
     log "NetCDF4 $NETCDF_VERSION not found (installed: ${INSTALLED_NETCDF_VERSION:-none}), building from source..."
     cd "$DEPS_DIR"
     log "Changed to deps directory: $(pwd)"
-    
+
     if [ ! -d "netcdf-c-$NETCDF_VERSION" ]; then
         log "Downloading NetCDF4-$NETCDF_VERSION..."
-        
+
         if command -v wget &> /dev/null; then
             log "Using wget to download NetCDF4..."
             check_command wget -v "$NETCDF_URL" -O "netcdf-c-$NETCDF_VERSION.tar.gz"
@@ -386,14 +386,14 @@ if [ ! -f "$INSTALL_DIR/lib/libnetcdf.a" ] || [ ! -f "$INSTALL_DIR/lib/libh5filt
         else
             error_exit "Neither wget nor curl available for downloading"
         fi
-        
+
         log "Extracting NetCDF4 archive..."
         check_command tar -xzf "netcdf-c-$NETCDF_VERSION.tar.gz"
         log "NetCDF4 extracted successfully"
     else
         log "NetCDF4 source directory already exists"
     fi
-    
+
     cd "netcdf-c-$NETCDF_VERSION"
     log "Configuring NetCDF4 in directory: $(pwd)"
 
@@ -443,7 +443,7 @@ EOF
 
     log "Building NetCDF4 with emmake..."
     check_command emmake make -j1 AR=emar ARFLAGS=rcs RANLIB=emranlib
-    
+
     log "Installing NetCDF4..."
     check_command emmake make install
 
@@ -469,11 +469,11 @@ EOF
     done
     rm -f "$INSTALL_DIR/lib/libh5filters.a"
     check_command emar rcs "$INSTALL_DIR/lib/libh5filters.a" "$FILTER_OBJ_DIR"/*.o
-    
+
     # Verify installation
     if [ -f "$INSTALL_DIR/lib/libnetcdf.a" ]; then
         log "NetCDF4 library verified at $INSTALL_DIR/lib/libnetcdf.a"
-        
+
         # Verify filter support
         log "Verifying filter support..."
         if [ -d "$INSTALL_DIR/lib/netcdf/plugins" ]; then
@@ -481,7 +481,7 @@ EOF
         else
             log "Warning: Plugin directory not found (may be expected if no plugins built)"
         fi
-        
+
         # Check for filter-related headers
         if grep -q "H5Z_FILTER_SHUFFLE" "$INSTALL_DIR/include/H5Zpublic.h" 2>/dev/null; then
             log "Shuffle filter support detected in HDF5 headers"
