@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.0] - 2026-11-18
+
+- **Breaking:** The low-level Emscripten module is now private; the `EmscriptenModule` and `NetCDF4Module` types are no longer exported [#79](https://github.com/EarthyScience/netcdf4-wasm/pull/79)
+- **Breaking:** Stricter typing across the library, e.g. `mode` arguments are now typed as `FileMode` instead of `string` [#77](https://github.com/EarthyScience/netcdf4-wasm/pull/77)
+- Main thread and worker now share one set of operations [#75](https://github.com/EarthyScience/netcdf4-wasm/pull/75)
+- Fixed memory leaks (string allocations, worker leak on failed file loading) [#74](https://github.com/EarthyScience/netcdf4-wasm/pull/74)
+- Rewrote the test infrastructure [#72](https://github.com/EarthyScience/netcdf4-wasm/pull/72)
+- Rewrote the WASM build, updated the toolchain and added Blosc, Zstandard and bzip2 filter support; CI now also runs on macOS [#70](https://github.com/EarthyScience/netcdf4-wasm/pull/70)
+- Code formatting and linting via Biome
+
 ## [0.3.0] - 2026-10-28
 
 - **Breaking:** `getFullMetadata` now nests each variable's attributes under `attributes` instead of merging them into the variable object [#61](https://github.com/EarthyScience/netcdf4-wasm/pull/61)
